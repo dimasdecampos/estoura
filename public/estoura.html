@@ -1398,13 +1398,15 @@ cv.addEventListener("pointerdown",e=>{
       },5000);
     } } });
 cv.addEventListener("contextmenu",e=>e.preventDefault());
+// o mouse em qualquer ponto da massa de bolhas (inclusive entre elas) também segura o giro
+const overMass=p=>{ if(spread.on) return false; const c=state.focus?shellC():{x:W/2,y:H/2}, rr=state.focus?shellR():R*1.15; return Math.hypot(p.x-c.x,p.y-c.y)<rr; };
 cv.addEventListener("pointerleave",()=>{ hoverPause=false; spread.mouse=null; cv.style.cursor=""; });
 cv.addEventListener("pointermove",e=>{
   if(ptrs.has(e.pointerId)) ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(pinch && ptrs.size>=2){ const g=pinchGeom(); zoomAt(g.mx,g.my,pinch.k0*g.d/pinch.d0); return; }
   if(pinchBusy) return;
   // mouse parado em cima de uma bolha: o globo para de girar
-  if(!drag){ if(e.pointerType==="mouse"){ const h=hitAt(e); hoverPause=!!h; cv.style.cursor=h?"pointer":""; if(spread.on) spread.mouse=localXY(e); } return; }
+  if(!drag){ if(e.pointerType==="mouse"){ const h=hitAt(e); hoverPause=!!h||overMass(localXY(e)); cv.style.cursor=h?"pointer":""; if(spread.on) spread.mouse=localXY(e); } return; }
   if(grab){ const p=localXY(e); grab.x=p.x; grab.y=p.y; if(Math.hypot(p.x-grab.x0,p.y-grab.y0)>10) grab.moved=true; return; }
   if(start && Math.hypot(e.clientX-start.x,e.clientY-start.y)>=7){ clearLP(); lpDone=false; }
   const dx=e.clientX-last.x, dy=e.clientY-last.y; last={x:e.clientX,y:e.clientY};
