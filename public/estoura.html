@@ -1230,7 +1230,33 @@ if (cfg.url && cfg.key) {
       })
       .subscribe();
   }
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) loadConnections(); });
+  // bolhas novas (de qualquer pessoa), contagens e matches ao vivo
+  let worldTimer = null;
+  function refreshWorld(){
+    clearTimeout(worldTimer);
+    worldTimer = setTimeout(async () => {
+      if (!uid || loading) return;
+      const st = await sb.rpc("interest_stats");
+      if (st.error || !uid) return;
+      const fresh = [];
+      st.data.forEach(r => {
+        const it = byId(r.id);
+        if (!it) { const n = { id: r.id, name: r.name, hue: r.hue, base: r.people, week: r.week_count, parent: r.parent_id }; INTERESTS.push(n); fresh.push(n); }
+        else { it.base = r.people - (state.lv.has(r.id) ? 1 : 0); it.week = r.week_count; }
+      });
+      if (fresh.length) { rebuild(); toast(fresh.length === 1 ? `Nova bolha: ${fresh[0].name}` : `${fresh.length} bolhas novas`); }
+      renderAll();
+      loadMatches();
+    }, 400);
+  }
+  let pulse = null;
+  function startPulse(){
+    if (pulse) return;
+    pulse = sb.channel("estoura-pulse").on("broadcast", { event: "pulse" }, refreshWorld).subscribe();
+    // reforço: se o canal cair ou o SQL 0003 não tiver rodado, atualiza a cada 30 s (só com a aba visível)
+    setInterval(() => { if (!document.hidden) refreshWorld(); }, 30000);
+  }
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { loadConnections(); refreshWorld(); } });
 
   /* ---------- bolhas salvas na conta ---------- */
   let uid = null, loading = false, timer = null, queue = Promise.resolve(), pending = Promise.resolve();
@@ -1249,7 +1275,7 @@ if (cfg.url && cfg.key) {
     st.data.forEach(r => { const it = byId(r.id); if (it) { it.base = r.people - (state.lv.has(r.id) ? 1 : 0); it.week = r.week_count; } });
     rebuild(); renderAll();
     loadMatches();
-    loadConnections(); startLive();
+    loadConnections(); startLive(); startPulse();
     if (mine.data.length) toast(`${mine.data.length} ${mine.data.length > 1 ? "bolhas carregadas" : "bolha carregada"} da sua conta`);
   }
 
