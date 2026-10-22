@@ -1146,8 +1146,8 @@ function drawBubble({it,sx,sy,r,z}){
   if(L && showLabel && heartable({it,r,z})){ // só o coração, dentro da bolha, no topo à direita
     const k=heartSpot({sx,sy,r}), on=L===2;
     heartPath(k.x,k.y,k.hr*.85); ctx.lineJoin="round";
-    if(on){ ctx.fillStyle="#ff3d77"; ctx.fill(); ctx.lineWidth=1.8; ctx.strokeStyle="#fff"; ctx.stroke(); }
-    else { ctx.lineWidth=2.2; ctx.strokeStyle="#fff"; ctx.setLineDash([k.hr*.3,k.hr*.3]); ctx.stroke(); ctx.setLineDash([]); } // tracejado = ainda não é favorita
+    if(on){ ctx.fillStyle="#ff3d77"; ctx.fill(); ctx.lineWidth=1.2; ctx.strokeStyle="#fff"; ctx.stroke(); }
+    else { ctx.lineWidth=1.2; ctx.strokeStyle="#fff"; ctx.lineDashOffset=0; ctx.setLineDash([k.hr*.3,k.hr*.3]); ctx.stroke(); ctx.setLineDash([]); } // tracejado = ainda não é favorita
   }
   ctx.globalAlpha=1;
 }
