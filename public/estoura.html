@@ -909,7 +909,7 @@ const sphere=()=>!!state.focus && items.length>SPHERE_MIN;
    As bolhas da mesma família ficam perto umas das outras (e têm a mesma cor).
    Arrastar move a tela; pinça ou rodinha dão zoom; toque estoura; segurar e arrastar exclui. */
 const spread={on:false,k:1,px:0,py:0,tk:1,tpx:0,tpy:0,auto:true,mouse:null,poke:null};
-const spreadR=it=>it.type==="event" ? 20+evCount(it)*2 : 20+16*Math.sqrt(count(it)/peak(INTERESTS));
+const spreadR=it=>it.type==="event" ? 20+evCount(it)*2 : 20+16*Math.sqrt(count(it)/peak(applyF(INTERESTS)));
 function layoutSpread(){
   const ar=Math.max(.6,Math.min(1.8,W/Math.max(1,H)));
   items.forEach((it,k)=>{
@@ -1042,12 +1042,12 @@ const peak = list => Math.max(1,...list.map(count));
 function targetR(it){
   if(state.focus){ const S=shellR(), sp=sphere();
     if(it.type==="add") return Math.max(S*.14,sp?22:26);
-    const rel=Math.sqrt(count(it)/peak(kids(state.focus)));
+    const rel=Math.sqrt(count(it)/peak(applyF(kids(state.focus))));
     const fit=sp?Math.max(.42,Math.sqrt((SPHERE_MIN-1)/(items.length-1))):1; // quanto mais sub-bolhas, menores
     return Math.min(S*.3,(S/115)*(19+15*rel))*fit; }
   const k=R/150;
   if(it.type==="event") return k*(13+evCount(it)*3.2);
-  const rel=Math.sqrt(count(it)/peak(INTERESTS.filter(i=>!i.parent)));
+  const rel=Math.sqrt(count(it)/peak(applyF(INTERESTS.filter(i=>!i.parent))));
   return k*(26+22*rel);
 }
 
