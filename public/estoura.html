@@ -59,6 +59,8 @@ button.pill:hover{border-color:#3a4f7a}
 .hr{display:flex;align-items:center;gap:8px}
 .pill.auth{display:inline-flex;align-items:center;gap:6px;color:var(--ink)}
 .pill.auth img{width:20px;height:20px;border-radius:50%;object-fit:cover}
+a.soc{text-decoration:none;color:var(--ink);display:inline-flex;align-items:center;min-height:40px;border:1px solid transparent;user-select:auto;transition:border-color .15s,background .15s}
+a.soc:hover{border-color:#3a4f7a;background:#22335a}
 .ex{display:inline-block;margin-left:6px;vertical-align:middle;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--warn);border:1px solid #ffd28a66;border-radius:999px;padding:1px 7px}
 .why{display:grid;grid-template-columns:minmax(0,9em) 1fr auto;gap:10px;align-items:center;font-size:13px;margin-top:8px}
 .why span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -405,11 +407,35 @@ const authed = () => !!window.estouraAuthed;
 // convites e conexões da conta (Supabase). Cada pessoa real recebe p.conn quando há convite entre vocês.
 const CONNS = [];
 const isLinked = p => (state.conn[p.id]==="accepted") || (p.conn && p.conn.status==="accepted");
+// Redes que a pessoa pode colocar no perfil. A pessoa digita @usuário, número ou o link; o link é montado aqui.
+const SOCIAL_NETS = [
+  {key:"Instagram", ph:"@seu.usuario", hosts:["instagram.com"], re:/^[A-Za-z0-9._]{1,30}$/, url:h=>"https://instagram.com/"+h},
+  {key:"Facebook", ph:"seu.nome ou link do perfil", hosts:["facebook.com","fb.com"], re:/^[A-Za-z0-9.]{3,60}$/, url:h=>"https://facebook.com/"+h},
+  {key:"YouTube", ph:"@seucanal ou link do canal", hosts:["youtube.com"], re:/^[A-Za-z0-9._-]{1,60}$/, url:h=>"https://youtube.com/@"+h},
+  {key:"LinkedIn", ph:"seu-usuario ou link do perfil", hosts:["linkedin.com"], re:/^[A-Za-z0-9-]{3,100}$/, url:h=>"https://linkedin.com/in/"+h},
+  {key:"WhatsApp", ph:"5511999999999", hint:"Com código do país e DDD, só números. Ex.: 5511999999999", num:true}
+];
+// devolve o endereço seguro (só http/https, só o domínio da própria rede) ou null se o valor não for válido
+function socialLink(key,value){
+  const n=SOCIAL_NETS.find(x=>x.key===key); let v=String(value||"").trim();
+  if(!n||!v) return null;
+  if(n.num){ const d=v.replace(/\D/g,""); return d.length>=10&&d.length<=15 ? "https://wa.me/"+d : null; }
+  if(!/^https?:\/\//i.test(v) && n.hosts.some(h=>{ const l=v.toLowerCase(); return l.startsWith(h+"/")||l.startsWith("www."+h+"/"); })) v="https://"+v;
+  if(/^https?:\/\//i.test(v)){
+    try{ const u=new URL(v), host=u.hostname.replace(/^(www|m|mobile)\./,"");
+      return n.hosts.some(h=>host===h||host.endsWith("."+h)) ? u.href : null; }catch(e){ return null; }
+  }
+  v=v.replace(/^@/,"").replace(/\/+$/,"");
+  return n.re.test(v) ? n.url(v) : null;
+}
 function realSocials(p){
   const c=p.conn, nm=esc(p.name.split(" ")[0]);
   if(c && c.status==="accepted"){
-    const e=Object.entries(c.socials||{}).filter(([,v])=>v);
-    return e.length ? `<div class="socials">${e.map(([k,v])=>`<span class="soc"><span>${esc(k)}</span>${esc(v)}</span>`).join("")}</div>`
+    const order=k=>{ const i=SOCIAL_NETS.findIndex(n=>n.key===k); return i<0?99:i; };
+    const e=Object.entries(c.socials||{}).filter(([,v])=>v).sort((a,b)=>order(a[0])-order(b[0]));
+    return e.length ? `<div class="socials">${e.map(([k,v])=>{ const href=socialLink(k,v);
+        return href ? `<a class="soc" href="${esc(href)}" target="_blank" rel="noopener noreferrer"><span>${esc(k)}</span>${esc(v)}</a>`
+                    : `<span class="soc"><span>${esc(k)}</span>${esc(v)}</span>`; }).join("")}</div>`
       : `<div class="locked">${LOCK}<div><b>Sem redes por enquanto</b><span>${nm} ainda não adicionou as redes sociais.</span></div></div>`;
   }
   return `<div class="locked">${LOCK}<div><b>Redes sociais protegidas</b><span>Aparecem quando vocês dois aceitarem conversar.</span></div></div>`;
@@ -1131,7 +1157,8 @@ if (cfg.url && cfg.key) {
   const photo = u => u.user_metadata && (u.user_metadata.avatar_url || u.user_metadata.picture);
   const signIn = () => sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: location.origin + "/", queryParams: { prompt: "select_account" } } });
 
-  const SOCIALS = [["Instagram", "@seu.usuario"], ["Strava", "seu-usuario"], ["LinkedIn", "seu-usuario"]];
+  // redes que a pessoa pode colocar no perfil (os links são montados por socialLink, no script principal)
+  const SOCIALS = SOCIAL_NETS.map(n => [n.key, n.ph, n.hint || ""]);
   async function openAccount(u){
     // cidade e redes ficam só na sua linha de profiles; os outros só veem as redes depois que você aceita a conversa
     const { data: me } = await sb.from("profiles").select("city, socials").eq("id", u.id).maybeSingle();
@@ -1141,15 +1168,21 @@ if (cfg.url && cfg.key) {
       <div class="sec"><div class="tag">Seu perfil</div>
         <form class="form" id="prof-form">
           <label for="pf-city">Cidade<input type="text" id="pf-city" maxlength="60" placeholder="Ex.: São Paulo" value="${esc((me && me.city) || "")}"></label>
-          ${SOCIALS.map(([k, ph]) => `<label for="pf-${k}">${k}<input type="text" id="pf-${k}" maxlength="60" placeholder="${ph}" value="${esc(s[k] || "")}" autocapitalize="off" autocomplete="off"></label>`).join("")}
-          <div class="note">Suas redes só aparecem para quem você aceitar conversar.</div>
+          <div class="tag" style="margin-top:4px">Redes sociais</div>
+          ${SOCIALS.map(([k, ph, hint]) => `<label for="pf-${k}">${k}<input type="text" id="pf-${k}" maxlength="120" placeholder="${esc(ph)}" value="${esc(s[k] || "")}" autocapitalize="off" autocomplete="off" spellcheck="false"${k === "WhatsApp" ? ' inputmode="tel"' : ""}>${hint ? `<span class="note" style="margin:0">${esc(hint)}</span>` : ""}</label>`).join("")}
+          <div class="note">Só aparecem para quem você aceitar conversar, e só depois que os dois aceitarem. Pode deixar em branco o que não quiser mostrar.</div>
           <button class="btn mint" type="submit">Salvar perfil</button>
         </form></div>
       <div class="actions"><button class="btn" data-close>Fechar</button><button class="btn primary" id="signout">Sair da conta</button></div>`, { type: "account" });
     document.getElementById("prof-form").onsubmit = async e => {
       e.preventDefault();
       const socials = {};
-      SOCIALS.forEach(([k]) => { const v = document.getElementById("pf-" + k).value.trim(); if (v) socials[k] = v; });
+      for (const [k] of SOCIALS) {
+        const v = document.getElementById("pf-" + k).value.replace(/[\u0000-\u001f]/g, "").trim();
+        if (!v) continue;
+        if (!socialLink(k, v)) return toast(`Confira o campo ${k}: use o @usuário, o número ou o link do perfil`);
+        socials[k] = v;
+      }
       const city = document.getElementById("pf-city").value.trim() || null;
       const { error } = await sb.from("profiles").update({ city, socials }).eq("id", u.id);
       toast(error ? "Não consegui salvar o perfil" : "Perfil salvo");
