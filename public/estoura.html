@@ -318,7 +318,7 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
 
     <section class="view gut" id="view-matches" hidden aria-label="Matches">
       <h2>Quem estourou o mesmo que você</h2>
-      <p class="sub">Interesses raros e sub-bolhas pesam mais. Quem marcou "é minha vida" no mesmo que você ganha bônus (♥). Perfis de exemplo.</p>
+      <p class="sub">Interesses raros e sub-bolhas pesam mais. Quem marcou "é minha vida" no mesmo que você ganha bônus (♥).</p>
       <div class="filters" id="filters"></div>
       <div class="list" id="match-list"></div>
     </section>
@@ -395,30 +395,9 @@ const CITIES = {"São Paulo":[-23.55,-46.63],"Campinas":[-22.90,-47.06],"Santos"
   "Curitiba":[-25.43,-49.27],"Florianópolis":[-27.59,-48.55],"Belo Horizonte":[-19.92,-43.94],"Porto Alegre":[-30.03,-51.23],
   "Brasília":[-15.79,-47.88],"Salvador":[-12.97,-38.50],"Recife":[-8.05,-34.88]};
 
-// nome, idade, cidade, coordenadas, bio, bolhas (":2" = é minha vida), redes, demora pra responder?
-const PEOPLE = [
-  ["Marina Coelho",29,"Florianópolis",[-27.60,-48.48],"Fotógrafa de viagem, monto slack na praia todo fim de tarde.",["viagens","viagens/nomade","slackline:2","slackline/waterline","surf:2","surf/longboard","fotografia","fotografia/natureza","yoga","cafe"],{Instagram:"@marina.exemplo",Strava:"marina-c"}],
-  ["Rafael Duarte",34,"São Paulo",[-23.56,-46.69],"Dev de dia, mestre de Catan à noite.",["futebol:2","futebol/pelada","cerveja","programacao:2","programacao/opensource","tabuleiro:2","tabuleiro/euro","cinema"],{Instagram:"@rafa.exemplo",LinkedIn:"rafaelduarte-ex"}],
-  ["Lia Fernandes",26,"Belo Horizonte",[-19.93,-43.94],"Faço amigurumi e tenho 3 gatos e 40 plantas.",["croche:2","croche/amigurumi","pintura","jardinagem","pets:2","leitura","cafe"],{Instagram:"@lia.croche.ex"}],
-  ["Tiago Moraes",31,"Curitiba",[-25.44,-49.27],"Escalo no Anhangava, fotografo o céu à noite.",["escalada:2","escalada/boulder","slackline:2","slackline/highline","trilhas","trilhas/travessias","astronomia","fotografia","fotografia/natureza"],{Instagram:"@tiago.vertical.ex",Strava:"tiagom"}],
-  ["Bruna Sato",28,"São Paulo",[-23.59,-46.64],"Maratonista em treino, viciada em receita vegana.",["corrida:2","corrida/maratona","yoga","vegana","viagens","viagens/mochilao","leitura"],{Instagram:"@bru.corre.ex",Strava:"brunasato"}],
-  ["Diego Albuquerque",37,"Rio de Janeiro",[-22.98,-43.20],"Roda de samba no sábado, surf no domingo.",["futebol:2","futebol/torcida","samba:2","surf","cerveja","viagens"],{Instagram:"@diego.rj.ex"}],
-  ["Camila Rocha",24,"Porto Alegre",[-30.03,-51.22],"Skate, vinil e cinema de rua.",["skate:2","vinil","cinema:2","cinema/cult","fotografia","fotografia/analogica","programacao"],{Instagram:"@cami.rocha.ex"},true],
-  ["Pedro Lins",33,"Brotas",[-22.28,-48.13],"Guia de rafting. Se tem água e corda, eu topo.",["rafting:2","rafting/corredeiras","rafting/canoagem","trilhas:2","trilhas/cachoeiras","slackline","slackline/highline","escalada","ciclismo","viagens","viagens/patagonia"],{Instagram:"@pedro.rio.ex",Strava:"pedrolins"}],
-  ["Júlia Martins",30,"Recife",[-8.05,-34.90],"Noite de jogos lá em casa toda quinta.",["croche","croche/amigurumi","tabuleiro:2","tabuleiro/party","cinema","cafe","pets"],{Instagram:"@ju.martins.ex"}],
-  ["André Nogueira",41,"Campinas",[-22.90,-47.06],"Pedal de madrugada, café coado e telescópio.",["ciclismo:2","corrida","corrida/trailrun","cafe:2","astronomia:2","leitura"],{Strava:"andre-nog",LinkedIn:"andrenogueira-ex"}],
-  ["Nina Oliveira",27,"Salvador",[-12.98,-38.51],"Pinto, danço e cozinho sem carne.",["samba:2","vegana","pintura:2","viagens","viagens/mochilao","yoga"],{Instagram:"@nina.ssa.ex"}],
-  ["Lucas Prado",25,"Florianópolis",[-27.58,-48.51],"Surf de manhã, slack à tarde, disco à noite.",["surf:2","skate","slackline","slackline/trickline","vinil","cerveja"],{Instagram:"@lucas.prado.ex"}],
-  ["Helena Castro",35,"Brasília",[-15.80,-47.89],"Horta no apê e clube do livro.",["jardinagem:2","croche","croche/tapecaria","leitura:2","astronomia","vegana"],{Instagram:"@helena.horta.ex"}],
-  ["Gabriel Reis",29,"São Paulo",[-23.54,-46.57],"Programo, desço corredeira e jogo boardgame.",["programacao:2","programacao/ia","tabuleiro","tabuleiro/rpg","corrida","rafting","rafting/boiacross","viagens","viagens/patagonia","trilhas"],{Instagram:"@gabi.reis.ex",LinkedIn:"gabrielreis-ex"}],
-  ["Sofia Mendes",32,"São Paulo",[-23.53,-46.68],"Faço highline na Pedra Grande e organizo mochilões.",["slackline:2","slackline/highline","viagens:2","viagens/mochilao","viagens/patagonia","trilhas","trilhas/camping","fotografia"],{Instagram:"@sofia.nas.alturas.ex",Strava:"sofiamendes"}],
-  ["Caio Ventura",27,"Santo André",[-23.66,-46.53],"Camping selvagem sempre que dá.",["trilhas:2","trilhas/camping","trilhas/cachoeiras","escalada","escalada/esportiva","ciclismo","cerveja"],{Instagram:"@caio.mato.ex"}],
-  ["Larissa Tavares",30,"Jundiaí",[-23.19,-46.88],"Faço roupas de crochê e cuido de 2 cachorros.",["croche:2","croche/roupas","jardinagem","pets","cafe","cinema","cinema/nacional"],{Instagram:"@lari.fios.ex"}],
-  ["Mateus Okada",36,"Santos",[-23.96,-46.33],"Bodyboard, waterline e road trip pelo litoral.",["surf:2","surf/bodyboard","slackline","slackline/waterline","viagens","viagens/roadtrip","fotografia"],{Instagram:"@mateus.okada.ex"}]
-].map(([name,age,city,c,bio,ints,social,shy],i)=>({id:"p"+i,name,age,city,c,bio,social,shy:!!shy,example:true,
-  lv:new Map(ints.map(s=>{const [id,l]=s.split(":");return [id,+(l||1)];}))}));
-const personNamed = first => PEOPLE.find(p=>p.name.startsWith(first));
-// pessoas reais (vindas do Supabase, só com login). Os perfis acima são de exemplo.
+// pessoas reais vêm do Supabase (REAL, abaixo); não há perfis de exemplo
+const PEOPLE = [];
+// pessoas reais (vindas do Supabase, só com login)
 const REAL = [];
 const everyone = () => [...PEOPLE, ...REAL];
 const authed = () => !!window.estouraAuthed;
@@ -456,16 +435,8 @@ function inviteBlock(){
 const exTag = p => p.example && authed() ? '<span class="ex">exemplo</span>' : "";
 const metaLine = (p,d,anos) => [p.age ? (anos ? p.age+" anos" : p.age) : null, p.city || null, d!=null ? fmtDist(d) : null].filter(Boolean).join(" · ") || "Membro do Estoura";
 
-// título, título curto, bolha, daqui a N dias, hora, lugar, coordenadas, quem vai
-const EVENTS = [
-  ["Pedal noturno no Minhocão","Pedal noturno","ciclismo",1,"21:00","Minhocão, São Paulo",[-23.538,-46.651],["André","Caio"]],
-  ["Noite de Catan & cia","Noite de Catan","tabuleiro",2,"19:30","Bar em Pinheiros, São Paulo",[-23.566,-46.690],["Rafael","Gabriel"]],
-  ["Slack no Ibirapuera","Slack no Ibira","slackline",3,"15:00","Parque Ibirapuera, São Paulo",[-23.587,-46.657],["Sofia","Mateus","Lucas"]],
-  ["Nascer do sol no Pico do Jaraguá","Pico do Jaraguá","trilhas",5,"05:30","Pico do Jaraguá, São Paulo",[-23.457,-46.766],["Caio","Gabriel","Sofia"]],
-  ["Roda de amigurumi","Roda de amigurumi","croche/amigurumi",6,"14:00","Biblioteca Mário de Andrade, São Paulo",[-23.547,-46.643],["Larissa"]],
-  ["Planejando a Patagônia","Rumo à Patagônia","viagens/patagonia",8,"19:00","Café na Vila Madalena, São Paulo",[-23.556,-46.690],["Sofia","Gabriel","Bruna"]],
-  ["Descida do Jacaré-Pepira","Descida em Brotas","rafting",10,"09:00","Rio Jacaré-Pepira, Brotas",[-22.280,-48.120],["Pedro","Gabriel"]]
-].map(([title,short,interest,days,time,place,c,going],i)=>({type:"event",id:"e"+i,example:true,title,short,interest,days,time,place,c,going:going.map(personNamed)}));
+// eventos reais vêm do Supabase (nenhum evento de exemplo)
+const EVENTS = [];
 
 const ICE = {
   viagens:"Qual viagem mudou sua cabeça?", "viagens/patagonia":"Torres del Paine ou El Chaltén?", "viagens/mochilao":"Qual o mochilão mais roots que você já fez?",
@@ -483,7 +454,7 @@ const REPLIES = [
 
 /* ================= ESTADO ================= */
 const state = {
-  lv:new Map([["viagens",1],["viagens/patagonia",1],["viagens/mochilao",2],["slackline",2],["slackline/highline",1],["trilhas",1],["trilhas/camping",1]]),
+  lv:new Map(),
   chats:{}, created:new Set(), conn:{p14:"accepted"}, going:new Set(), city:"São Paulo", radius:300, focus:null
 };
 const TOTAL = 6000;
@@ -587,7 +558,7 @@ function renderMatches(){
         <span class="meta" style="display:block">${esc(metaLine(p,d))}</span>
         <span class="chips">${shared.slice(0,5).map(i=>chip(i,{p})).join("")}${shared.length>5?`<span class="chip dim">+${shared.length-5}</span>`:""}</span></span>
       <span><span class="score">${pct}%<small>${shared.length} em comum</small></span><span class="bar"><span style="width:${pct}%"></span></span></span>
-    </button>`).join("") : `<div class="empty">${state.lv.size?"Ninguém nesse raio ainda. Aumente a distância.":"Estoure algumas bolhas pra ver seus matches."}</div>`);
+    </button>`).join("") : `<div class="empty">${!state.lv.size?"Estoure algumas bolhas pra ver seus matches.":out?"Ninguém nesse raio ainda. Aumente a distância.":"Ainda ninguém estourou as mesmas bolhas que você. Convide amigos pra entrar no Estoura!"}</div>`);
 }
 document.getElementById("filters").addEventListener("change",e=>{ if(e.target.id==="city"){ state.city=e.target.value; rebuild(); renderAll(); } });
 document.getElementById("filters").addEventListener("click",e=>{ const b=e.target.closest("[data-r]"); if(b){ state.radius=+b.dataset.r; rebuild(); renderAll(); } });
@@ -629,7 +600,7 @@ function renderGroups(){
         <span class="meta">você + ${g.members.length} pessoas</span></div>
       <div class="row"><span class="gt">${esc(g.ids.map(i=>byId(i).name).join(" + "))}</span>
         <button class="btn sm ${state.created.has(g.key)?"":"mint"}" data-group="${g.key}">${state.created.has(g.key)?"Abrir chat":"Criar grupo"}</button></div>
-    </div>`).join("") : `<div class="empty">Estoure pelo menos 2 bolhas pra gente sugerir grupos.</div>`;
+    </div>`).join("") : `<div class="empty">Grupos por afinidade chegam em breve. Por enquanto, convide pessoas dos seus matches e crie ou entre em eventos.</div>`;
 }
 document.getElementById("group-list").onclick=e=>{
   const b=e.target.closest("[data-group]"); if(!b) return;
@@ -846,10 +817,9 @@ function welcome(){
       <div class="step"><i style="--h:200"></i><div><b>Entre nas bolhas com anel</b><span>Lá dentro tem sub-bolhas, como Patagônia dentro de Viagens. Específico conecta mais.</span></div></div>
       <div class="step"><i class="dash" style="--h:40"></i><div><b>Encontre gente e rolês perto</b><span>Matches por afinidade, grupos e eventos com data. Suas redes só aparecem quando os dois aceitam conversar.</span></div></div>
     </div>
-    <div class="actions"><button class="btn" id="w-zero">Começar do zero</button><button class="btn primary" id="w-ex">Ver com exemplo</button></div>`,{type:"welcome"});
+    <div class="actions"><button class="btn primary" id="w-zero">Começar</button></div>`,{type:"welcome"});
   const done=()=>{ try{ localStorage.setItem("estoura-welcome","1"); }catch(e){} closeLayer(); };
-  document.getElementById("w-ex").onclick=()=>{ done(); toast("Exemplo: você já estourou Viagens, Slackline e Trilhas"); };
-  document.getElementById("w-zero").onclick=()=>{ state.lv.clear(); renderAll(); done(); toast("Globo limpo. Toque nas bolhas que são a sua cara"); };
+  document.getElementById("w-zero").onclick=()=>{ done(); toast("Toque nas bolhas que são a sua cara"); };
 }
 
 /* ================= GLOBO 3D ================= */
@@ -1070,7 +1040,7 @@ function setLevel(it,L,silent){
     try{ navigator.vibrate && navigator.vibrate(L===2?[10,40,10]:12); }catch(e){} }
   else { state.lv.delete(it.id); kids(it.id).forEach(k=>state.lv.delete(k.id)); }
   if(!silent){
-    const n=PEOPLE.filter(p=>p.lv.has(it.id)).length;
+    const n=everyone().filter(p=>p.lv.has(it.id)).length;
     toast(L===1?`Estourou ${it.name}!${n?` +${n} ${n>1?"pessoas":"pessoa"} no seu radar`:""}`: L===2?`${it.name} é sua vida ♥ peso maior no match`:`Você saiu de ${it.name}`);
   }
   renderAll();
