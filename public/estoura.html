@@ -1147,7 +1147,7 @@ function drawBubble({it,sx,sy,r,z}){
     const k=heartSpot({sx,sy,r}), on=L===2;
     heartPath(k.x,k.y,k.hr*.85); ctx.lineJoin="round";
     if(on){ ctx.fillStyle="#ff3d77"; ctx.fill(); ctx.lineWidth=1.8; ctx.strokeStyle="#fff"; ctx.stroke(); }
-    else { ctx.lineWidth=2.2; ctx.strokeStyle="#10172a"; ctx.setLineDash([k.hr*.3,k.hr*.3]); ctx.stroke(); ctx.setLineDash([]); } // tracejado = ainda não é favorita
+    else { ctx.lineWidth=2.2; ctx.strokeStyle="#fff"; ctx.setLineDash([k.hr*.3,k.hr*.3]); ctx.stroke(); ctx.setLineDash([]); } // tracejado = ainda não é favorita
   }
   ctx.globalAlpha=1;
 }
@@ -1183,7 +1183,7 @@ function starPath(x,y,rr){
   ctx.beginPath(); for(let k=0;k<10;k++){ const a=-Math.PI/2+k*Math.PI/5, d=k%2?rr*.45:rr; ctx.lineTo(x+Math.cos(a)*d,y+Math.sin(a)*d); } ctx.closePath();
 }
 // coraçãozinho no topo à direita de uma bolha marcada: toque pra virar "é minha vida"
-const heartSpot=p=>({x:p.sx+p.r*.56,y:p.sy-p.r*.56,hr:Math.max(11,p.r*.26)});
+const heartSpot=p=>({x:p.sx+p.r*.42,y:p.sy-p.r*.56,hr:Math.max(11,p.r*.26)});
 const heartable=p=>!p.it.type&&p.r>18&&p.z>-.35&&state.lv.has(p.it.id);
 function heartHit(x,y){ for(const p of pts){ if(!heartable(p)) continue; const h=heartSpot(p); if(Math.hypot(x-h.x,y-h.y)<h.hr+6) return p; } return null; }
 function heartTap(p){
