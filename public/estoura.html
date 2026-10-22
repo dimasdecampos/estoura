@@ -61,6 +61,7 @@ button.pill:hover{border-color:#3a4f7a}
 .pill.auth img{width:20px;height:20px;border-radius:50%;object-fit:cover}
 .vt{position:absolute;top:8px;right:12px;z-index:3;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:var(--surface-2);border:1px solid var(--line);color:var(--ink);box-shadow:0 6px 20px #0006;transition:transform .15s,border-color .15s,background .15s}
 .vt.f2{top:62px}
+.vt.f3{top:116px}
 .vt.on{border-color:var(--accent-2);color:var(--accent-2)}
 .vt:hover{transform:scale(1.06);border-color:var(--accent-2)}
 .vt[aria-pressed="true"]{border-color:var(--accent-2);color:var(--accent-2)}
@@ -318,12 +319,12 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
       <div class="stage">
         <canvas id="globe" aria-label="Globo de bolhas de interesses"></canvas>
         <button class="vt f2" id="filter-toggle" type="button" aria-label="Filtro: ver tudo" title="Filtro: ver tudo"></button>
+        <button class="vt f3" id="new-toggle" type="button" aria-label="Criar bolha" title="Criar bolha"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
         <button class="vt" id="view-toggle" type="button" aria-pressed="false" aria-label="Ver todas as bolhas espalhadas" title="Ver todas as bolhas espalhadas"></button>
       </div>
-      <div class="dock gut" id="dock-top">
+      <div class="dock gut" id="dock-top" hidden>
         <form id="new-form">
-          <input type="text" id="new-input" maxlength="24" placeholder="Não achou? Crie uma bolha" autocomplete="off">
-          <button class="btn" type="submit">Criar</button>
+          <input type="text" id="new-input" maxlength="24" placeholder="Não achou? Crie uma bolha" autocomplete="off" enterkeyhint="done">
         </form>
       </div>
       <div class="dock gut" id="dock-focus" hidden>
@@ -592,7 +593,7 @@ document.getElementById("trend").onclick=e=>{ const b=e.target.closest("[data-tr
 
 function renderFocus(){
   const f=state.focus;
-  document.getElementById("topbar").hidden=!!f; document.getElementById("dock-top").hidden=!!f;
+  document.getElementById("topbar").hidden=!!f; document.getElementById("dock-top").hidden=!!f||!newOpen; document.getElementById("new-toggle").hidden=!!f;
   document.getElementById("crumb").hidden=!f; document.getElementById("dock-focus").hidden=!f;
   if(f){
     const pn=pathOf(f); // Todas as bolhas › A › B › <b>C</b>
@@ -833,9 +834,12 @@ function createBubble(name,parentId){
   const i={id:(par?par.id+"/":"")+"u"+Date.now(),name,hue:par?(par.hue+40)%360:Math.floor(Math.random()*360),base:0,week:0,parent:par?par.id:null};
   INTERESTS.push(i); rebuild(); if(window.estouraCreateInterest) window.estouraCreateInterest(i); setLevel(i,1,true); toast(`Bolha "${name}" criada. Agora é chamar a galera!`);
 }
+var newOpen=false;
+function setNewOpen(o){ newOpen=o; renderFocus(); if(o) document.getElementById("new-input").focus(); }
+document.getElementById("new-toggle").onclick=()=>setNewOpen(!newOpen);
 document.getElementById("new-form").onsubmit=e=>{
   e.preventDefault(); const inp=document.getElementById("new-input"); const name=inp.value.trim(); if(!name) return;
-  createBubble(name,null); inp.value="";
+  createBubble(name,null); inp.value=""; setNewOpen(false);
 };
 function openNewSub(){
   const par=byId(state.focus);
