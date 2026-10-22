@@ -465,7 +465,7 @@ const EVENTS = [
   ["Roda de amigurumi","Roda de amigurumi","croche/amigurumi",6,"14:00","Biblioteca Mário de Andrade, São Paulo",[-23.547,-46.643],["Larissa"]],
   ["Planejando a Patagônia","Rumo à Patagônia","viagens/patagonia",8,"19:00","Café na Vila Madalena, São Paulo",[-23.556,-46.690],["Sofia","Gabriel","Bruna"]],
   ["Descida do Jacaré-Pepira","Descida em Brotas","rafting",10,"09:00","Rio Jacaré-Pepira, Brotas",[-22.280,-48.120],["Pedro","Gabriel"]]
-].map(([title,short,interest,days,time,place,c,going],i)=>({type:"event",id:"e"+i,title,short,interest,days,time,place,c,going:going.map(personNamed)}));
+].map(([title,short,interest,days,time,place,c,going],i)=>({type:"event",id:"e"+i,example:true,title,short,interest,days,time,place,c,going:going.map(personNamed)}));
 
 const ICE = {
   viagens:"Qual viagem mudou sua cabeça?", "viagens/patagonia":"Torres del Paine ou El Chaltén?", "viagens/mochilao":"Qual o mochilão mais roots que você já fez?",
@@ -604,7 +604,7 @@ function renderEvents(){
   document.getElementById("event-list").innerHTML = vis.length ? vis.map(e=>{ const i=byId(e.interest), me=state.going.has(e.id);
     return `<div class="group ev" style="--h:${i.hue}">
       <button class="link" data-event="${e.id}">
-        <span class="row"><span>${chip(e.interest)} ${relevant(e.interest)?'<span class="ok">combina com você</span>':""}</span><span class="when">${evWhen(e)}</span></span>
+        <span class="row"><span>${chip(e.interest)} ${relevant(e.interest)?'<span class="ok">combina com você</span>':""}${exTag(e)}</span><span class="when">${evWhen(e)}</span></span>
         <span class="gt" style="margin-top:8px">${esc(e.title)}</span>
         <span class="meta">${esc(evLong(e))} · ${e.time} · ${esc(e.place)} · ${fmtDist(km(myC(),e.c))}</span>
       </button>
@@ -712,12 +712,13 @@ function openEvent(e){
   const c=document.getElementById("ev-chat"); if(c) c.onclick=()=>openEventChat(e);
 }
 function toggleGoing(e){
+  if(e.real && window.estouraToggleGo){ window.estouraToggleGo(e); return; } // evento de verdade: salva no banco
   if(state.going.has(e.id)){ state.going.delete(e.id); toast("Tudo bem, você saiu do evento"); }
   else { state.going.add(e.id); toast(`Você vai! Chat de ${e.short} liberado`); }
   renderEvents();
 }
 function openEventChat(e){
-  openChat({key:e.id,title:e.title,members:e.going,shared:[e.interest],
+  openChat({key:e.id,title:e.title,members:e.going,shared:[e.interest],ev:e.real?e.uuid:null,
     intro:`Chat do evento · ${evLong(e)} às ${e.time} · ${e.place}. Ele é arquivado depois do evento.`});
 }
 function openCreateEvent(){
@@ -741,6 +742,7 @@ function openCreateEvent(){
     const e={type:"event",id:"u"+Date.now(),title:t,short:t.length>18?t.slice(0,17)+"…":t,interest:document.getElementById("ev-int").value,
       days:+document.getElementById("ev-day").value,time:document.getElementById("ev-time").value||"15:00",
       place:document.getElementById("ev-place").value.trim()||state.city,c:myC(),going:[]};
+    if(window.estouraAuthed && window.estouraCreateEvent){ window.estouraCreateEvent(e); closeLayer(); return; } // logado: evento de verdade
     EVENTS.push(e); state.going.add(e.id); rebuild(); renderAll(); closeLayer();
     toast("Bolha de evento solta no globo!");
   };
@@ -763,7 +765,7 @@ function openChat(c){
     <form class="composer gut" id="composer"><input type="text" id="msg-input" placeholder="Escreva uma mensagem" autocomplete="off"><button class="btn primary" type="submit">Enviar</button></form>
   </div>`;
   renderMsgs();
-  if(c.real && window.estouraLoadChat) window.estouraLoadChat(c); // conversa de verdade: busca o histórico no banco
+  if((c.real||c.ev) && window.estouraLoadChat) window.estouraLoadChat(c); // conversa de verdade: busca o histórico no banco
   document.getElementById("back").onclick=closeLayer;
   document.getElementById("ice").onclick=e=>{ const b=e.target.closest("[data-q]"); if(b) send(b.dataset.q); };
   document.getElementById("composer").onsubmit=e=>{ e.preventDefault(); const i=document.getElementById("msg-input"); if(i.value.trim()){ send(i.value.trim()); i.value=""; } };
@@ -779,7 +781,7 @@ function renderMsgs(typing){
 }
 function send(text){
   const c=current;
-  if(c.real){ if(window.estouraSend) window.estouraSend(c,text); return; } // pessoa real: sem respostas simuladas
+  if(c.real||c.ev){ if(window.estouraSend) window.estouraSend(c,text); return; } // pessoa real: sem respostas simuladas
   state.chats[c.key].push({me:true,text}); renderMsgs();
   if(!c.members.length) return;
   const who=c.members[Math.floor(Math.random()*c.members.length)];
@@ -1219,17 +1221,70 @@ if (cfg.url && cfg.key) {
     list.push(m);
     if (current && current.key === key) renderMsgs();
   }
+  // autor de uma mensagem: no chat 1:1 é a outra pessoa; no chat de evento, quem estiver na lista de presença
+  const authorOf = (c, senderId) => (c.ev ? (c.members.find(p => p.uid === senderId) || { name: "Alguém", lv: new Map([[c.shared[0], 1]]) }) : c.members[0]);
   window.estouraLoadChat = async c => {
-    const { data, error } = await sb.from("messages").select("id, sender_id, body").eq("connection_id", c.real).order("id");
+    const q = c.ev
+      ? sb.from("event_messages").select("id, sender_id, body").eq("event_id", c.ev).order("id")
+      : sb.from("messages").select("id, sender_id, body").eq("connection_id", c.real).order("id");
+    const { data, error } = await q;
     if (error) return toast("Não consegui carregar a conversa");
     const intro = state.chats[c.key].filter(m => m.sys);
-    state.chats[c.key] = [...intro, ...data.map(m => ({ id: m.id, me: m.sender_id === uid, p: c.members[0], text: m.body }))];
+    state.chats[c.key] = [...intro, ...data.map(m => ({ id: m.id, me: m.sender_id === uid, p: authorOf(c, m.sender_id), text: m.body }))];
     if (current === c) renderMsgs();
   };
   window.estouraSend = async (c, text) => {
-    const { data, error } = await sb.from("messages").insert({ connection_id: c.real, sender_id: uid, body: text }).select("id").single();
+    const q = c.ev
+      ? sb.from("event_messages").insert({ event_id: c.ev, sender_id: uid, body: text })
+      : sb.from("messages").insert({ connection_id: c.real, sender_id: uid, body: text });
+    const { data, error } = await q.select("id").single();
     if (error) return toast("Não consegui enviar a mensagem");
-    pushMsg(c.key, { id: data.id, me: true, p: c.members[0], text });
+    pushMsg(c.key, { id: data.id, me: true, p: authorOf(c, uid), text });
+  };
+
+  /* ---------- eventos reais ---------- */
+  const toEvent = r => {
+    const d = new Date(r.starts_at), t0 = new Date(), d0 = new Date(d);
+    t0.setHours(0, 0, 0, 0); d0.setHours(0, 0, 0, 0);
+    const att = (r.attendees || []).filter(a => a.id !== uid)
+      .map(a => ({ id: "u_" + a.id, uid: a.id, name: a.name || "Alguém", photo: a.photo, city: "", real: true, lv: new Map([[r.interest_id, 1]]) }));
+    return { type: "event", real: true, uuid: r.id, id: "e_" + r.id, title: r.title, short: r.title.length > 18 ? r.title.slice(0, 17) + "…" : r.title,
+      interest: r.interest_id, days: Math.round((d0 - t0) / 86400000), place: r.place, going: att, iGo: r.i_go,
+      time: String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"),
+      c: r.lat != null ? [r.lat, r.lng] : null };
+  };
+  async function loadEvents(){
+    if (!uid) return;
+    const { data, error } = await sb.rpc("upcoming_events");
+    if (error || !uid) return; // se o SQL 0004 ainda não rodou, ficam só os eventos de exemplo
+    for (let i = EVENTS.length - 1; i >= 0; i--) if (EVENTS[i].real) EVENTS.splice(i, 1);
+    data.filter(r => byId(r.interest_id)).map(toEvent).filter(e => e.c).forEach(e => {
+      EVENTS.push(e);
+      if (e.iGo) state.going.add(e.id); else state.going.delete(e.id);
+    });
+    rebuild(); renderAll();
+    if (sheet && sheet.type === "event") { const e = EVENTS.find(x => x.id === sheet.id); if (e) openEvent(e); }
+  }
+  window.estouraToggleGo = async e => {
+    const going = state.going.has(e.id);
+    const { error } = going
+      ? await sb.from("event_attendees").delete().eq("event_id", e.uuid).eq("user_id", uid)
+      : await sb.from("event_attendees").insert({ event_id: e.uuid, user_id: uid });
+    if (error && error.code !== "23505") return toast("Não consegui atualizar sua presença");
+    toast(going ? "Tudo bem, você saiu do evento" : `Você vai! Chat de ${e.short} liberado`);
+    await loadEvents();
+  };
+  window.estouraCreateEvent = async e => {
+    const start = new Date();
+    start.setDate(start.getDate() + e.days);
+    const [h, m] = e.time.split(":"); start.setHours(+h, +m, 0, 0);
+    const { error } = await sb.from("events").insert({ created_by: uid, interest_id: e.interest, title: e.title, place: e.place, city: state.city, lat: e.c[0], lng: e.c[1], starts_at: start.toISOString() });
+    if (error) { // sem o SQL 0004 o evento vale só neste aparelho, como no protótipo
+      EVENTS.push(e); state.going.add(e.id); rebuild(); renderAll();
+      return toast("Evento criado só no seu aparelho: rode o SQL 0004 para compartilhar");
+    }
+    toast("Bolha de evento solta no globo!");
+    await loadEvents();
   };
 
   // convites e mensagens chegam na hora (Supabase Realtime, filtrado pelo RLS)
@@ -1240,6 +1295,12 @@ if (cfg.url && cfg.key) {
         const c = CONNS.find(x => x.id === m.connection_id), mine = m.sender_id === uid, key = chatKey(m.connection_id);
         pushMsg(key, { id: m.id, me: mine, p: { name: c ? c.name : "Alguém" }, text: m.body });
         if (!mine && !(current && current.key === key)) toast(`Nova mensagem de ${c ? c.name.split(" ")[0] : "alguém"}: ${m.body.slice(0, 50)}`);
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "event_messages" }, ({ new: m }) => {
+        const ev = EVENTS.find(x => x.id === "e_" + m.event_id), mine = m.sender_id === uid, key = "e_" + m.event_id;
+        const who = (ev && ev.going.find(p => p.uid === m.sender_id)) || { name: "Alguém", lv: new Map([[ev ? ev.interest : "", 1]]) };
+        pushMsg(key, { id: m.id, me: mine, p: who, text: m.body });
+        if (!mine && !(current && current.key === key)) toast(`${who.name.split(" ")[0]} em ${ev ? ev.short : "um evento"}: ${m.body.slice(0, 40)}`);
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "connections" }, async ({ eventType, new: row }) => {
         await loadConnections();
@@ -1267,6 +1328,7 @@ if (cfg.url && cfg.key) {
       if (fresh.length) { rebuild(); toast(fresh.length === 1 ? `Nova bolha: ${fresh[0].name}` : `${fresh.length} bolhas novas`); }
       renderAll();
       loadMatches();
+      loadEvents();
     }, 400);
   }
   let pulse = null;
@@ -1295,7 +1357,7 @@ if (cfg.url && cfg.key) {
     st.data.forEach(r => { const it = byId(r.id); if (it) { it.base = r.people - (state.lv.has(r.id) ? 1 : 0); it.week = r.week_count; } });
     rebuild(); renderAll();
     loadMatches();
-    loadConnections(); startLive(); startPulse();
+    loadConnections(); loadEvents(); startLive(); startPulse();
     if (mine.data.length) toast(`${mine.data.length} ${mine.data.length > 1 ? "bolhas carregadas" : "bolha carregada"} da sua conta`);
   }
 
