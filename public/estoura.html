@@ -737,7 +737,7 @@ function createBubble(name,parentId){
   if(existing){ if(!state.lv.has(existing.id)) setLevel(existing,1,true); toast(`"${existing.name}" já existia, estourei pra você`); return; }
   const par=parentId?byId(parentId):null;
   const i={id:(par?par.id+"/":"")+"u"+Date.now(),name,hue:par?(par.hue+40)%360:Math.floor(Math.random()*360),base:0,week:0,parent:par?par.id:null};
-  INTERESTS.push(i); rebuild(); setLevel(i,1,true); toast(`Bolha "${name}" criada. Agora é chamar a galera!`);
+  INTERESTS.push(i); rebuild(); if(window.estouraCreateInterest) window.estouraCreateInterest(i); setLevel(i,1,true); toast(`Bolha "${name}" criada. Agora é chamar a galera!`);
 }
 document.getElementById("new-form").onsubmit=e=>{
   e.preventDefault(); const inp=document.getElementById("new-input"); const name=inp.value.trim(); if(!name) return;
@@ -1010,6 +1010,7 @@ function setLevel(it,L,silent){
     toast(L===1?`Estourou ${it.name}!${n?` +${n} ${n>1?"pessoas":"pessoa"} no seu radar`:""}`: L===2?`${it.name} é sua vida ♥ peso maior no match`:`Você saiu de ${it.name}`);
   }
   renderAll();
+  if(window.estouraSync) window.estouraSync(); // salva no Supabase quando há login
 }
 
 function tap(it){
@@ -1083,8 +1084,56 @@ if (cfg.url && cfg.key) {
     openSheet(`<div class="ph">${photo(u) ? `<img src="${esc(photo(u))}" alt="" referrerpolicy="no-referrer" style="width:64px;height:64px;border-radius:50%;object-fit:cover">` : `<span class="av me">${esc(first(u)[0])}</span>`}
         <div style="min-width:0"><h3>${esc((u.user_metadata && u.user_metadata.full_name) || first(u))}</h3><div class="meta">${esc(u.email || "")}</div></div></div>
       <div class="actions"><button class="btn" data-close>Fechar</button><button class="btn primary" id="signout">Sair da conta</button></div>`, { type: "account" });
-    document.getElementById("signout").onclick = async () => { await sb.auth.signOut(); closeLayer(); };
+    // recarrega a página para não deixar as bolhas da conta na memória
+    document.getElementById("signout").onclick = async () => { await sb.auth.signOut(); location.reload(); };
   }
+
+  /* ---------- bolhas salvas na conta ---------- */
+  let uid = null, loading = false, timer = null, queue = Promise.resolve(), pending = Promise.resolve();
+  const saved = new Map(); // o que já está no banco: interest_id -> nível
+
+  async function loadMine(){
+    loading = true;
+    const [st, mine] = await Promise.all([ sb.rpc("interest_stats"), sb.from("user_interests").select("interest_id, level") ]);
+    loading = false;
+    if (st.error || mine.error) { uid = null; toast("Não consegui carregar suas bolhas. Nada será salvo agora."); return; }
+    // bolhas criadas por outras pessoas entram no globo
+    st.data.forEach(r => { if (!byId(r.id)) INTERESTS.push({ id: r.id, name: r.name, hue: r.hue, base: r.people, week: r.week_count, parent: r.parent_id }); });
+    state.lv.clear(); saved.clear();
+    mine.data.forEach(r => { state.lv.set(r.interest_id, r.level); saved.set(r.interest_id, r.level); });
+    // contagem do banco (já inclui você; o protótipo soma +1 por conta própria)
+    st.data.forEach(r => { const it = byId(r.id); if (it) { it.base = r.people - (state.lv.has(r.id) ? 1 : 0); it.week = r.week_count; } });
+    rebuild(); renderAll();
+    if (mine.data.length) toast(`${mine.data.length} ${mine.data.length > 1 ? "bolhas carregadas" : "bolha carregada"} da sua conta`);
+  }
+
+  async function flush(){
+    await pending;
+    const up = [], del = [];
+    state.lv.forEach((l, id) => { if (saved.get(id) !== l) up.push({ user_id: uid, interest_id: id, level: l }); });
+    saved.forEach((_, id) => { if (!state.lv.has(id)) del.push(id); });
+    if (!up.length && !del.length) return;
+    let err = null;
+    if (up.length) err = (await sb.from("user_interests").upsert(up)).error;
+    if (!err && del.length) err = (await sb.from("user_interests").delete().eq("user_id", uid).in("interest_id", del)).error;
+    if (err) { toast("Não consegui salvar. Confira sua conexão."); return; }
+    up.forEach(r => saved.set(r.interest_id, r.level));
+    del.forEach(id => saved.delete(id));
+  }
+  // chamado pelo protótipo a cada mudança; junta cliques rápidos num único envio
+  window.estouraSync = () => {
+    if (!uid || loading) return;
+    clearTimeout(timer);
+    timer = setTimeout(() => { queue = queue.then(flush); }, 300);
+  };
+  // bolha nova: grava a bolha (para todos) antes de gravar que você estourou
+  window.estouraCreateInterest = i => {
+    if (!uid) return;
+    pending = pending.then(async () => {
+      const { error } = await sb.from("interests").insert({ id: i.id, name: i.name, parent_id: i.parent, hue: i.hue, created_by: uid });
+      if (error) toast("Não consegui criar a bolha para todos.");
+    });
+  };
 
   let wasLogged = false;
   function render(event, session){
@@ -1094,11 +1143,18 @@ if (cfg.url && cfg.key) {
       btn.setAttribute("aria-label", "Minha conta");
       btn.onclick = () => openAccount(u);
       if (event === "SIGNED_IN" && !wasLogged) toast(`Olá, ${first(u)}!`);
+      if (uid !== u.id) {
+        uid = u.id;
+        // quem já tem conta não precisa da tela de boas-vindas (e "começar do zero" não pode apagar o banco)
+        try { localStorage.setItem("estoura-welcome", "1"); } catch (e) {}
+        if (sheet && sheet.type === "welcome") closeLayer();
+        loading = true; setTimeout(loadMine, 0); // fora do callback de auth, para não travar o cliente
+      }
     } else {
       btn.textContent = "Entrar";
       btn.setAttribute("aria-label", "Entrar com o Google");
       btn.onclick = signIn;
-      if (event === "SIGNED_OUT") toast("Você saiu da conta");
+      uid = null;
     }
     wasLogged = !!u;
   }
