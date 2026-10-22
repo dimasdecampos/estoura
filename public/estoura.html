@@ -292,7 +292,7 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
   <main>
     <section class="view" id="view-bolhas" aria-label="Bolhas">
       <div id="topbar">
-        <p class="hint gut" id="hint">Arraste pra girar. Toque 1×: curto · 2×: é minha vida · 3×: sai. Segure uma bolha pra entrar e criar sub-bolhas.</p>
+        <p class="hint gut" id="hint">Arraste pra girar. Toque 1×: curto · 2×: é minha vida · 3×: sai. Segure uma bolha pra entrar. Logado, segure e arraste: sobre outra bolha ela vira sub-bolha, em "Excluir" ela é apagada.</p>
         <div class="trend gut" id="trend"></div>
       </div>
       <div class="crumb gut" id="crumb" hidden>
@@ -1042,30 +1042,30 @@ function frame(t){
     if(anim){
       anim.t=Math.min(1,anim.t+0.045); const e=ease(anim.t), S=shellR(), c=shellC();
       if(anim.dir==="in"){
-        rotY+=vY*.3; fade=1-e; project(); pts.forEach(drawBubble); fade=1;
+        rotY+=vY*.3; fade=1-e; project(); drawAll(); fade=1;
         const f=anim.from; drawShell(lerp(f.x,c.x,e),lerp(f.y,c.y,e),lerp(f.r,S,e),anim.h,1,(1-e)*.85);
         if(anim.t>=1){ const id=anim.id; anim=null; doEnter(id); }
       } else {
-        fade=e; project(); pts.forEach(drawBubble); fade=1;
+        fade=e; project(); drawAll(); fade=1;
         const p=pts.find(q=>q.it.id===anim.id), to=p?{x:p.sx,y:p.sy,r:p.r}:{x:c.x,y:c.y,r:0};
         drawShell(lerp(c.x,to.x,e),lerp(c.y,to.y,e),lerp(S,to.r,e),anim.h,1-e*.6,e*.6);
         if(anim.t>=1) anim=null;
       }
     } else if(state.focus){
-      if(!drag){ orbit+=vO; vO+=(AUTO_O-vO)*.03; }
+      if(!drag && !hoverPause){ orbit+=vO; vO+=(AUTO_O-vO)*.03; }
       const S=shellR(), c=shellC(); drawShell(c.x,c.y,S,byId(state.focus).hue,1,0); drawCenter();
-      project(); pts.forEach(drawBubble);
+      project(); drawAll();
     } else {
       if(target && !drag){
         const dy=wrap(target.y-rotY), dx=target.x-rotX; rotY+=dy*.08; rotX+=dx*.08;
         if(Math.abs(dy)<.002&&Math.abs(dx)<.002){ target=null; vY=AUTO; }
-      } else if(!drag){ rotY+=vY; rotX+=vX; vX*=.95; vY+=((reduce?0:AUTO*Math.sign(vY||1))-vY)*.02; }
+      } else if(!drag && !hoverPause){ rotY+=vY; rotX+=vX; vX*=.95; vY+=((reduce?0:AUTO*Math.sign(vY||1))-vY)*.02; }
       rotX=Math.max(-1.3,Math.min(1.3,rotX));
       const halo=ctx.createRadialGradient(W/2,H/2,R*.2,W/2,H/2,R*1.5);
       halo.addColorStop(0,"rgba(143,240,222,.07)"); halo.addColorStop(1,"rgba(143,240,222,0)"); ctx.fillStyle=halo; ctx.fillRect(0,0,W,H);
-      project(); pts.forEach(drawBubble);
+      project(); drawAll();
     }
-    drawFx();
+    drawGrab(); drawFx();
   }
   requestAnimationFrame(frame);
 }
@@ -1095,31 +1095,105 @@ function tap(it){
   setLevel(it,(L+1)%3);
 }
 
-let drag=false, start=null, last=null, lp=null, lpDone=false;
+/* ---------- mover e excluir bolhas ----------
+   Segurar uma bolha (~0,5 s) "pega" ela:
+   - solta no mesmo lugar  -> entra na bolha (jeito de criar sub-bolhas);
+   - arrasta pra cima de outra bolha -> vira sub-bolha dela;
+   - dentro de uma bolha, arrasta pra fora do círculo -> volta a ser bolha principal;
+   - arrasta até "Excluir" -> exclui (com confirmação).
+   Quem pode fazer isso é decidido no banco (can_manage_interests): hoje, qualquer pessoa logada. */
+const BODYFONT="Figtree, system-ui, sans-serif";
+const canManage=()=>!!(window.estouraAuthed && window.estouraMoveInterest);
+const trashZone=()=>({x:W/2,y:H-46,r:32});
+const overTrash=g=>{ const z=trashZone(); return Math.hypot(g.x-z.x,g.y-z.y)<z.r+20; };
+const outsideShell=g=>{ if(!state.focus) return false; const c=shellC(); return Math.hypot(g.x-c.x,g.y-c.y)>shellR(); };
+const nestTarget=g=>state.focus ? null : [...pts].reverse().find(p=>p.it.id!==g.it.id && !p.it.type && Math.hypot(p.sx-g.x,p.sy-g.y)<p.r);
+const drawAll=()=>pts.forEach(p=>{ if(!grab||p.it!==grab.it) drawBubble(p); }); // a bolha pega é desenhada à parte
+function drawGrab(){
+  if(!grab) return;
+  const z=trashZone(), hot=overTrash(grab);
+  ctx.globalAlpha=1; ctx.lineWidth=2; ctx.setLineDash([5,4]);
+  ctx.fillStyle=hot?"rgba(255,90,90,.3)":"rgba(255,255,255,.06)"; ctx.strokeStyle=hot?"#ff7a7a":"rgba(255,158,196,.75)";
+  ctx.beginPath(); ctx.arc(z.x,z.y,z.r+(hot?6:0),0,7); ctx.fill(); ctx.stroke(); ctx.setLineDash([]);
+  ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillStyle=hot?"#ffd0d0":"#f1f5ff"; ctx.font=`700 12px ${BODYFONT}`;
+  ctx.fillText("Excluir",z.x,z.y);
+  const t=nestTarget(grab);
+  if(t){ const ok=!kids(grab.it.id).length;
+    ctx.strokeStyle=ok?"#8ff0de":"#ff7a7a"; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(t.sx,t.sy,t.r+6,0,7); ctx.stroke();
+    ctx.font=`600 12px ${BODYFONT}`; ctx.fillStyle=ok?"#8ff0de":"#ff9e9e";
+    ctx.fillText(ok?`guardar dentro de ${t.it.name}`:"tem sub-bolhas",t.sx,t.sy-t.r-14); }
+  else if(outsideShell(grab) && !hot){ ctx.font=`600 12px ${BODYFONT}`; ctx.fillStyle="#8ff0de"; ctx.fillText("solte pra virar bolha principal",W/2,18); }
+  const base=pts.find(p=>p.it===grab.it);
+  drawBubble({it:grab.it,sx:grab.x,sy:grab.y,r:(base?base.r:30)*1.12,z:1});
+}
+function askDelete(it){
+  const subs=kids(it.id), n=count(it);
+  openSheet(`<h3 style="font-family:var(--display);font-size:22px;margin:0 0 4px">Excluir "${esc(it.name)}"?</h3>
+    <p class="sub" style="margin-bottom:6px">${subs.length?`Isso também exclui ${subs.length} sub-bolha${subs.length>1?"s":""} (${subs.map(s=>esc(s.name)).join(", ")}). `:""}A bolha sai do perfil de ${n} ${n===1?"pessoa":"pessoas"} e os eventos ligados a ela somem. Não dá para desfazer pelo app.</p>
+    <div class="actions"><button class="btn" data-close>Cancelar</button><button class="btn primary" id="del-ok" style="background:#ff7a7a;color:#2a0d0d">Excluir</button></div>`,{type:"delete"});
+  document.getElementById("del-ok").onclick=()=>{ closeLayer(); doDelete(it); };
+}
+async function doDelete(it){
+  const ids=[it.id,...kids(it.id).map(k=>k.id)], gone=new Set(ids);
+  const backup=INTERESTS.filter(i=>gone.has(i.id)), levels=ids.filter(id=>state.lv.has(id)).map(id=>[id,state.lv.get(id)]);
+  for(let i=INTERESTS.length-1;i>=0;i--) if(gone.has(INTERESTS[i].id)) INTERESTS.splice(i,1);
+  ids.forEach(id=>state.lv.delete(id)); if(gone.has(state.focus)) state.focus=null;
+  rebuild(); renderAll(); toast(`Bolha "${it.name}" excluída`);
+  if(window.estouraDeleteInterest){
+    const ok=await window.estouraDeleteInterest(it,ids);
+    if(!ok){ backup.forEach(b=>INTERESTS.push(b)); levels.forEach(([id,l])=>state.lv.set(id,l)); rebuild(); renderAll(); } // desfaz se o banco recusou
+  }
+}
+async function doMove(it,newParent){
+  const old=it.parent, par=newParent?byId(newParent):null;
+  it.parent=newParent;
+  if(par && state.lv.has(it.id) && !state.lv.has(par.id)) state.lv.set(par.id,1); // quem curte a sub-bolha curte a bolha-mãe
+  rebuild(); renderAll();
+  toast(par?`"${it.name}" agora está dentro de ${par.name}`:`"${it.name}" voltou a ser uma bolha principal`);
+  if(window.estouraMoveInterest){
+    const ok=await window.estouraMoveInterest(it,newParent);
+    if(!ok){ it.parent=old; rebuild(); renderAll(); } else if(window.estouraSync) window.estouraSync();
+  }
+}
+
+let drag=false, start=null, last=null, lp=null, lpDone=false, hoverPause=false, grab=null;
 const hitAt=e=>{ const b=cv.getBoundingClientRect(), x=e.clientX-b.left, y=e.clientY-b.top;
   const slop=e.pointerType==="touch"?12:4; // dedo é mais impreciso que o mouse
   return [...pts].reverse().find(p=>Math.hypot(p.sx-x,p.sy-y)<p.r+slop); };
+const localXY=e=>{ const b=cv.getBoundingClientRect(); return {x:e.clientX-b.left,y:e.clientY-b.top}; };
 cv.addEventListener("pointerdown",e=>{
-  cv.setPointerCapture(e.pointerId); drag=true; target=null; cv.classList.add("drag"); start=last={x:e.clientX,y:e.clientY};
-  // segurar uma bolha entra nela, mesmo sem sub-bolhas: é o jeito de criar uma categoria dentro de outra
+  cv.setPointerCapture(e.pointerId); drag=true; target=null; hoverPause=false; cv.classList.add("drag"); start=last={x:e.clientX,y:e.clientY};
   lpDone=false; clearTimeout(lp);
-  if(!state.focus && !anim){ const h=hitAt(e);
-    if(h && !h.it.type) lp=setTimeout(()=>{
-      if(!drag) return; lpDone=true;
+  if(!anim){ const h=hitAt(e), p0=localXY(e);
+    if(h && !h.it.type && (canManage() || !state.focus)) lp=setTimeout(()=>{
+      if(!drag) return;
       try{ navigator.vibrate && navigator.vibrate(15); }catch(_){}
+      if(canManage()){ grab={it:h.it,x:p0.x,y:p0.y,x0:p0.x,y0:p0.y,moved:false}; return; } // logado: pega a bolha
+      lpDone=true; // sem login: segurar só entra na bolha
       if(!state.lv.has(h.it.id)) setLevel(h.it,1,true);
       enter(h.it.id);
     },450); } });
 cv.addEventListener("contextmenu",e=>e.preventDefault());
+cv.addEventListener("pointerleave",()=>{ hoverPause=false; cv.style.cursor=""; });
 cv.addEventListener("pointermove",e=>{
+  // mouse parado em cima de uma bolha: o globo para de girar
+  if(!drag){ if(e.pointerType==="mouse"){ const h=hitAt(e); hoverPause=!!h; cv.style.cursor=h?"pointer":""; } return; }
+  if(grab){ const p=localXY(e); grab.x=p.x; grab.y=p.y; if(Math.hypot(p.x-grab.x0,p.y-grab.y0)>10) grab.moved=true; return; }
   if(start && Math.hypot(e.clientX-start.x,e.clientY-start.y)>=7) clearTimeout(lp);
-  if(!drag) return; const dx=e.clientX-last.x, dy=e.clientY-last.y; last={x:e.clientX,y:e.clientY};
+  const dx=e.clientX-last.x, dy=e.clientY-last.y; last={x:e.clientX,y:e.clientY};
   if(state.focus){ orbit+=dx*.006; vO=dx*.006; return; }
   // arrastar o dedo pra baixo faz a frente do globo descer junto
   rotY+=dx*.008; rotX-=dy*.008; vY=dx*.008; vX=-dy*.008;
 });
 cv.addEventListener("pointerup",e=>{
   drag=false; cv.classList.remove("drag"); clearTimeout(lp);
+  if(grab){ const g=grab; grab=null;
+    if(!g.moved){ if(!state.focus){ if(!state.lv.has(g.it.id)) setLevel(g.it,1,true); enter(g.it.id); } return; } // segurou e soltou no lugar: entra
+    if(overTrash(g)) return askDelete(g.it);
+    if(!state.focus){ const t=nestTarget(g);
+      if(t) return kids(g.it.id).length ? toast("Essa bolha já tem sub-bolhas. Mova ou exclua elas primeiro.") : doMove(g.it,t.it.id); }
+    else if(outsideShell(g)) return doMove(g.it,null);
+    return; }
   if(lpDone){ lpDone=false; return; } // o toque longo já entrou na bolha
   if(anim || Math.hypot(e.clientX-start.x,e.clientY-start.y)>=7) return;
   if(!state.focus){ vY=AUTO; vX=0; }
@@ -1128,7 +1202,7 @@ cv.addEventListener("pointerup",e=>{
   if(hit) return tap(hit.it);
   if(state.focus){ const c=shellC(); if(Math.hypot(x-c.x,y-c.y)>shellR()) leave(); }
 });
-cv.addEventListener("pointercancel",()=>{drag=false;clearTimeout(lp);cv.classList.remove("drag")});
+cv.addEventListener("pointercancel",()=>{drag=false;grab=null;clearTimeout(lp);cv.classList.remove("drag")});
 
 // teclado virtual (iOS/Android): o chat encolhe junto com a área visível
 if(window.visualViewport){
@@ -1315,6 +1389,39 @@ if (cfg.url && cfg.key) {
       })
       .subscribe();
   }
+  // Alinha as bolhas locais com o banco: entram as novas, saem as excluídas, mudam de lugar as movidas.
+  function syncInterests(rows){
+    const ids = new Set(rows.map(r => r.id)), out = { fresh: [], removed: 0, moved: 0 };
+    if (rows.length) for (let i = INTERESTS.length - 1; i >= 0; i--) { // só poda se o banco devolveu bolhas
+      const id = INTERESTS[i].id;
+      if (ids.has(id)) continue;
+      INTERESTS.splice(i, 1); state.lv.delete(id); saved.delete(id); out.removed++;
+    }
+    rows.forEach(r => {
+      const it = byId(r.id);
+      if (!it) { const n = { id: r.id, name: r.name, hue: r.hue, base: r.people, week: r.week_count, parent: r.parent_id }; INTERESTS.push(n); out.fresh.push(n); }
+      else if (it.parent !== r.parent_id) { it.parent = r.parent_id; out.moved++; }
+    });
+    // se a bolha em que você estava foi excluída ou virou sub-bolha, volta pro início
+    if (state.focus) { const f = byId(state.focus); if (!f || f.parent) state.focus = null; }
+    COMMUNITY = community(rows);
+    rows.forEach(r => { const it = byId(r.id); it.base = r.people - (state.lv.has(r.id) ? 1 : 0); it.week = r.week_count; });
+    return out;
+  }
+  // mover e excluir bolhas: o banco decide quem pode (função can_manage_interests); hoje, qualquer pessoa logada
+  const manageError = e => (/permissao/i.test(e.message || "") ? "Você não tem permissão para isso" : null);
+  window.estouraMoveInterest = async (it, parent) => {
+    const { error } = await sb.rpc("move_interest", { p_id: it.id, p_parent: parent });
+    if (error) { toast(manageError(error) || (/sub-bolhas/i.test(error.message || "") ? "Essa bolha tem sub-bolhas" : "Não consegui mover a bolha")); return false; }
+    return true;
+  };
+  window.estouraDeleteInterest = async (it, ids) => {
+    const { error } = await sb.rpc("delete_interest", { p_id: it.id });
+    if (error) { toast(manageError(error) || "Não consegui excluir a bolha"); return false; }
+    (ids || [it.id]).forEach(id => saved.delete(id));
+    return true;
+  };
+
   // bolhas novas (de qualquer pessoa), contagens e matches ao vivo
   let worldTimer = null;
   function refreshWorld(){
@@ -1323,14 +1430,13 @@ if (cfg.url && cfg.key) {
       if (!uid || loading) return;
       const st = await sb.rpc("interest_stats");
       if (st.error || !uid) return;
-      const fresh = [];
-      st.data.forEach(r => {
-        const it = byId(r.id);
-        if (!it) { const n = { id: r.id, name: r.name, hue: r.hue, base: r.people, week: r.week_count, parent: r.parent_id }; INTERESTS.push(n); fresh.push(n); }
-        else { it.base = r.people - (state.lv.has(r.id) ? 1 : 0); it.week = r.week_count; }
-      });
-      COMMUNITY = community(st.data);
-      if (fresh.length) { rebuild(); toast(fresh.length === 1 ? `Nova bolha: ${fresh[0].name}` : `${fresh.length} bolhas novas`); }
+      const ch = syncInterests(st.data);
+      if (ch.fresh.length || ch.removed || ch.moved) {
+        rebuild();
+        if (ch.fresh.length) toast(ch.fresh.length === 1 ? `Nova bolha: ${ch.fresh[0].name}` : `${ch.fresh.length} bolhas novas`);
+        else if (ch.removed) toast("Uma bolha foi excluída");
+        else toast("Uma bolha foi movida");
+      }
       renderAll();
       loadMatches();
       loadEvents();
@@ -1356,13 +1462,9 @@ if (cfg.url && cfg.key) {
     const [st, mine] = await Promise.all([ sb.rpc("interest_stats"), sb.from("user_interests").select("interest_id, level") ]);
     loading = false;
     if (st.error || mine.error) { uid = null; toast("Não consegui carregar suas bolhas. Nada será salvo agora."); return; }
-    // bolhas criadas por outras pessoas entram no globo
-    st.data.forEach(r => { if (!byId(r.id)) INTERESTS.push({ id: r.id, name: r.name, hue: r.hue, base: r.people, week: r.week_count, parent: r.parent_id }); });
     state.lv.clear(); saved.clear();
     mine.data.forEach(r => { state.lv.set(r.interest_id, r.level); saved.set(r.interest_id, r.level); });
-    // contagem do banco (já inclui você; o protótipo soma +1 por conta própria)
-    st.data.forEach(r => { const it = byId(r.id); if (it) { it.base = r.people - (state.lv.has(r.id) ? 1 : 0); it.week = r.week_count; } });
-    COMMUNITY = community(st.data);
+    syncInterests(st.data); // bolhas novas, excluídas e movidas por outras pessoas + contagens do banco
     rebuild(); renderAll();
     loadMatches();
     loadConnections(); loadEvents(); startLive(); startPulse();
