@@ -607,7 +607,10 @@ function closeLayer(){ layer.innerHTML=""; sheet=null; current=null; }
 function openSheet(html,meta){
   sheet=meta;
   layer.innerHTML=`<div class="scrim" id="scrim"><div class="sheet gut" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div></div>`;
-  document.getElementById("scrim").addEventListener("click",e=>{ if(e.target.id==="scrim"||e.target.closest("[data-close]")) closeLayer(); });
+  // No celular, o "clique" que o navegador dispara depois do toque cai na janela recém-aberta
+  // e a fechava na hora. Ignoramos cliques nos primeiros instantes.
+  const born=Date.now();
+  document.getElementById("scrim").addEventListener("click",e=>{ if(Date.now()-born<450) return; if(e.target.id==="scrim"||e.target.closest("[data-close]")) closeLayer(); });
 }
 const LOCK=`<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>`;
 
@@ -1047,7 +1050,8 @@ cv.addEventListener("pointerup",e=>{
   if(anim || Math.hypot(e.clientX-start.x,e.clientY-start.y)>=7) return;
   if(!state.focus){ vY=AUTO; vX=0; }
   const b=cv.getBoundingClientRect(), x=e.clientX-b.left, y=e.clientY-b.top;
-  const hit=[...pts].reverse().find(p=>Math.hypot(p.sx-x,p.sy-y)<p.r+4);
+  const slop=e.pointerType==="touch"?12:4; // dedo é mais impreciso que o mouse
+  const hit=[...pts].reverse().find(p=>Math.hypot(p.sx-x,p.sy-y)<p.r+slop);
   if(hit) return tap(hit.it);
   if(state.focus){ const c=shellC(); if(Math.hypot(x-c.x,y-c.y)>shellR()) leave(); }
 });
