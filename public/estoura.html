@@ -57,6 +57,7 @@ button.pill:hover{border-color:#3a4f7a}
 .hr{display:flex;align-items:center;gap:8px}
 .pill.auth{display:inline-flex;align-items:center;gap:6px;color:var(--ink)}
 .pill.auth img{width:20px;height:20px;border-radius:50%;object-fit:cover}
+.ex{display:inline-block;margin-left:6px;vertical-align:middle;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--warn);border:1px solid #ffd28a66;border-radius:999px;padding:1px 7px}
 .why{display:grid;grid-template-columns:minmax(0,9em) 1fr auto;gap:10px;align-items:center;font-size:13px;margin-top:8px}
 .why span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wb{height:6px;border-radius:6px;background:var(--line);overflow:hidden}
@@ -410,9 +411,15 @@ const PEOPLE = [
   ["Caio Ventura",27,"Santo André",[-23.66,-46.53],"Camping selvagem sempre que dá.",["trilhas:2","trilhas/camping","trilhas/cachoeiras","escalada","escalada/esportiva","ciclismo","cerveja"],{Instagram:"@caio.mato.ex"}],
   ["Larissa Tavares",30,"Jundiaí",[-23.19,-46.88],"Faço roupas de crochê e cuido de 2 cachorros.",["croche:2","croche/roupas","jardinagem","pets","cafe","cinema","cinema/nacional"],{Instagram:"@lari.fios.ex"}],
   ["Mateus Okada",36,"Santos",[-23.96,-46.33],"Bodyboard, waterline e road trip pelo litoral.",["surf:2","surf/bodyboard","slackline","slackline/waterline","viagens","viagens/roadtrip","fotografia"],{Instagram:"@mateus.okada.ex"}]
-].map(([name,age,city,c,bio,ints,social,shy],i)=>({id:"p"+i,name,age,city,c,bio,social,shy:!!shy,
+].map(([name,age,city,c,bio,ints,social,shy],i)=>({id:"p"+i,name,age,city,c,bio,social,shy:!!shy,example:true,
   lv:new Map(ints.map(s=>{const [id,l]=s.split(":");return [id,+(l||1)];}))}));
 const personNamed = first => PEOPLE.find(p=>p.name.startsWith(first));
+// pessoas reais (vindas do Supabase, só com login). Os perfis acima são de exemplo.
+const REAL = [];
+const everyone = () => [...PEOPLE, ...REAL];
+const authed = () => !!window.estouraAuthed;
+const exTag = p => p.example && authed() ? '<span class="ex">exemplo</span>' : "";
+const metaLine = (p,d,anos) => [p.age ? (anos ? p.age+" anos" : p.age) : null, p.city || null, d!=null ? fmtDist(d) : null].filter(Boolean).join(" · ") || "Membro do Estoura";
 
 // título, título curto, bolha, daqui a N dias, hora, lugar, coordenadas, quem vai
 const EVENTS = [
@@ -463,7 +470,7 @@ function match(p){
   return {pct:Math.round(100*s/u),shared,why};
 }
 function ranked(){
-  return PEOPLE.map(p=>({p,...match(p),d:km(myC(),p.c)})).filter(x=>x.shared.length).sort((a,b)=>b.pct-a.pct);
+  return everyone().map(p=>({p,...match(p),d:p.c?km(myC(),p.c):null})).filter(x=>x.shared.length).sort((a,b)=>b.pct-a.pct);
 }
 const hueOf = p => byId([...p.lv.keys()][0]).hue;
 const initials = n => n.split(" ").map(s=>s[0]).slice(0,2).join("");
@@ -471,7 +478,7 @@ const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&g
 const both2 = (p,id) => p && state.lv.get(id)===2 && p.lv.get(id)===2;
 function chip(id,{dim,p}={}){ const i=byId(id); const h=both2(p,id);
   return `<span class="chip${dim?" dim":""}${i.parent?" sub":""}" style="--h:${i.hue}"${h?' title="Os dois: é minha vida"':""}>${esc(i.name)}${h?" ♥":""}</span>`; }
-const avatar = p => `<span class="av" style="--h:${hueOf(p)}">${initials(p.name)}</span>`;
+const avatar = p => `<span class="av" style="--h:${hueOf(p)}">${p.photo?`<img src="${esc(p.photo)}" alt="" referrerpolicy="no-referrer" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`:initials(p.name)}</span>`;
 const relevant = id => { const i=byId(id); return state.lv.has(id) || (i.parent && state.lv.has(i.parent)); };
 
 function trending(){ return INTERESTS.filter(i=>!i.parent && i.base>50).map(i=>({i,r:i.week/i.base})).sort((a,b)=>b.r-a.r).slice(0,3); }
@@ -532,22 +539,22 @@ function renderMatches(){
   document.getElementById("filters").innerHTML=`
     <label for="city">Você está em <select id="city">${Object.keys(CITIES).map(c=>`<option${c===state.city?" selected":""}>${c}</option>`).join("")}</select></label>
     <div class="seg" role="group" aria-label="Raio de distância">${[[10,"10 km"],[50,"50 km"],[300,"300 km"],[0,"Brasil todo"]].map(([v,l])=>`<button data-r="${v}" aria-pressed="${state.radius===v}">${l}</button>`).join("")}</div>`;
-  const all=ranked(), r=all.filter(x=>inRadius(x.d)), out=all.length-r.length;
+  const all=ranked(), r=all.filter(x=>x.d==null||inRadius(x.d)), out=all.length-r.length;
   const mb=document.getElementById("match-badge"); mb.hidden=!r.length; mb.textContent=r.length;
   document.getElementById("match-list").innerHTML =
     (out?`<div class="note">${out} ${out>1?"pessoas":"pessoa"} com bolhas em comum fora do raio.</div>`:"") +
     (r.length ? r.map(({p,pct,shared,d})=>`
     <button class="card" data-person="${p.id}">
       ${avatar(p)}
-      <span class="who"><span class="name">${esc(p.name)}</span> ${state.conn[p.id]==="accepted"?'<span class="ok">conectados</span>':""}
-        <span class="meta" style="display:block">${p.age} · ${esc(p.city)} · ${fmtDist(d)}</span>
+      <span class="who"><span class="name">${esc(p.name)}</span> ${state.conn[p.id]==="accepted"?'<span class="ok">conectados</span>':""}${exTag(p)}
+        <span class="meta" style="display:block">${esc(metaLine(p,d))}</span>
         <span class="chips">${shared.slice(0,5).map(i=>chip(i,{p})).join("")}${shared.length>5?`<span class="chip dim">+${shared.length-5}</span>`:""}</span></span>
       <span><span class="score">${pct}%<small>${shared.length} em comum</small></span><span class="bar"><span style="width:${pct}%"></span></span></span>
     </button>`).join("") : `<div class="empty">${state.lv.size?"Ninguém nesse raio ainda. Aumente a distância.":"Estoure algumas bolhas pra ver seus matches."}</div>`);
 }
 document.getElementById("filters").addEventListener("change",e=>{ if(e.target.id==="city"){ state.city=e.target.value; rebuild(); renderAll(); } });
 document.getElementById("filters").addEventListener("click",e=>{ const b=e.target.closest("[data-r]"); if(b){ state.radius=+b.dataset.r; rebuild(); renderAll(); } });
-document.getElementById("match-list").onclick=e=>{ const b=e.target.closest("[data-person]"); if(b) openProfile(PEOPLE.find(p=>p.id===b.dataset.person)); };
+document.getElementById("match-list").onclick=e=>{ const b=e.target.closest("[data-person]"); if(b) openProfile(everyone().find(p=>p.id===b.dataset.person)); };
 
 function renderEvents(){
   const vis=visibleEvents().sort((a,b)=>(relevant(b.interest)-relevant(a.interest))||a.days-b.days);
@@ -605,23 +612,25 @@ function openSheet(html,meta){
 const LOCK=`<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>`;
 
 function openProfile(p){
-  const {pct,shared,why=[]}=match(p), d=km(myC(),p.c), conn=state.conn[p.id];
+  const {pct,shared,why=[]}=match(p), d=p.c?km(myC(),p.c):null, conn=state.conn[p.id];
   const top=why.slice(0,5), max=Math.max(1,...top.map(w=>w.pts));
   const others=[...p.lv.keys()].filter(i=>!shared.includes(i));
   openSheet(`
-    <div class="ph">${avatar(p)}<div style="min-width:0"><h3>${esc(p.name)}</h3><div class="meta">${p.age} anos · ${esc(p.city)} · ${fmtDist(d)}</div></div>
+    <div class="ph">${avatar(p)}<div style="min-width:0"><h3>${esc(p.name)}${exTag(p)}</h3><div class="meta">${esc(metaLine(p,d,true))}</div></div>
       <div class="score" style="margin-left:auto">${pct}%<small>match</small></div></div>
-    <p style="margin:14px 0 0;line-height:1.5">${esc(p.bio)}</p>
+    ${p.bio?`<p style="margin:14px 0 0;line-height:1.5">${esc(p.bio)}</p>`:""}
     <div class="sec"><div class="tag">Por que ${pct}% de match</div>
       ${top.map(w=>{ const i=byId(w.id); return `<div class="why" style="--h:${i.hue}"><span>${esc(i.name)}${both2(p,w.id)?" ♥":""}</span><span class="wb"><i style="width:${Math.round(100*w.pts/max)}%"></i></span><b>+${Math.round(w.pts)} · ${count(i).toLocaleString("pt-BR")} pessoas</b></div>`; }).join("")}
       ${shared.length>5?`<div class="chips">${shared.slice(5).map(i=>chip(i,{p})).join("")}</div>`:""}
       <div class="note" style="margin-top:8px">Bolha rara vale mais. ♥ = vocês dois marcaram "é minha vida".</div></div>
     ${others.length?`<div class="sec"><div class="tag">Outras bolhas</div><div class="chips">${others.map(i=>chip(i,{dim:true})).join("")}</div></div>`:""}
     <div class="sec"><div class="tag">Redes sociais</div>
-      ${conn==="accepted" ? `<div class="socials">${Object.entries(p.social).map(([k,v])=>`<span class="soc"><span>${k}</span>${esc(v)}</span>`).join("")}</div>`
+      ${p.real ? `<div class="locked">${LOCK}<div><b>Redes sociais protegidas</b><span>Vão aparecer quando vocês dois aceitarem conversar (convites chegam em breve).</span></div></div>`
+      : conn==="accepted" ? `<div class="socials">${Object.entries(p.social).map(([k,v])=>`<span class="soc"><span>${k}</span>${esc(v)}</span>`).join("")}</div>`
         : `<div class="locked">${LOCK}<div><b>${Object.keys(p.social).join(", ")} protegido${Object.keys(p.social).length>1?"s":""}</b><span>Aparece${Object.keys(p.social).length>1?"m":""} quando vocês dois aceitarem conversar.</span></div></div>`}</div>
     <div class="actions"><button class="btn" data-close>Fechar</button>
-      ${conn==="accepted"?`<button class="btn primary" id="chat-btn">Abrir chat</button>`
+      ${p.real?`<button class="btn" disabled>Convite em breve</button>`
+        : conn==="accepted"?`<button class="btn primary" id="chat-btn">Abrir chat</button>`
         : conn==="pending"?`<button class="btn" disabled>Aguardando ${esc(p.name.split(" ")[0])}</button>`
         : `<button class="btn primary" id="invite-btn">Convidar pra conversar</button>`}</div>`,{type:"profile",id:p.id});
   const c=document.getElementById("chat-btn"); if(c) c.onclick=()=>openChat({key:"p:"+p.id,title:p.name,members:[p],shared});
@@ -1104,8 +1113,26 @@ if (cfg.url && cfg.key) {
     // contagem do banco (já inclui você; o protótipo soma +1 por conta própria)
     st.data.forEach(r => { const it = byId(r.id); if (it) { it.base = r.people - (state.lv.has(r.id) ? 1 : 0); it.week = r.week_count; } });
     rebuild(); renderAll();
+    loadMatches();
     if (mine.data.length) toast(`${mine.data.length} ${mine.data.length > 1 ? "bolhas carregadas" : "bolha carregada"} da sua conta`);
   }
+
+  // pessoas reais que estouraram bolhas iguais às suas (função my_matches do banco)
+  async function loadMatches(){
+    if (!uid) return;
+    const { data, error } = await sb.rpc("my_matches");
+    if (error || !uid) return;
+    const people = new Map();
+    data.forEach(r => {
+      if (!byId(r.interest_id)) return; // bolha criada depois do último carregamento
+      let p = people.get(r.user_id);
+      if (!p) { p = { id: "r_" + r.user_id, name: r.display_name || "Alguém", age: null, city: r.city || "", c: null, bio: "", social: {}, shy: true, real: true, photo: r.avatar_url, lv: new Map() }; people.set(r.user_id, p); }
+      p.lv.set(r.interest_id, r.level);
+    });
+    REAL.length = 0; REAL.push(...people.values());
+    renderAll();
+  }
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) loadMatches(); });
 
   async function flush(){
     await pending;
@@ -1119,6 +1146,7 @@ if (cfg.url && cfg.key) {
     if (err) { toast("Não consegui salvar. Confira sua conexão."); return; }
     up.forEach(r => saved.set(r.interest_id, r.level));
     del.forEach(id => saved.delete(id));
+    loadMatches(); // seus matches mudam quando suas bolhas mudam
   }
   // chamado pelo protótipo a cada mudança; junta cliques rápidos num único envio
   window.estouraSync = () => {
@@ -1143,6 +1171,7 @@ if (cfg.url && cfg.key) {
       btn.setAttribute("aria-label", "Minha conta");
       btn.onclick = () => openAccount(u);
       if (event === "SIGNED_IN" && !wasLogged) toast(`Olá, ${first(u)}!`);
+      window.estouraAuthed = true;
       if (uid !== u.id) {
         uid = u.id;
         // quem já tem conta não precisa da tela de boas-vindas (e "começar do zero" não pode apagar o banco)
@@ -1155,6 +1184,7 @@ if (cfg.url && cfg.key) {
       btn.setAttribute("aria-label", "Entrar com o Google");
       btn.onclick = signIn;
       uid = null;
+      window.estouraAuthed = false;
     }
     wasLogged = !!u;
   }
