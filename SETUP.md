@@ -21,6 +21,7 @@ Você ──► Estoura (Next.js) ──► Supabase Auth ──► Google
 1. Menu **SQL Editor** → **New query**.
 2. Cole o conteúdo de `supabase/migrations/0001_init.sql` → **Run**.
 3. Nova query, cole `supabase/seed.sql` → **Run** (cria as 66 bolhas iniciais).
+3b. Nova query, cole `supabase/migrations/0002_connections_chat.sql` → **Run** (convites, chat e redes sociais protegidas).
 4. Confira em **Table Editor**: `profiles`, `interests`, `user_interests`.
 
 > A segurança (RLS) já está no SQL: cada pessoa só lê e altera as próprias bolhas. Perfis de outras pessoas só aparecem pela função `my_matches()`, e sem e-mail nem redes sociais.

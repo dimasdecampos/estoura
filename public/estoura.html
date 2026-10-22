@@ -418,6 +418,37 @@ const personNamed = first => PEOPLE.find(p=>p.name.startsWith(first));
 const REAL = [];
 const everyone = () => [...PEOPLE, ...REAL];
 const authed = () => !!window.estouraAuthed;
+// convites e conexões da conta (Supabase). Cada pessoa real recebe p.conn quando há convite entre vocês.
+const CONNS = [];
+const isLinked = p => (state.conn[p.id]==="accepted") || (p.conn && p.conn.status==="accepted");
+function realSocials(p){
+  const c=p.conn, nm=esc(p.name.split(" ")[0]);
+  if(c && c.status==="accepted"){
+    const e=Object.entries(c.socials||{}).filter(([,v])=>v);
+    return e.length ? `<div class="socials">${e.map(([k,v])=>`<span class="soc"><span>${esc(k)}</span>${esc(v)}</span>`).join("")}</div>`
+      : `<div class="locked">${LOCK}<div><b>Sem redes por enquanto</b><span>${nm} ainda não adicionou as redes sociais.</span></div></div>`;
+  }
+  return `<div class="locked">${LOCK}<div><b>Redes sociais protegidas</b><span>Aparecem quando vocês dois aceitarem conversar.</span></div></div>`;
+}
+function realActions(p){
+  const c=p.conn, nm=esc(p.name.split(" ")[0]);
+  if(!c) return `<button class="btn primary" id="real-invite">Convidar pra conversar</button>`;
+  if(c.status==="accepted") return `<button class="btn primary" id="real-chat">Abrir chat</button>`;
+  if(c.status==="declined") return `<button class="btn" disabled>${c.mine?"Convite não aceito":"Você recusou"}</button>`;
+  return c.mine ? `<button class="btn" disabled>Aguardando ${nm}</button>`
+    : `<button class="btn" id="real-decline">Recusar</button><button class="btn primary" id="real-accept">Aceitar</button>`;
+}
+function inviteBlock(){
+  const inc=CONNS.filter(c=>c.status==="pending" && !c.mine);
+  if(!inc.length) return "";
+  return `<div class="tag" style="margin:2px 0 -2px">Convites pra você (${inc.length})</div>` + inc.map(c=>`
+    <div class="group" style="--h:330">
+      <div class="row"><div style="display:flex;align-items:center;gap:12px;min-width:0">
+        <span class="av" style="--h:330">${c.photo?`<img src="${esc(c.photo)}" alt="" referrerpolicy="no-referrer" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`:esc(initials(c.name))}</span>
+        <span class="who"><span class="name">${esc(c.name)}</span> convidou você pra conversar${c.city?`<span class="meta" style="display:block">${esc(c.city)}</span>`:""}</span></div>
+        <div class="row" style="gap:8px"><button class="btn sm" data-inv="${c.id}" data-act="decline">Recusar</button><button class="btn sm primary" data-inv="${c.id}" data-act="accept">Aceitar</button></div></div>
+    </div>`).join("");
+}
 const exTag = p => p.example && authed() ? '<span class="ex">exemplo</span>' : "";
 const metaLine = (p,d,anos) => [p.age ? (anos ? p.age+" anos" : p.age) : null, p.city || null, d!=null ? fmtDist(d) : null].filter(Boolean).join(" · ") || "Membro do Estoura";
 
@@ -540,13 +571,15 @@ function renderMatches(){
     <label for="city">Você está em <select id="city">${Object.keys(CITIES).map(c=>`<option${c===state.city?" selected":""}>${c}</option>`).join("")}</select></label>
     <div class="seg" role="group" aria-label="Raio de distância">${[[10,"10 km"],[50,"50 km"],[300,"300 km"],[0,"Brasil todo"]].map(([v,l])=>`<button data-r="${v}" aria-pressed="${state.radius===v}">${l}</button>`).join("")}</div>`;
   const all=ranked(), r=all.filter(x=>x.d==null||inRadius(x.d)), out=all.length-r.length;
-  const mb=document.getElementById("match-badge"); mb.hidden=!r.length; mb.textContent=r.length;
+  const inv=CONNS.filter(c=>c.status==="pending"&&!c.mine).length;
+  const mb=document.getElementById("match-badge"); mb.hidden=!(r.length+inv); mb.textContent=r.length+inv;
   document.getElementById("match-list").innerHTML =
+    inviteBlock() +
     (out?`<div class="note">${out} ${out>1?"pessoas":"pessoa"} com bolhas em comum fora do raio.</div>`:"") +
     (r.length ? r.map(({p,pct,shared,d})=>`
     <button class="card" data-person="${p.id}">
       ${avatar(p)}
-      <span class="who"><span class="name">${esc(p.name)}</span> ${state.conn[p.id]==="accepted"?'<span class="ok">conectados</span>':""}${exTag(p)}
+      <span class="who"><span class="name">${esc(p.name)}</span> ${isLinked(p)?'<span class="ok">conectados</span>':""}${p.conn&&p.conn.status==="pending"&&!p.conn.mine?'<span class="ok">convidou você</span>':""}${exTag(p)}
         <span class="meta" style="display:block">${esc(metaLine(p,d))}</span>
         <span class="chips">${shared.slice(0,5).map(i=>chip(i,{p})).join("")}${shared.length>5?`<span class="chip dim">+${shared.length-5}</span>`:""}</span></span>
       <span><span class="score">${pct}%<small>${shared.length} em comum</small></span><span class="bar"><span style="width:${pct}%"></span></span></span>
@@ -554,7 +587,9 @@ function renderMatches(){
 }
 document.getElementById("filters").addEventListener("change",e=>{ if(e.target.id==="city"){ state.city=e.target.value; rebuild(); renderAll(); } });
 document.getElementById("filters").addEventListener("click",e=>{ const b=e.target.closest("[data-r]"); if(b){ state.radius=+b.dataset.r; rebuild(); renderAll(); } });
-document.getElementById("match-list").onclick=e=>{ const b=e.target.closest("[data-person]"); if(b) openProfile(everyone().find(p=>p.id===b.dataset.person)); };
+document.getElementById("match-list").onclick=e=>{
+  const a=e.target.closest("[data-inv]"); if(a){ if(window.estouraRespond) window.estouraRespond(a.dataset.inv,a.dataset.act==="accept"); return; }
+  const b=e.target.closest("[data-person]"); if(b) openProfile(everyone().find(p=>p.id===b.dataset.person)); };
 
 function renderEvents(){
   const vis=visibleEvents().sort((a,b)=>(relevant(b.interest)-relevant(a.interest))||a.days-b.days);
@@ -628,14 +663,21 @@ function openProfile(p){
       <div class="note" style="margin-top:8px">Bolha rara vale mais. ♥ = vocês dois marcaram "é minha vida".</div></div>
     ${others.length?`<div class="sec"><div class="tag">Outras bolhas</div><div class="chips">${others.map(i=>chip(i,{dim:true})).join("")}</div></div>`:""}
     <div class="sec"><div class="tag">Redes sociais</div>
-      ${p.real ? `<div class="locked">${LOCK}<div><b>Redes sociais protegidas</b><span>Vão aparecer quando vocês dois aceitarem conversar (convites chegam em breve).</span></div></div>`
+      ${p.real ? realSocials(p)
       : conn==="accepted" ? `<div class="socials">${Object.entries(p.social).map(([k,v])=>`<span class="soc"><span>${k}</span>${esc(v)}</span>`).join("")}</div>`
         : `<div class="locked">${LOCK}<div><b>${Object.keys(p.social).join(", ")} protegido${Object.keys(p.social).length>1?"s":""}</b><span>Aparece${Object.keys(p.social).length>1?"m":""} quando vocês dois aceitarem conversar.</span></div></div>`}</div>
     <div class="actions"><button class="btn" data-close>Fechar</button>
-      ${p.real?`<button class="btn" disabled>Convite em breve</button>`
+      ${p.real?realActions(p)
         : conn==="accepted"?`<button class="btn primary" id="chat-btn">Abrir chat</button>`
         : conn==="pending"?`<button class="btn" disabled>Aguardando ${esc(p.name.split(" ")[0])}</button>`
         : `<button class="btn primary" id="invite-btn">Convidar pra conversar</button>`}</div>`,{type:"profile",id:p.id});
+  if(p.real){
+    const g=id=>document.getElementById(id);
+    if(g("real-invite")) g("real-invite").onclick=()=>window.estouraInvite&&window.estouraInvite(p);
+    if(g("real-accept")) g("real-accept").onclick=()=>window.estouraRespond&&window.estouraRespond(p.conn.id,true);
+    if(g("real-decline")) g("real-decline").onclick=()=>window.estouraRespond&&window.estouraRespond(p.conn.id,false);
+    if(g("real-chat")) g("real-chat").onclick=()=>openChat({key:"c:"+p.conn.id,title:p.name,members:[p],shared,real:p.conn.id});
+  }
   const c=document.getElementById("chat-btn"); if(c) c.onclick=()=>openChat({key:"p:"+p.id,title:p.name,members:[p],shared});
   const iv=document.getElementById("invite-btn"); if(iv) iv.onclick=()=>invite(p);
 }
@@ -706,7 +748,7 @@ function openChat(c){
   current=c; sheet=null;
   if(!state.chats[c.key]) state.chats[c.key]=[{sys:(c.intro?c.intro+" ":"")+`Em comum: ${c.shared.map(i=>byId(i).name).join(", ")}.`}];
   const n=c.members.length;
-  const sub = n>1||c.key.startsWith("e")||c.key.startsWith("u") ? (n?"você, "+c.members.map(m=>m.name.split(" ")[0]).join(", "):"só você por enquanto") : `${c.members[0].city} · match ${match(c.members[0]).pct}%`;
+  const sub = n>1||c.key.startsWith("e")||c.key.startsWith("u") ? (n?"você, "+c.members.map(m=>m.name.split(" ")[0]).join(", "):"só você por enquanto") : [c.members[0].city,`match ${match(c.members[0]).pct}%`].filter(Boolean).join(" · ");
   const ice=c.shared.map(i=>ICE[i]||`O que te levou a ${byId(i).name.toLowerCase()}?`);
   layer.innerHTML=`<div class="chat" role="dialog" aria-modal="true" aria-label="Conversa: ${esc(c.title)}">
     <div class="ch gut"><button class="back" id="back" aria-label="Voltar">←</button>
@@ -717,6 +759,7 @@ function openChat(c){
     <form class="composer gut" id="composer"><input type="text" id="msg-input" placeholder="Escreva uma mensagem" autocomplete="off"><button class="btn primary" type="submit">Enviar</button></form>
   </div>`;
   renderMsgs();
+  if(c.real && window.estouraLoadChat) window.estouraLoadChat(c); // conversa de verdade: busca o histórico no banco
   document.getElementById("back").onclick=closeLayer;
   document.getElementById("ice").onclick=e=>{ const b=e.target.closest("[data-q]"); if(b) send(b.dataset.q); };
   document.getElementById("composer").onsubmit=e=>{ e.preventDefault(); const i=document.getElementById("msg-input"); if(i.value.trim()){ send(i.value.trim()); i.value=""; } };
@@ -731,7 +774,9 @@ function renderMsgs(typing){
   box.scrollTop=box.scrollHeight;
 }
 function send(text){
-  const c=current; state.chats[c.key].push({me:true,text}); renderMsgs();
+  const c=current;
+  if(c.real){ if(window.estouraSend) window.estouraSend(c,text); return; } // pessoa real: sem respostas simuladas
+  state.chats[c.key].push({me:true,text}); renderMsgs();
   if(!c.members.length) return;
   const who=c.members[Math.floor(Math.random()*c.members.length)];
   setTimeout(()=>{ if(current===c) renderMsgs(who.name.split(" ")[0]); },500);
@@ -1093,13 +1138,99 @@ if (cfg.url && cfg.key) {
   const photo = u => u.user_metadata && (u.user_metadata.avatar_url || u.user_metadata.picture);
   const signIn = () => sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: location.origin + "/", queryParams: { prompt: "select_account" } } });
 
-  function openAccount(u){
+  const SOCIALS = [["Instagram", "@seu.usuario"], ["Strava", "seu-usuario"], ["LinkedIn", "seu-usuario"]];
+  async function openAccount(u){
+    // cidade e redes ficam só na sua linha de profiles; os outros só veem as redes depois que você aceita a conversa
+    const { data: me } = await sb.from("profiles").select("city, socials").eq("id", u.id).maybeSingle();
+    const s = (me && me.socials) || {};
     openSheet(`<div class="ph">${photo(u) ? `<img src="${esc(photo(u))}" alt="" referrerpolicy="no-referrer" style="width:64px;height:64px;border-radius:50%;object-fit:cover">` : `<span class="av me">${esc(first(u)[0])}</span>`}
         <div style="min-width:0"><h3>${esc((u.user_metadata && u.user_metadata.full_name) || first(u))}</h3><div class="meta">${esc(u.email || "")}</div></div></div>
+      <div class="sec"><div class="tag">Seu perfil</div>
+        <form class="form" id="prof-form">
+          <label for="pf-city">Cidade<input type="text" id="pf-city" maxlength="60" placeholder="Ex.: São Paulo" value="${esc((me && me.city) || "")}"></label>
+          ${SOCIALS.map(([k, ph]) => `<label for="pf-${k}">${k}<input type="text" id="pf-${k}" maxlength="60" placeholder="${ph}" value="${esc(s[k] || "")}" autocapitalize="off" autocomplete="off"></label>`).join("")}
+          <div class="note">Suas redes só aparecem para quem você aceitar conversar.</div>
+          <button class="btn mint" type="submit">Salvar perfil</button>
+        </form></div>
       <div class="actions"><button class="btn" data-close>Fechar</button><button class="btn primary" id="signout">Sair da conta</button></div>`, { type: "account" });
+    document.getElementById("prof-form").onsubmit = async e => {
+      e.preventDefault();
+      const socials = {};
+      SOCIALS.forEach(([k]) => { const v = document.getElementById("pf-" + k).value.trim(); if (v) socials[k] = v; });
+      const city = document.getElementById("pf-city").value.trim() || null;
+      const { error } = await sb.from("profiles").update({ city, socials }).eq("id", u.id);
+      toast(error ? "Não consegui salvar o perfil" : "Perfil salvo");
+    };
     // recarrega a página para não deixar as bolhas da conta na memória
     document.getElementById("signout").onclick = async () => { await sb.auth.signOut(); location.reload(); };
   }
+
+  /* ---------- convites, conexões e chat de verdade ---------- */
+  const unpack = r => ({ id: r.connection_id, status: r.status, mine: r.i_am_requester, otherId: r.other_id, name: r.display_name || "Alguém", photo: r.avatar_url, city: r.city || "", socials: r.socials || {} });
+  const chatKey = id => "c:" + id;
+  const linkConns = () => REAL.forEach(p => { p.conn = CONNS.find(c => c.otherId === p.uid) || null; });
+  let live = null;
+
+  async function loadConnections(){
+    if (!uid) return;
+    const { data, error } = await sb.rpc("connection_people");
+    if (error || !uid) return; // se o SQL 0002 ainda não rodou, o app segue sem convites
+    CONNS.length = 0; CONNS.push(...data.map(unpack));
+    linkConns(); renderAll();
+    if (sheet && sheet.type === "profile") { const p = everyone().find(x => x.id === sheet.id); if (p) openProfile(p); }
+  }
+
+  window.estouraInvite = async p => {
+    const { error } = await sb.from("connections").insert({ requester_id: uid, addressee_id: p.uid });
+    toast(error ? (error.code === "23505" ? "Já existe um convite entre vocês" : "Não consegui enviar o convite") : `Convite enviado pra ${p.name.split(" ")[0]}`);
+    await loadConnections();
+  };
+  window.estouraRespond = async (connId, accept) => {
+    const c = CONNS.find(x => x.id === connId);
+    const { error } = await sb.rpc("respond_connection", { p_id: connId, p_accept: accept });
+    if (error) return toast("Não consegui responder ao convite");
+    toast(accept ? `Vocês estão conectados${c ? " com " + c.name.split(" ")[0] : ""}! Redes liberadas` : "Convite recusado");
+    await loadConnections();
+  };
+
+  function pushMsg(key, m){
+    const list = state.chats[key]; if (!list) return;
+    if (list.some(x => x.id === m.id)) return; // a mesma mensagem chega pela resposta do envio e pelo tempo real
+    list.push(m);
+    if (current && current.key === key) renderMsgs();
+  }
+  window.estouraLoadChat = async c => {
+    const { data, error } = await sb.from("messages").select("id, sender_id, body").eq("connection_id", c.real).order("id");
+    if (error) return toast("Não consegui carregar a conversa");
+    const intro = state.chats[c.key].filter(m => m.sys);
+    state.chats[c.key] = [...intro, ...data.map(m => ({ id: m.id, me: m.sender_id === uid, p: c.members[0], text: m.body }))];
+    if (current === c) renderMsgs();
+  };
+  window.estouraSend = async (c, text) => {
+    const { data, error } = await sb.from("messages").insert({ connection_id: c.real, sender_id: uid, body: text }).select("id").single();
+    if (error) return toast("Não consegui enviar a mensagem");
+    pushMsg(c.key, { id: data.id, me: true, p: c.members[0], text });
+  };
+
+  // convites e mensagens chegam na hora (Supabase Realtime, filtrado pelo RLS)
+  function startLive(){
+    if (live) return;
+    live = sb.channel("estoura-live")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, ({ new: m }) => {
+        const c = CONNS.find(x => x.id === m.connection_id), mine = m.sender_id === uid, key = chatKey(m.connection_id);
+        pushMsg(key, { id: m.id, me: mine, p: { name: c ? c.name : "Alguém" }, text: m.body });
+        if (!mine && !(current && current.key === key)) toast(`Nova mensagem de ${c ? c.name.split(" ")[0] : "alguém"}: ${m.body.slice(0, 50)}`);
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "connections" }, async ({ eventType, new: row }) => {
+        await loadConnections();
+        if (!row) return;
+        const c = CONNS.find(x => x.id === row.id), nm = c ? c.name.split(" ")[0] : "Alguém";
+        if (eventType === "INSERT" && row.addressee_id === uid) toast(`${nm} convidou você pra conversar`);
+        if (eventType === "UPDATE" && row.status === "accepted" && row.requester_id === uid) toast(`${nm} aceitou! Redes sociais liberadas`);
+      })
+      .subscribe();
+  }
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) loadConnections(); });
 
   /* ---------- bolhas salvas na conta ---------- */
   let uid = null, loading = false, timer = null, queue = Promise.resolve(), pending = Promise.resolve();
@@ -1118,6 +1249,7 @@ if (cfg.url && cfg.key) {
     st.data.forEach(r => { const it = byId(r.id); if (it) { it.base = r.people - (state.lv.has(r.id) ? 1 : 0); it.week = r.week_count; } });
     rebuild(); renderAll();
     loadMatches();
+    loadConnections(); startLive();
     if (mine.data.length) toast(`${mine.data.length} ${mine.data.length > 1 ? "bolhas carregadas" : "bolha carregada"} da sua conta`);
   }
 
@@ -1130,10 +1262,10 @@ if (cfg.url && cfg.key) {
     data.forEach(r => {
       if (!byId(r.interest_id)) return; // bolha criada depois do último carregamento
       let p = people.get(r.user_id);
-      if (!p) { p = { id: "r_" + r.user_id, name: r.display_name || "Alguém", age: null, city: r.city || "", c: null, bio: "", social: {}, shy: true, real: true, photo: r.avatar_url, lv: new Map() }; people.set(r.user_id, p); }
+      if (!p) { p = { id: "r_" + r.user_id, name: r.display_name || "Alguém", age: null, city: r.city || "", c: null, bio: "", social: {}, shy: true, real: true, uid: r.user_id, photo: r.avatar_url, lv: new Map() }; people.set(r.user_id, p); }
       p.lv.set(r.interest_id, r.level);
     });
-    REAL.length = 0; REAL.push(...people.values());
+    REAL.length = 0; REAL.push(...people.values()); linkConns();
     renderAll();
   }
   document.addEventListener("visibilitychange", () => { if (!document.hidden) loadMatches(); });
