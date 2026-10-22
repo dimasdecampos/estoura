@@ -1293,7 +1293,7 @@ const trashZone=()=>({x:W/2,y:H-46,r:32});
 const overTrash=g=>{ const z=trashZone(); return Math.hypot(g.x-z.x,g.y-z.y)<z.r+20; };
 const drawAll=()=>pts.forEach(p=>{
   if(grab&&p.it===grab.it) return;
-  if(grow&&p.it===grow.it){ const k=1+.4*Math.min(1,(performance.now()-grow.t0)/480); drawBubble({...p,r:p.r*k}); return; } // cresce pra mostrar que vai entrar
+  if(grow&&p.it===grow.it){ const k=1+.4*Math.min(1,(performance.now()-grow.t0)/700); drawBubble({...p,r:p.r*k}); return; } // cresce pra mostrar que vai entrar
   drawBubble(p); }); // a bolha pega é desenhada à parte
 function drawGrab(){
   if(!grab) return;
@@ -1381,14 +1381,14 @@ cv.addEventListener("pointerdown",e=>{
     if(h && !h.it.type){
       // parou um instante: a bolha começa a crescer (vai entrar). Segurou mais: pronta pra entrar. Segurou bem mais: modo excluir.
       if(!spread.on){
-        lpG=setTimeout(()=>{ if(drag) grow={it:h.it,t0:performance.now()}; },220);
-        lpE=setTimeout(()=>{ if(!drag) return; lpDone=true; try{ navigator.vibrate && navigator.vibrate(15); }catch(_){} },700);
+        lpG=setTimeout(()=>{ if(drag) grow={it:h.it,t0:performance.now()}; },300);
+        lpE=setTimeout(()=>{ if(!drag) return; lpDone=true; try{ navigator.vibrate && navigator.vibrate(15); }catch(_){} },1000);
       }
       lp=setTimeout(()=>{
         if(!drag||!canManage()) return;
         try{ navigator.vibrate && navigator.vibrate([20,40,20]); }catch(_){}
         lpDone=false; grow=null; grab={it:h.it,x:p0.x,y:p0.y,x0:p0.x,y0:p0.y,moved:false}; // logado: segurou bastante, pega pra excluir
-      },1600);
+      },5000);
     } } });
 cv.addEventListener("contextmenu",e=>e.preventDefault());
 cv.addEventListener("pointerleave",()=>{ hoverPause=false; spread.mouse=null; cv.style.cursor=""; });
