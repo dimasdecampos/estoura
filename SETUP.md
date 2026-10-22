@@ -116,5 +116,5 @@ Vercel → **Settings → Domains** → adicione `estoura.com.br` (ou o seu). De
 
 ## Para lançar de verdade
 
-- Zere os números de exemplo: `update public.interests set base_count = 0, week_count = 0;`
+- Rode também `0003_pulse.sql`, `0004_events.sql` e `0005_real_numbers.sql` (números 100% reais: contagem, "Em alta" e peso da raridade).
 - Revise as políticas de privacidade e termos (você coleta nome, e-mail e foto — LGPD).

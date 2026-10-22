@@ -385,8 +385,9 @@ const SUBS = {
 };
 const INTERESTS = [];
 TOP.forEach(([id,name,hue,base,week])=>{
-  INTERESTS.push({id,name,hue,base,week,parent:null});
-  (SUBS[id]||[]).forEach(([s,n,b],k)=>INTERESTS.push({id:id+"/"+s,name:n,hue:(hue+(k-1)*24+360)%360,base:b,week:0,parent:id}));
+  // sem números de exemplo: as contagens vêm das pessoas reais (Supabase)
+  INTERESTS.push({id,name,hue,base:0,week:0,parent:null});
+  (SUBS[id]||[]).forEach(([s,n,b],k)=>INTERESTS.push({id:id+"/"+s,name:n,hue:(hue+(k-1)*24+360)%360,base:0,week:0,parent:id}));
 });
 const byId = id => INTERESTS.find(i=>i.id===id);
 const kids = id => INTERESTS.filter(i=>i.parent===id);
@@ -457,9 +458,10 @@ const state = {
   lv:new Map(),
   chats:{}, created:new Set(), conn:{p14:"accepted"}, going:new Set(), city:"São Paulo", radius:300, focus:null
 };
-const TOTAL = 6000;
+let COMMUNITY = 1; // quantas pessoas existem no Estoura (vem do banco)
 const count = i => i.base + (state.lv.has(i.id)?1:0);
-const weight = id => Math.log(TOTAL / Math.max(2,count(byId(id))));
+// bolha rara pesa mais: quanto menor a fatia da comunidade que estourou, maior o peso
+const weight = id => Math.log((COMMUNITY+2)/(count(byId(id))+1)) + 0.1;
 const myC = () => CITIES[state.city];
 function km(a,b){const t=x=>x*Math.PI/180,dA=t(b[0]-a[0]),dO=t(b[1]-a[1]);const h=Math.sin(dA/2)**2+Math.cos(t(a[0]))*Math.cos(t(b[0]))*Math.sin(dO/2)**2;return 12742*Math.asin(Math.sqrt(h));}
 const fmtDist = d => d<5?"menos de 5 km": d<100?`~${Math.round(d/5)*5} km`:`~${Math.round(d/10)*10} km`;
@@ -487,7 +489,8 @@ function chip(id,{dim,p}={}){ const i=byId(id); const h=both2(p,id);
 const avatar = p => `<span class="av" style="--h:${hueOf(p)}">${p.photo?`<img src="${esc(p.photo)}" alt="" referrerpolicy="no-referrer" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`:initials(p.name)}</span>`;
 const relevant = id => { const i=byId(id); return state.lv.has(id) || (i.parent && state.lv.has(i.parent)); };
 
-function trending(){ return INTERESTS.filter(i=>!i.parent && i.base>50).map(i=>({i,r:i.week/i.base})).sort((a,b)=>b.r-a.r).slice(0,3); }
+// em alta = bolhas que mais ganharam gente nos últimos 7 dias (pelo menos 2 pessoas novas)
+function trending(){ return INTERESTS.filter(i=>!i.parent && i.week>=2).map(i=>({i,r:i.week})).sort((a,b)=>b.r-a.r).slice(0,3); }
 const evDate = e => { const d=new Date(); d.setDate(d.getDate()+e.days); const [h,m]=e.time.split(":"); d.setHours(+h,+m,0,0); return d; };
 const evWhen = e => e.days===0?"hoje":e.days===1?"amanhã":`em ${e.days} dias`;
 const evLong = e => evDate(e).toLocaleDateString("pt-BR",{weekday:"short",day:"numeric",month:"short"});
@@ -526,8 +529,9 @@ function renderHeader(){ document.querySelector("#pop-count b").textContent = st
 
 function renderTrend(){
   const el=document.getElementById("trend"); el.hidden=!!state.focus;
-  el.innerHTML=`<span class="tag">Em alta</span>`+trending().map(({i,r})=>`<button data-trend="${i.id}" style="--h:${i.hue}">${esc(i.name)}<b>+${Math.round(r*100)}%</b></button>`).join("")
-    +`<span class="note" style="flex:none;margin:0 0 0 4px">na semana</span>`;
+  const tr=trending(); TREND.clear(); tr.forEach(x=>TREND.add(x.i.id)); // as bolhas em alta pulsam no globo
+  el.innerHTML=tr.length ? `<span class="tag">Em alta</span>`+tr.map(({i,r})=>`<button data-trend="${i.id}" style="--h:${i.hue}">${esc(i.name)}<b>+${r}</b></button>`).join("")
+    +`<span class="note" style="flex:none;margin:0 0 0 4px">pessoas na semana</span>` : "";
 }
 document.getElementById("trend").onclick=e=>{ const b=e.target.closest("[data-trend]"); if(b) spinTo(b.dataset.trend); };
 
@@ -1094,15 +1098,6 @@ cv.addEventListener("pointerup",e=>{
 });
 cv.addEventListener("pointercancel",()=>{drag=false;clearTimeout(lp);cv.classList.remove("drag")});
 
-// simula gente estourando as bolhas em alta, ao vivo
-setInterval(()=>{
-  const tr=trending(); TREND.clear(); tr.forEach(x=>TREND.add(x.i.id));
-  const pick=tr[Math.floor(Math.random()*tr.length)].i; pick.base++; pick.week++;
-  if(!state.focus && !anim && !document.hidden) burst(pick,false);
-  renderTrend();
-},2800);
-
-trending().forEach(x=>TREND.add(x.i.id));
 // teclado virtual (iOS/Android): o chat encolhe junto com a área visível
 if(window.visualViewport){
   const vv=visualViewport, fit=()=>{ document.documentElement.style.setProperty("--vvh",vv.height+"px"); if(vv.offsetTop) scrollTo(0,0); };
@@ -1295,6 +1290,7 @@ if (cfg.url && cfg.key) {
         if (!it) { const n = { id: r.id, name: r.name, hue: r.hue, base: r.people, week: r.week_count, parent: r.parent_id }; INTERESTS.push(n); fresh.push(n); }
         else { it.base = r.people - (state.lv.has(r.id) ? 1 : 0); it.week = r.week_count; }
       });
+      COMMUNITY = community(st.data);
       if (fresh.length) { rebuild(); toast(fresh.length === 1 ? `Nova bolha: ${fresh[0].name}` : `${fresh.length} bolhas novas`); }
       renderAll();
       loadMatches();
@@ -1314,6 +1310,8 @@ if (cfg.url && cfg.key) {
   let uid = null, loading = false, timer = null, queue = Promise.resolve(), pending = Promise.resolve();
   const saved = new Map(); // o que já está no banco: interest_id -> nível
 
+  // tamanho da comunidade: o banco informa (coluna total); sem o SQL 0005, usa a maior bolha como aproximação
+  const community = rows => (rows.length && rows[0].total != null ? rows[0].total : Math.max(1, ...rows.map(r => r.people)));
   async function loadMine(){
     loading = true;
     const [st, mine] = await Promise.all([ sb.rpc("interest_stats"), sb.from("user_interests").select("interest_id, level") ]);
@@ -1325,6 +1323,7 @@ if (cfg.url && cfg.key) {
     mine.data.forEach(r => { state.lv.set(r.interest_id, r.level); saved.set(r.interest_id, r.level); });
     // contagem do banco (já inclui você; o protótipo soma +1 por conta própria)
     st.data.forEach(r => { const it = byId(r.id); if (it) { it.base = r.people - (state.lv.has(r.id) ? 1 : 0); it.week = r.week_count; } });
+    COMMUNITY = community(st.data);
     rebuild(); renderAll();
     loadMatches();
     loadConnections(); loadEvents(); startLive(); startPulse();
