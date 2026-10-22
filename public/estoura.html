@@ -1392,7 +1392,7 @@ cv.addEventListener("pointermove",e=>{
   if(spread.on){ spread.px+=dx; spread.py+=dy; spread.tpx=spread.px; spread.tpy=spread.py; spread.auto=false; return; } // arrastar move a tela
   if(state.focus){
     if(sphere()){ fY+=dx*.008; fX-=dy*.008; fvY=dx*.008; fvX=-dy*.008; } // esfera de dentro da bolha
-    else { orbit+=dx*.006; vO=dx*.006; }
+    else { const c=shellC(), p=localXY(e), rx=p.x-c.x, ry=p.y-c.y, d=(rx*dy-ry*dx)/Math.max(rx*rx+ry*ry,3600); orbit+=d; vO=d; } // gira pro lado que o dedo vai, em qualquer ponto do anel
     return; }
   // arrastar o dedo pra baixo faz a frente do globo descer junto
   rotY+=dx*.008; rotX-=dy*.008; vY=dx*.008; vX=-dy*.008;
