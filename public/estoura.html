@@ -1149,7 +1149,7 @@ function drawBubble({it,sx,sy,r,z}){
   if(L && showLabel && heartable({it,r,z})){ // só o coração, dentro da bolha, no topo à direita
     const k=heartSpot({sx,sy,r}), on=L===2; ctx.globalAlpha*=Math.max(0,Math.min(1,(it.hu-performance.now())/400));
     heartPath(k.x,k.y,k.hr*.85); ctx.lineJoin="round";
-    if(on){ ctx.fillStyle="#ff3d77"; ctx.fill(); ctx.lineWidth=1.2; ctx.strokeStyle="#fff"; ctx.stroke(); }
+    if(on){ ctx.lineWidth=1.2; ctx.strokeStyle="#fff"; ctx.stroke(); } // sem preenchimento rosa: contorno branco liso
     else { ctx.lineWidth=1.2; ctx.strokeStyle="#fff"; ctx.lineDashOffset=0; ctx.setLineDash([k.hr*.3,k.hr*.3]); ctx.stroke(); ctx.setLineDash([]); } // tracejado = ainda não é favorita
   }
   ctx.globalAlpha=1;
