@@ -59,6 +59,10 @@ button.pill:hover{border-color:#3a4f7a}
 .hr{display:flex;align-items:center;gap:8px}
 .pill.auth{display:inline-flex;align-items:center;gap:6px;color:var(--ink)}
 .pill.auth img{width:20px;height:20px;border-radius:50%;object-fit:cover}
+.vt{position:absolute;top:8px;right:12px;z-index:3;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:var(--surface-2);border:1px solid var(--line);color:var(--ink);box-shadow:0 6px 20px #0006;transition:transform .15s,border-color .15s,background .15s}
+.vt:hover{transform:scale(1.06);border-color:var(--accent-2)}
+.vt[aria-pressed="true"]{border-color:var(--accent-2);color:var(--accent-2)}
+.vt svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
 #ptr{position:fixed;top:calc(env(safe-area-inset-top,0px) + 6px);left:50%;width:38px;height:38px;border-radius:50%;background:var(--surface-2);border:1px solid var(--line);z-index:25;display:grid;place-items:center;pointer-events:none;opacity:0;transform:translate(-50%,-46px);box-shadow:0 6px 20px #0008}
 #ptr.snap{transition:transform .22s ease,opacity .22s}
 #ptr i{width:16px;height:16px;border-radius:50%;border:2.5px solid var(--accent);border-top-color:transparent}
@@ -311,6 +315,7 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
       </div>
       <div class="stage">
         <canvas id="globe" aria-label="Globo de bolhas de interesses"></canvas>
+        <button class="vt" id="view-toggle" type="button" aria-pressed="false" aria-label="Ver todas as bolhas espalhadas" title="Ver todas as bolhas espalhadas"></button>
       </div>
       <div class="dock gut" id="dock-top">
         <form id="new-form">
@@ -894,7 +899,84 @@ function fib(list){ const n=list.length, g=Math.PI*(3-Math.sqrt(5));
 // muitas sub-bolhas: dentro da bolha elas giram numa esfera, igual ao globo principal
 const SPHERE_MIN=7;
 const sphere=()=>!!state.focus && items.length>SPHERE_MIN;
+/* ---------- visão espalhada ("explodida") ----------
+   Mostra TODAS as bolhas, de todos os níveis, soltas na tela ao mesmo tempo, sem agrupar.
+   As bolhas da mesma família ficam perto umas das outras (e têm a mesma cor).
+   Arrastar move a tela; pinça ou rodinha dão zoom; toque estoura; segurar e arrastar move/exclui. */
+const spread={on:false,k:1,px:0,py:0,tk:1,tpx:0,tpy:0,auto:true};
+const spreadR=it=>it.type==="event" ? 20+evCount(it)*2 : 20+16*Math.sqrt(count(it)/peak(INTERESTS));
+function layoutSpread(){
+  const ar=Math.max(.6,Math.min(1.8,W/Math.max(1,H)));
+  items.forEach((it,k)=>{
+    if(!it.sp){ // bolha nova: nasce perto da bolha-mãe (ou do centro)
+      const par=it.parent?byId(it.parent):null, c=par&&par.sp?par.sp:{tx:0,ty:0}, a=k*2.399963, rr=26+Math.sqrt(k)*30;
+      it.sp={x:c.tx,y:c.ty,r:0,tx:c.tx+Math.cos(a)*rr*ar,ty:c.ty+Math.sin(a)*rr,tr:0};
+    }
+    it.sp.tr=spreadR(it);
+  });
+  const P=items.map(it=>it.sp);
+  for(let iter=0;iter<240;iter++){
+    for(let i=0;i<P.length;i++){ const a=P[i];
+      for(let j=i+1;j<P.length;j++){ const b=P[j];
+        let dx=b.tx-a.tx, dy=b.ty-a.ty; const d=Math.hypot(dx,dy)||.01, min=a.tr+b.tr+8;
+        if(d<min){ const push=(min-d)*.25; dx/=d; dy/=d; a.tx-=dx*push; a.ty-=dy*push; b.tx+=dx*push; b.ty+=dy*push; } } }
+    items.forEach(it=>{ const s=it.sp;
+      s.tx*= ar>=1?.9985:.9945; s.ty*= ar>=1?.9945:.9985; // puxa de leve pro centro, mais na menor dimensão da tela
+      const par=it.parent?byId(it.parent):null;
+      if(par&&par.sp){ const dx=par.sp.tx-s.tx, dy=par.sp.ty-s.ty, d=Math.hypot(dx,dy)||.01, rest=s.tr+par.sp.tr+16;
+        if(d>rest){ const f=(d-rest)*.015; s.tx+=dx/d*f; s.ty+=dy/d*f; } } // a família fica junta
+    });
+  }
+  // passada final só de afastamento, pra nenhuma bolha ficar em cima da outra
+  for(let iter=0;iter<120;iter++){ let hit=false;
+    for(let i=0;i<P.length;i++) for(let j=i+1;j<P.length;j++){ const a=P[i], b=P[j];
+      let dx=b.tx-a.tx, dy=b.ty-a.ty; const d=Math.hypot(dx,dy)||.01, min=a.tr+b.tr+6;
+      if(d<min){ hit=true; const push=(min-d)*.5; dx/=d; dy/=d; a.tx-=dx*push; a.ty-=dy*push; b.tx+=dx*push; b.ty+=dy*push; } }
+    if(!hit) break; }
+}
+function fitSpread(){ // enquadra todas as bolhas na tela
+  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+  items.forEach(it=>{ const s=it.sp; x0=Math.min(x0,s.tx-s.tr); x1=Math.max(x1,s.tx+s.tr); y0=Math.min(y0,s.ty-s.tr); y1=Math.max(y1,s.ty+s.tr); });
+  const bw=Math.max(1,x1-x0), bh=Math.max(1,y1-y0);
+  spread.tk=Math.max(.2,Math.min(1.5,Math.min((W-28)/bw,(H-28)/bh)));
+  spread.tpx=W/2-(x0+x1)/2*spread.tk; spread.tpy=H/2-(y0+y1)/2*spread.tk;
+}
+function initSpread(){ // explode a partir de onde as bolhas estão no globo agora
+  const from=new Map(pts.map(p=>[p.it.id,p]));
+  items=[...INTERESTS,...visibleEvents()];
+  items.forEach(it=>{ it.sp=null; });
+  layoutSpread();
+  items.forEach(it=>{
+    let p=from.get(it.id), a=it;
+    while(!p && a.parent){ a=byId(a.parent); p=a&&from.get(a.id); } // sub-bolha nasce de dentro da bolha-mãe
+    it.sp.x=p?p.sx-W/2:0; it.sp.y=p?p.sy-H/2:0; it.sp.r=p&&it===a?p.r:0;
+  });
+  spread.k=1; spread.px=W/2; spread.py=H/2; spread.auto=true; fitSpread();
+}
+function stepSpread(){
+  const e=reduce?1:.16;
+  items.forEach(it=>{ const s=it.sp; if(!s) return; s.x+=(s.tx-s.x)*e; s.y+=(s.ty-s.y)*e; s.r+=(s.tr-s.r)*e; });
+  spread.k+=(spread.tk-spread.k)*e; spread.px+=(spread.tpx-spread.px)*e; spread.py+=(spread.tpy-spread.py)*e;
+}
+const ICON_GLOBE='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3.200 3 3.200 15 0 18M12 3c-3.200 3-3.200 15 0 18"/></svg>';
+const ICON_SPREAD='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6.500" cy="7" r="2.800"/><circle cx="17" cy="6" r="2"/><circle cx="18" cy="15.500" r="3.200"/><circle cx="8" cy="17.500" r="2.300"/><circle cx="12.500" cy="11.500" r="1.200"/></svg>';
+const HINT_GLOBE=document.getElementById("hint").textContent;
+const HINT_SPREAD="Todas as bolhas, sem agrupar. Arraste pra mover a tela e use a pinça ou a rodinha pra dar zoom. Toque numa bolha pra estourar; segure e arraste pra mover ou excluir.";
+function setSpread(on){
+  if(anim || on===spread.on) return;
+  if(on){ state.focus=null; initSpread(); spread.on=true; }
+  else { spread.on=false; items.forEach(it=>{ it.sp=null; }); rebuild(true); }
+  const b=document.getElementById("view-toggle");
+  b.setAttribute("aria-pressed",String(on));
+  b.innerHTML=on?ICON_GLOBE:ICON_SPREAD; // o ícone mostra pra onde você vai
+  const t=on?"Voltar pro globo":"Ver todas as bolhas espalhadas"; b.title=t; b.setAttribute("aria-label",t);
+  document.getElementById("hint").textContent=on?HINT_SPREAD:HINT_GLOBE;
+  renderFocus(); renderTrend();
+  try{ localStorage.setItem("estoura-view",on?"spread":"globe"); }catch(_){}
+}
+
 function rebuild(fresh){
+  if(spread.on){ items=[...INTERESTS,...visibleEvents()]; layoutSpread(); if(spread.auto) fitSpread(); return; }
   if(state.focus){ items=[...kids(state.focus),ADD]; if(items.length>SPHERE_MIN) fib(items); }
   else { items=[...INTERESTS.filter(i=>!i.parent),...visibleEvents()]; fib(items); }
   items.forEach(it=>{ if(fresh||it.dr==null) it.dr=reduce?targetR(it):0; });
@@ -1051,6 +1133,9 @@ const wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
 function spinTo(id,quiet){
   if(state.focus){ state.focus=null; anim=null; rebuild(); renderFocus(); renderTrend(); }
   const it=items.find(i=>i.id===id); if(!it) return;
+  if(spread.on){ // visão espalhada: centraliza e aproxima a bolha
+    spread.tk=Math.max(spread.k,1.1); spread.tpx=W/2-it.sp.tx*spread.tk; spread.tpy=H/2-it.sp.ty*spread.tk; spread.auto=false;
+    if(!quiet) toast(`${it.name}: +${it.week} pessoas esta semana`); return; }
   const [x,y,z]=it.p; target={y:Math.atan2(-x,z), x:Math.atan2(y,Math.hypot(x,z))};
   vY=0; vX=0; if(!quiet) toast(`${it.name}: +${it.week} pessoas esta semana`);
 }
@@ -1092,6 +1177,10 @@ function frame(t){
         drawShell(lerp(c.x,to.x,e),lerp(c.y,to.y,e),lerp(S,to.r,e),anim.h,1-e*.6,e*.6);
         if(anim.t>=1) anim=null;
       }
+    } else if(spread.on){
+      stepSpread();
+      pts=items.map(it=>({it,sx:it.sp.x*spread.k+spread.px,sy:it.sp.y*spread.k+spread.py,r:Math.max(0,it.sp.r*spread.k),z:1})).sort((a,b)=>b.r-a.r); // menores por cima
+      drawAll();
     } else if(state.focus){
       if(!drag && !hoverPause){
         if(sphere()){ fY+=fvY; fX+=fvX; fvX*=.95; fvY+=((reduce?0:AUTO*Math.sign(fvY||1))-fvY)*.02; fX=Math.max(-1.3,Math.min(1.3,fX)); }
@@ -1131,7 +1220,7 @@ function tap(it){
   if(it.type==="add") return openNewSub();
   if(it.type==="event") return openEvent(it);
   const L=state.lv.get(it.id)||0;
-  if(kids(it.id).length){ // tem sub-bolhas (em qualquer nível): entra
+  if(kids(it.id).length && !spread.on){ // tem sub-bolhas (em qualquer nível): entra (na visão espalhada tudo já está à mostra)
     if(!L){ setLevel(it,1,true); toast(`Estourou ${it.name}! Agora escolha os detalhes`); setTimeout(()=>enter(it.id),reduce?0:420); }
     else enter(it.id);
     return;
@@ -1229,8 +1318,17 @@ const hitAt=e=>{ const b=cv.getBoundingClientRect(), x=e.clientX-b.left, y=e.cli
   const slop=e.pointerType==="touch"?12:4; // dedo é mais impreciso que o mouse
   return [...pts].reverse().find(p=>Math.hypot(p.sx-x,p.sy-y)<p.r+slop); };
 const localXY=e=>{ const b=cv.getBoundingClientRect(); return {x:e.clientX-b.left,y:e.clientY-b.top}; };
+// pinça (dois dedos) pra dar zoom na visão espalhada
+const ptrs=new Map(); let pinch=null, pinchBusy=false;
+const pinchGeom=()=>{ const [a,b]=[...ptrs.values()], r=cv.getBoundingClientRect();
+  return {d:Math.hypot(a.x-b.x,a.y-b.y)||1, mx:(a.x+b.x)/2-r.left, my:(a.y+b.y)/2-r.top}; };
+const zoomAt=(x,y,k)=>{ const k0=spread.k; k=Math.max(.15,Math.min(4,k));
+  spread.px=x-(x-spread.px)*(k/k0); spread.py=y-(y-spread.py)*(k/k0); spread.k=k;
+  spread.tk=k; spread.tpx=spread.px; spread.tpy=spread.py; spread.auto=false; };
 cv.addEventListener("pointerdown",e=>{
-  cv.setPointerCapture(e.pointerId); drag=true; target=null; hoverPause=false; cv.classList.add("drag"); start=last={x:e.clientX,y:e.clientY};
+  cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(spread.on && ptrs.size===2){ const g=pinchGeom(); pinch={d0:g.d,k0:spread.k}; pinchBusy=true; clearTimeout(lp); grab=null; return; }
+  drag=true; target=null; hoverPause=false; cv.classList.add("drag"); start=last={x:e.clientX,y:e.clientY};
   lpDone=false; clearTimeout(lp);
   if(!anim){ const h=hitAt(e), p0=localXY(e);
     if(h && !h.it.type) lp=setTimeout(()=>{
@@ -1244,11 +1342,15 @@ cv.addEventListener("pointerdown",e=>{
 cv.addEventListener("contextmenu",e=>e.preventDefault());
 cv.addEventListener("pointerleave",()=>{ hoverPause=false; cv.style.cursor=""; });
 cv.addEventListener("pointermove",e=>{
+  if(ptrs.has(e.pointerId)) ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pinch && ptrs.size>=2){ const g=pinchGeom(); zoomAt(g.mx,g.my,pinch.k0*g.d/pinch.d0); return; }
+  if(pinchBusy) return;
   // mouse parado em cima de uma bolha: o globo para de girar
   if(!drag){ if(e.pointerType==="mouse"){ const h=hitAt(e); hoverPause=!!h; cv.style.cursor=h?"pointer":""; } return; }
   if(grab){ const p=localXY(e); grab.x=p.x; grab.y=p.y; if(Math.hypot(p.x-grab.x0,p.y-grab.y0)>10) grab.moved=true; return; }
   if(start && Math.hypot(e.clientX-start.x,e.clientY-start.y)>=7) clearTimeout(lp);
   const dx=e.clientX-last.x, dy=e.clientY-last.y; last={x:e.clientX,y:e.clientY};
+  if(spread.on){ spread.px+=dx; spread.py+=dy; spread.tpx=spread.px; spread.tpy=spread.py; spread.auto=false; return; } // arrastar move a tela
   if(state.focus){
     if(sphere()){ fY+=dx*.008; fX-=dy*.008; fvY=dx*.008; fvX=-dy*.008; } // esfera de dentro da bolha
     else { orbit+=dx*.006; vO=dx*.006; }
@@ -1256,10 +1358,17 @@ cv.addEventListener("pointermove",e=>{
   // arrastar o dedo pra baixo faz a frente do globo descer junto
   rotY+=dx*.008; rotX-=dy*.008; vY=dx*.008; vX=-dy*.008;
 });
+cv.addEventListener("wheel",e=>{ // rodinha do mouse = zoom na visão espalhada
+  if(!spread.on) return; e.preventDefault();
+  const r=cv.getBoundingClientRect(); zoomAt(e.clientX-r.left,e.clientY-r.top,spread.k*Math.exp(-e.deltaY*.0015));
+},{passive:false});
+cv.addEventListener("dblclick",()=>{ if(spread.on){ spread.auto=true; fitSpread(); } }); // duplo clique: enquadra tudo de novo
 cv.addEventListener("pointerup",e=>{
+  ptrs.delete(e.pointerId);
+  if(pinch||pinchBusy){ pinch=null; pinchBusy=ptrs.size>0; drag=pinchBusy; if(!drag) cv.classList.remove("drag"); return; } // fim da pinça: sem toque fantasma
   drag=false; cv.classList.remove("drag"); clearTimeout(lp);
   if(grab){ const g=grab; grab=null;
-    if(!g.moved){ if(!state.lv.has(g.it.id)) setLevel(g.it,1,true); enter(g.it.id); return; } // segurou e soltou no lugar: entra
+    if(!g.moved){ if(!spread.on){ if(!state.lv.has(g.it.id)) setLevel(g.it,1,true); enter(g.it.id); } return; } // segurou e soltou no lugar: entra (só no globo)
     if(overTrash(g)) return askDelete(g.it);
     const t=nestTarget(g);
     if(t) return isDescendant(t.it.id,g.it.id) ? toast("Não dá para guardar uma bolha dentro dela mesma.") : doMove(g.it,t.it.id);
@@ -1273,7 +1382,7 @@ cv.addEventListener("pointerup",e=>{
   if(hit) return tap(hit.it);
   if(state.focus){ const c=shellC(); if(Math.hypot(x-c.x,y-c.y)>shellR()) leave(); }
 });
-cv.addEventListener("pointercancel",()=>{drag=false;grab=null;clearTimeout(lp);cv.classList.remove("drag")});
+cv.addEventListener("pointercancel",e=>{ptrs.delete(e.pointerId);pinch=null;pinchBusy=ptrs.size>0;drag=pinchBusy;grab=null;clearTimeout(lp);if(!drag) cv.classList.remove("drag")});
 
 /* ---------- puxar pra baixo pra atualizar (celular) ----------
    No app instalado o navegador não oferece esse gesto, então fazemos o nosso.
@@ -1318,7 +1427,10 @@ if(window.visualViewport){
 document.addEventListener("keydown",e=>{ if(e.key==="Escape" && layer.firstElementChild){ if(state.focus && !sheet && !current) return; closeLayer(); } });
 // girar a tela / redimensionar a janela: refaz o canvas
 addEventListener("orientationchange",()=>setTimeout(resize,250));
+document.getElementById("view-toggle").innerHTML=ICON_SPREAD;
+document.getElementById("view-toggle").onclick=()=>setSpread(!spread.on);
 resize(); rebuild(); renderAll(); welcome(); requestAnimationFrame(frame);
+try{ if(localStorage.getItem("estoura-view")==="spread") setSpread(true); }catch(_){} // lembra a última visão
 </script>
 
 <script type="module">
