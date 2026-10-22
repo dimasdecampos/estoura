@@ -306,7 +306,7 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
   <main>
     <section class="view" id="view-bolhas" aria-label="Bolhas">
       <div id="topbar">
-        <p class="hint gut" id="hint">Arraste pra girar. Toque 1× pra marcar a bolha; 2 toques (ou segure no celular) pra entrar nela e escolher "É minha vida ♥". Logado, segure e arraste até "Excluir" pra apagar; pra guardar uma bolha dentro de outra, use o botão Mover.</p>
+        <p class="hint gut" id="hint" hidden>Arraste pra girar. Toque 1× pra marcar a bolha; 2 toques (ou segure no celular) pra entrar nela e escolher "É minha vida ♥". Logado, segure e arraste até "Excluir" pra apagar; pra guardar uma bolha dentro de outra, use o botão Mover.</p>
         <div class="trend gut" id="trend"></div>
       </div>
       <div class="crumb gut" id="crumb" hidden>
@@ -325,7 +325,6 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
           <input type="text" id="new-input" maxlength="24" placeholder="Não achou? Crie uma bolha" autocomplete="off">
           <button class="btn" type="submit">Criar</button>
         </form>
-        <button class="btn primary" id="go-matches">Matches</button>
       </div>
       <div class="dock gut" id="dock-focus" hidden>
         <div class="seg" id="focus-seg" role="group" aria-label="Quanto você curte esta bolha">
@@ -579,7 +578,6 @@ function setView(v){
   if(v==="bolhas") resize();
 }
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>setView(b.dataset.view));
-document.getElementById("go-matches").onclick=()=>setView("matches");
 
 function renderAll(){ renderHeader(); renderTrend(); renderFocus(); renderMatches(); renderEvents(); renderGroups(); }
 function renderHeader(){ document.querySelector("#pop-count b").textContent = state.lv.size; }
