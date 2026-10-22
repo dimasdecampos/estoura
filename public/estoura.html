@@ -288,12 +288,13 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
   <main>
     <section class="view" id="view-bolhas" aria-label="Bolhas">
       <div id="topbar">
-        <p class="hint gut" id="hint">Arraste pra girar. Toque 1×: curto · 2×: é minha vida · 3×: sai.</p>
+        <p class="hint gut" id="hint">Arraste pra girar. Toque 1×: curto · 2×: é minha vida · 3×: sai. Segure uma bolha pra entrar e criar sub-bolhas.</p>
         <div class="trend gut" id="trend"></div>
       </div>
       <div class="crumb gut" id="crumb" hidden>
         <button class="btn sm" id="focus-back">← Voltar</button>
         <span class="path">Todas as bolhas › <b id="focus-title"></b></span>
+        <button class="btn sm" id="focus-add" style="margin-left:auto;flex:none">+ Sub-bolha</button>
       </div>
       <div class="stage">
         <canvas id="globe" aria-label="Globo de bolhas de interesses"></canvas>
@@ -1019,6 +1020,7 @@ function leave(){
   if(!reduce) anim={dir:"out",t:0,id,h:byId(id).hue};
 }
 document.getElementById("focus-back").onclick=leave;
+document.getElementById("focus-add").onclick=openNewSub;
 document.getElementById("focus-out").onclick=()=>{ const it=byId(state.focus); setLevel(it,0); leave(); };
 document.getElementById("focus-seg").onclick=e=>{ const b=e.target.closest("[data-l]"); if(b) setLevel(byId(state.focus),+b.dataset.l); };
 
@@ -1082,25 +1084,40 @@ function tap(it){
   setLevel(it,(L+1)%3);
 }
 
-let drag=false, start=null, last=null;
-cv.addEventListener("pointerdown",e=>{ cv.setPointerCapture(e.pointerId); drag=true; target=null; cv.classList.add("drag"); start=last={x:e.clientX,y:e.clientY}; });
+let drag=false, start=null, last=null, lp=null, lpDone=false;
+const hitAt=e=>{ const b=cv.getBoundingClientRect(), x=e.clientX-b.left, y=e.clientY-b.top;
+  const slop=e.pointerType==="touch"?12:4; // dedo é mais impreciso que o mouse
+  return [...pts].reverse().find(p=>Math.hypot(p.sx-x,p.sy-y)<p.r+slop); };
+cv.addEventListener("pointerdown",e=>{
+  cv.setPointerCapture(e.pointerId); drag=true; target=null; cv.classList.add("drag"); start=last={x:e.clientX,y:e.clientY};
+  // segurar uma bolha entra nela, mesmo sem sub-bolhas: é o jeito de criar uma categoria dentro de outra
+  lpDone=false; clearTimeout(lp);
+  if(!state.focus && !anim){ const h=hitAt(e);
+    if(h && !h.it.type) lp=setTimeout(()=>{
+      if(!drag) return; lpDone=true;
+      try{ navigator.vibrate && navigator.vibrate(15); }catch(_){}
+      if(!state.lv.has(h.it.id)) setLevel(h.it,1,true);
+      enter(h.it.id);
+    },450); } });
+cv.addEventListener("contextmenu",e=>e.preventDefault());
 cv.addEventListener("pointermove",e=>{
+  if(start && Math.hypot(e.clientX-start.x,e.clientY-start.y)>=7) clearTimeout(lp);
   if(!drag) return; const dx=e.clientX-last.x, dy=e.clientY-last.y; last={x:e.clientX,y:e.clientY};
   if(state.focus){ orbit+=dx*.006; vO=dx*.006; return; }
   // arrastar o dedo pra baixo faz a frente do globo descer junto
   rotY+=dx*.008; rotX-=dy*.008; vY=dx*.008; vX=-dy*.008;
 });
 cv.addEventListener("pointerup",e=>{
-  drag=false; cv.classList.remove("drag");
+  drag=false; cv.classList.remove("drag"); clearTimeout(lp);
+  if(lpDone){ lpDone=false; return; } // o toque longo já entrou na bolha
   if(anim || Math.hypot(e.clientX-start.x,e.clientY-start.y)>=7) return;
   if(!state.focus){ vY=AUTO; vX=0; }
   const b=cv.getBoundingClientRect(), x=e.clientX-b.left, y=e.clientY-b.top;
-  const slop=e.pointerType==="touch"?12:4; // dedo é mais impreciso que o mouse
-  const hit=[...pts].reverse().find(p=>Math.hypot(p.sx-x,p.sy-y)<p.r+slop);
+  const hit=hitAt(e);
   if(hit) return tap(hit.it);
   if(state.focus){ const c=shellC(); if(Math.hypot(x-c.x,y-c.y)>shellR()) leave(); }
 });
-cv.addEventListener("pointercancel",()=>{drag=false;cv.classList.remove("drag")});
+cv.addEventListener("pointercancel",()=>{drag=false;clearTimeout(lp);cv.classList.remove("drag")});
 
 // simula gente estourando as bolhas em alta, ao vivo
 setInterval(()=>{
