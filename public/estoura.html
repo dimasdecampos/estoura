@@ -1144,9 +1144,13 @@ function drawBubble({it,sx,sy,r,z}){
     label(split(it.name,r),sx,sy,fs,L?"#10172a":"#f1f5ff",r>24?count(it).toLocaleString("pt-BR"):null);
   }
   if(L===2 && r>16){ // favorita ("é minha vida"): coraçãozinho dentro da bolha
-    const hs=Math.max(4,r*.17), hx=sx, hy=sy-r*.6; ctx.fillStyle="#10172a"; ctx.beginPath();
-    ctx.moveTo(hx,hy+hs*.9); ctx.bezierCurveTo(hx-hs*1.6,hy-hs*.1,hx-hs*.8,hy-hs*1.3,hx,hy-hs*.45);
-    ctx.bezierCurveTo(hx+hs*.8,hy-hs*1.3,hx+hs*1.6,hy-hs*.1,hx,hy+hs*.9); ctx.fill();
+    ctx.fillStyle="#10172a"; heartPath(sx,sy-r*.6,Math.max(4,r*.17)); ctx.fill();
+  }
+  if(L && showLabel && heartable({it,r,z})){ // botão de coração no topo à direita
+    const k=heartSpot({sx,sy,r}), on=L===2;
+    ctx.fillStyle=on?"#ff5c8a":"rgba(16,23,42,.78)"; ctx.beginPath(); ctx.arc(k.x,k.y,k.hr,0,7); ctx.fill();
+    ctx.lineWidth=1.5; ctx.strokeStyle="#fff"; ctx.stroke();
+    ctx.fillStyle=on?"#fff":"none"; ctx.strokeStyle="#fff"; heartPath(k.x,k.y+k.hr*.05,k.hr*.5); if(on) ctx.fill(); else ctx.stroke();
   }
   ctx.globalAlpha=1;
 }
@@ -1174,6 +1178,26 @@ function drawCenter(){
   ctx.fillText("toque fora da bolha pra voltar",c.x,Math.min(H-10,c.y+S+16));
 }
 
+function heartPath(x,y,hs){
+  ctx.beginPath(); ctx.moveTo(x,y+hs*.9); ctx.bezierCurveTo(x-hs*1.6,y-hs*.1,x-hs*.8,y-hs*1.3,x,y-hs*.45);
+  ctx.bezierCurveTo(x+hs*.8,y-hs*1.3,x+hs*1.6,y-hs*.1,x,y+hs*.9);
+}
+function starPath(x,y,rr){
+  ctx.beginPath(); for(let k=0;k<10;k++){ const a=-Math.PI/2+k*Math.PI/5, d=k%2?rr*.45:rr; ctx.lineTo(x+Math.cos(a)*d,y+Math.sin(a)*d); } ctx.closePath();
+}
+// coraçãozinho no topo à direita de uma bolha marcada: toque pra virar "é minha vida"
+const heartSpot=p=>({x:p.sx+p.r*.72,y:p.sy-p.r*.72,hr:Math.max(9,p.r*.2)});
+const heartable=p=>!p.it.type&&p.r>18&&p.z>-.35&&state.lv.has(p.it.id);
+function heartHit(x,y){ for(const p of pts){ if(!heartable(p)) continue; const h=heartSpot(p); if(Math.hypot(x-h.x,y-h.y)<h.hr+6) return p; } return null; }
+function heartTap(p){
+  const it=p.it, L=state.lv.get(it.id)||0;
+  if(L===2){ setLevel(it,1,true); return; }
+  setLevel(it,2,true);
+  if(reduce) return;
+  const h=heartSpot(p);
+  for(let k=0;k<16;k++){ const a=-Math.PI/2+(Math.random()-.5)*3.6, v=1.6+Math.random()*3.2;
+    fx.push({k:k%3?"heart":"star",x:h.x,y:h.y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-1,t:0,h:k%2?345:48,s:5+Math.random()*6,g:.07}); }
+}
 function burst(it,big){
   const p=pts.find(q=>q.it===it); if(!p||reduce) return;
   fx.push({ring:true,x:p.sx,y:p.sy,r:p.r,t:0,h:it.hue});
@@ -1183,6 +1207,7 @@ function drawFx(){
   fx=fx.filter(f=>f.t<1);
   fx.forEach(f=>{ f.t+=0.035;
     if(f.ring){ ctx.strokeStyle=`hsla(${f.h} 95% 80% / ${1-f.t})`; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(f.x,f.y,f.r*(1+f.t*.9),0,7); ctx.stroke(); }
+    else if(f.k){ f.x+=f.vx; f.y+=f.vy; f.vy+=f.g; ctx.fillStyle=`hsla(${f.h} 95% ${f.k==="heart"?68:62}% / ${1-f.t})`; if(f.k==="heart") heartPath(f.x,f.y,f.s*(1+f.t*.4)); else starPath(f.x,f.y,f.s*(1+f.t*.4)); ctx.fill(); }
     else { f.x+=f.vx; f.y+=f.vy; f.vy+=.08; ctx.fillStyle=`hsla(${f.h} 95% 82% / ${1-f.t})`; ctx.beginPath(); ctx.arc(f.x,f.y,2.2,0,7); ctx.fill(); } });
 }
 
@@ -1383,7 +1408,7 @@ cv.addEventListener("pointerdown",e=>{
   drag=true; target=null; hoverPause=false; spread.mouse=null; cv.classList.add("drag"); start=last={x:e.clientX,y:e.clientY};
   lpDone=false; clearLP();
   if(!anim){ const h=hitAt(e), p0=localXY(e);
-    if(h && !h.it.type){
+    if(h && !h.it.type && !heartHit(p0.x,p0.y)){
       // parou um instante: a bolha começa a crescer (vai entrar). Segurou mais: pronta pra entrar. Segurou bem mais: modo excluir.
       if(!spread.on){
         lpG=setTimeout(()=>{ if(drag) grow={it:h.it,t0:performance.now()}; },300);
@@ -1406,7 +1431,7 @@ cv.addEventListener("pointermove",e=>{
   if(pinch && ptrs.size>=2){ const g=pinchGeom(); zoomAt(g.mx,g.my,pinch.k0*g.d/pinch.d0); return; }
   if(pinchBusy) return;
   // mouse parado em cima de uma bolha: o globo para de girar
-  if(!drag){ if(e.pointerType==="mouse"){ const h=hitAt(e); hoverPause=!!h||overMass(localXY(e)); cv.style.cursor=h?"pointer":""; if(spread.on) spread.mouse=localXY(e); } return; }
+  if(!drag){ if(e.pointerType==="mouse"){ const h=hitAt(e), lp0=localXY(e), hh=heartHit(lp0.x,lp0.y); hoverPause=!!h||overMass(lp0); cv.style.cursor=h||hh?"pointer":""; if(spread.on) spread.mouse=localXY(e); } return; }
   if(grab){ const p=localXY(e); grab.x=p.x; grab.y=p.y; if(Math.hypot(p.x-grab.x0,p.y-grab.y0)>10) grab.moved=true; return; }
   if(start && Math.hypot(e.clientX-start.x,e.clientY-start.y)>=7){ clearLP(); lpDone=false; }
   const dx=e.clientX-last.x, dy=e.clientY-last.y; last={x:e.clientX,y:e.clientY};
@@ -1436,6 +1461,7 @@ cv.addEventListener("pointerup",e=>{
   if(!state.focus){ vY=AUTO; vX=0; } else if(sphere()){ fvY=AUTO; fvX=0; }
   const b=cv.getBoundingClientRect(), x=e.clientX-b.left, y=e.clientY-b.top;
   if(spread.on) spread.poke={x,y}; // um toque faz uma onda que empurra as bolhas vizinhas
+  const hh=heartHit(x,y); if(hh) return heartTap(hh);
   const hit=hitAt(e);
   if(hit) return tap(hit.it);
   if(state.focus){ const c=shellC(); if(Math.hypot(x-c.x,y-c.y)>shellR()) leave(); }
