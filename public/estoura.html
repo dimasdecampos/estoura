@@ -1143,6 +1143,11 @@ function drawBubble({it,sx,sy,r,z}){
     const fs=Math.max(9,Math.min(state.focus?14:15,r*.3)); ctx.font=`700 ${fs}px Figtree, system-ui, sans-serif`;
     label(split(it.name,r),sx,sy,fs,L?"#10172a":"#f1f5ff",r>24?count(it).toLocaleString("pt-BR"):null);
   }
+  if(L===2 && r>16){ // favorita ("é minha vida"): coraçãozinho dentro da bolha
+    const hs=Math.max(4,r*.17), hx=sx, hy=sy-r*.6; ctx.fillStyle="#10172a"; ctx.beginPath();
+    ctx.moveTo(hx,hy+hs*.9); ctx.bezierCurveTo(hx-hs*1.6,hy-hs*.1,hx-hs*.8,hy-hs*1.3,hx,hy-hs*.45);
+    ctx.bezierCurveTo(hx+hs*.8,hy-hs*1.3,hx+hs*1.6,hy-hs*.1,hx,hy+hs*.9); ctx.fill();
+  }
   ctx.globalAlpha=1;
 }
 
