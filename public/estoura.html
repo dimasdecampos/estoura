@@ -903,14 +903,15 @@ const sphere=()=>!!state.focus && items.length>SPHERE_MIN;
    Mostra TODAS as bolhas, de todos os níveis, soltas na tela ao mesmo tempo, sem agrupar.
    As bolhas da mesma família ficam perto umas das outras (e têm a mesma cor).
    Arrastar move a tela; pinça ou rodinha dão zoom; toque estoura; segurar e arrastar move/exclui. */
-const spread={on:false,k:1,px:0,py:0,tk:1,tpx:0,tpy:0,auto:true};
+const spread={on:false,k:1,px:0,py:0,tk:1,tpx:0,tpy:0,auto:true,mouse:null,poke:null};
 const spreadR=it=>it.type==="event" ? 20+evCount(it)*2 : 20+16*Math.sqrt(count(it)/peak(INTERESTS));
 function layoutSpread(){
   const ar=Math.max(.6,Math.min(1.8,W/Math.max(1,H)));
   items.forEach((it,k)=>{
     if(!it.sp){ // bolha nova: nasce perto da bolha-mãe (ou do centro)
       const par=it.parent?byId(it.parent):null, c=par&&par.sp?par.sp:{tx:0,ty:0}, a=k*2.399963, rr=26+Math.sqrt(k)*30;
-      it.sp={x:c.tx,y:c.ty,r:0,tx:c.tx+Math.cos(a)*rr*ar,ty:c.ty+Math.sin(a)*rr,tr:0};
+      it.sp={x:c.tx,y:c.ty,r:0,tx:c.tx+Math.cos(a)*rr*ar,ty:c.ty+Math.sin(a)*rr,tr:0,
+        ox:0,oy:0,vx:0,vy:0,ph:Math.random()*6.283,hs:1}; // ox/oy: balanço natural + empurrões; hs: crescer sob o mouse
     }
     it.sp.tr=spreadR(it);
   });
@@ -918,7 +919,7 @@ function layoutSpread(){
   for(let iter=0;iter<240;iter++){
     for(let i=0;i<P.length;i++){ const a=P[i];
       for(let j=i+1;j<P.length;j++){ const b=P[j];
-        let dx=b.tx-a.tx, dy=b.ty-a.ty; const d=Math.hypot(dx,dy)||.01, min=a.tr+b.tr+8;
+        let dx=b.tx-a.tx, dy=b.ty-a.ty; const d=Math.hypot(dx,dy)||.01, min=a.tr+b.tr+12;
         if(d<min){ const push=(min-d)*.25; dx/=d; dy/=d; a.tx-=dx*push; a.ty-=dy*push; b.tx+=dx*push; b.ty+=dy*push; } } }
     items.forEach(it=>{ const s=it.sp;
       s.tx*= ar>=1?.9985:.9945; s.ty*= ar>=1?.9945:.9985; // puxa de leve pro centro, mais na menor dimensão da tela
@@ -930,7 +931,7 @@ function layoutSpread(){
   // passada final só de afastamento, pra nenhuma bolha ficar em cima da outra
   for(let iter=0;iter<120;iter++){ let hit=false;
     for(let i=0;i<P.length;i++) for(let j=i+1;j<P.length;j++){ const a=P[i], b=P[j];
-      let dx=b.tx-a.tx, dy=b.ty-a.ty; const d=Math.hypot(dx,dy)||.01, min=a.tr+b.tr+6;
+      let dx=b.tx-a.tx, dy=b.ty-a.ty; const d=Math.hypot(dx,dy)||.01, min=a.tr+b.tr+10;
       if(d<min){ hit=true; const push=(min-d)*.5; dx/=d; dy/=d; a.tx-=dx*push; a.ty-=dy*push; b.tx+=dx*push; b.ty+=dy*push; } }
     if(!hit) break; }
 }
@@ -957,6 +958,33 @@ function stepSpread(){
   const e=reduce?1:.16;
   items.forEach(it=>{ const s=it.sp; if(!s) return; s.x+=(s.tx-s.x)*e; s.y+=(s.ty-s.y)*e; s.r+=(s.tr-s.r)*e; });
   spread.k+=(spread.tk-spread.k)*e; spread.px+=(spread.tpx-spread.px)*e; spread.py+=(spread.tpy-spread.py)*e;
+  if(reduce) return; // quem pediu menos movimento no sistema fica com as bolhas paradas
+
+  // bolhas "vivas": balançam sozinhas, desviam do mouse, empurram umas às outras
+  const k=spread.k, t=now, m=spread.mouse, poke=spread.poke; spread.poke=null;
+  const mw=m?{x:(m.x-spread.px)/k,y:(m.y-spread.py)/k}:null, pw=poke?{x:(poke.x-spread.px)/k,y:(poke.y-spread.py)/k}:null;
+  const reach=110/k, pokeReach=170/k; // alcance do mouse e do toque, em unidades do mundo (≈ pixels da tela)
+  items.forEach(it=>{
+    const s=it.sp; if(!s) return;
+    // balanço natural: cada bolha tem o seu ritmo
+    const dx=Math.sin(t/1700+s.ph)*4+Math.sin(t/731+s.ph*2.1)*1.2, dy=Math.cos(t/2100+s.ph*1.3)*4+Math.cos(t/907+s.ph*.7)*1.2;
+    s.vx+=(dx-s.ox)*.035; s.vy+=(dy-s.oy)*.035; // mola: volta pro balanço
+    let grow=1;
+    if(mw){ const ax=s.tx+s.ox-mw.x, ay=s.ty+s.oy-mw.y, d=Math.hypot(ax,ay)||.01;
+      if(d<reach+s.tr){ // as vizinhas desviam; a bolha apontada fica no lugar (senão fugiria do clique)
+        const yielding=Math.max(0,Math.min(1,(d-s.tr*.6)/(s.tr*.8)));
+        const f=Math.pow(1-Math.min(1,d/(reach+s.tr)),2)*1.5*yielding; s.vx+=ax/d*f; s.vy+=ay/d*f; }
+      if(d<s.tr) grow=1.1; } // a bolha sob o mouse cresce um pouco
+    if(pw){ const ax=s.tx+s.ox-pw.x, ay=s.ty+s.oy-pw.y, d=Math.hypot(ax,ay)||.01;
+      if(d<pokeReach && d>s.tr*.5){ const f=(1-d/pokeReach)*9; s.vx+=ax/d*f; s.vy+=ay/d*f; } } // toque = onda que empurra quem está perto
+    s.vx*=.86; s.vy*=.86; s.ox+=s.vx; s.oy+=s.vy;
+    s.hs+=(grow-s.hs)*.18;
+  });
+  // quem foi empurrado encosta nas vizinhas e empurra de volta (sem ficar uma em cima da outra)
+  for(let i=0;i<items.length;i++){ const a=items[i].sp; if(!a) continue;
+    for(let j=i+1;j<items.length;j++){ const b=items[j].sp; if(!b) continue;
+      let dx=(b.tx+b.ox)-(a.tx+a.ox), dy=(b.ty+b.oy)-(a.ty+a.oy); const d=Math.hypot(dx,dy)||.01, min=a.r+b.r+3;
+      if(d<min){ const push=(min-d)*.5; dx/=d; dy/=d; a.ox-=dx*push; a.oy-=dy*push; b.ox+=dx*push; b.oy+=dy*push; a.vx-=dx*push*.2; a.vy-=dy*push*.2; b.vx+=dx*push*.2; b.vy+=dy*push*.2; } } }
 }
 const ICON_GLOBE='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3.200 3 3.200 15 0 18M12 3c-3.200 3-3.200 15 0 18"/></svg>';
 const ICON_SPREAD='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6.500" cy="7" r="2.800"/><circle cx="17" cy="6" r="2"/><circle cx="18" cy="15.500" r="3.200"/><circle cx="8" cy="17.500" r="2.300"/><circle cx="12.500" cy="11.500" r="1.200"/></svg>';
@@ -1179,7 +1207,7 @@ function frame(t){
       }
     } else if(spread.on){
       stepSpread();
-      pts=items.map(it=>({it,sx:it.sp.x*spread.k+spread.px,sy:it.sp.y*spread.k+spread.py,r:Math.max(0,it.sp.r*spread.k),z:1})).sort((a,b)=>b.r-a.r); // menores por cima
+      pts=items.map(it=>{ const s=it.sp; return {it,sx:(s.x+s.ox)*spread.k+spread.px,sy:(s.y+s.oy)*spread.k+spread.py,r:Math.max(0,s.r*s.hs*spread.k),z:1}; }).sort((a,b)=>b.r-a.r); // menores por cima
       drawAll();
     } else if(state.focus){
       if(!drag && !hoverPause){
@@ -1328,7 +1356,7 @@ const zoomAt=(x,y,k)=>{ const k0=spread.k; k=Math.max(.15,Math.min(4,k));
 cv.addEventListener("pointerdown",e=>{
   cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(spread.on && ptrs.size===2){ const g=pinchGeom(); pinch={d0:g.d,k0:spread.k}; pinchBusy=true; clearTimeout(lp); grab=null; return; }
-  drag=true; target=null; hoverPause=false; cv.classList.add("drag"); start=last={x:e.clientX,y:e.clientY};
+  drag=true; target=null; hoverPause=false; spread.mouse=null; cv.classList.add("drag"); start=last={x:e.clientX,y:e.clientY};
   lpDone=false; clearTimeout(lp);
   if(!anim){ const h=hitAt(e), p0=localXY(e);
     if(h && !h.it.type) lp=setTimeout(()=>{
@@ -1340,13 +1368,13 @@ cv.addEventListener("pointerdown",e=>{
       enter(h.it.id);
     },450); } });
 cv.addEventListener("contextmenu",e=>e.preventDefault());
-cv.addEventListener("pointerleave",()=>{ hoverPause=false; cv.style.cursor=""; });
+cv.addEventListener("pointerleave",()=>{ hoverPause=false; spread.mouse=null; cv.style.cursor=""; });
 cv.addEventListener("pointermove",e=>{
   if(ptrs.has(e.pointerId)) ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(pinch && ptrs.size>=2){ const g=pinchGeom(); zoomAt(g.mx,g.my,pinch.k0*g.d/pinch.d0); return; }
   if(pinchBusy) return;
   // mouse parado em cima de uma bolha: o globo para de girar
-  if(!drag){ if(e.pointerType==="mouse"){ const h=hitAt(e); hoverPause=!!h; cv.style.cursor=h?"pointer":""; } return; }
+  if(!drag){ if(e.pointerType==="mouse"){ const h=hitAt(e); hoverPause=!!h; cv.style.cursor=h?"pointer":""; if(spread.on) spread.mouse=localXY(e); } return; }
   if(grab){ const p=localXY(e); grab.x=p.x; grab.y=p.y; if(Math.hypot(p.x-grab.x0,p.y-grab.y0)>10) grab.moved=true; return; }
   if(start && Math.hypot(e.clientX-start.x,e.clientY-start.y)>=7) clearTimeout(lp);
   const dx=e.clientX-last.x, dy=e.clientY-last.y; last={x:e.clientX,y:e.clientY};
@@ -1378,6 +1406,7 @@ cv.addEventListener("pointerup",e=>{
   if(anim || Math.hypot(e.clientX-start.x,e.clientY-start.y)>=7) return;
   if(!state.focus){ vY=AUTO; vX=0; } else if(sphere()){ fvY=AUTO; fvX=0; }
   const b=cv.getBoundingClientRect(), x=e.clientX-b.left, y=e.clientY-b.top;
+  if(spread.on) spread.poke={x,y}; // um toque faz uma onda que empurra as bolhas vizinhas
   const hit=hitAt(e);
   if(hit) return tap(hit.it);
   if(state.focus){ const c=shellC(); if(Math.hypot(x-c.x,y-c.y)>shellR()) leave(); }
