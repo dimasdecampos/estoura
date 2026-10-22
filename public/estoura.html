@@ -60,6 +60,8 @@ button.pill:hover{border-color:#3a4f7a}
 .pill.auth{display:inline-flex;align-items:center;gap:6px;color:var(--ink)}
 .pill.auth img{width:20px;height:20px;border-radius:50%;object-fit:cover}
 .vt{position:absolute;top:8px;right:12px;z-index:3;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:var(--surface-2);border:1px solid var(--line);color:var(--ink);box-shadow:0 6px 20px #0006;transition:transform .15s,border-color .15s,background .15s}
+.vt.f2{top:62px}
+.vt.on{border-color:var(--accent-2);color:var(--accent-2)}
 .vt:hover{transform:scale(1.06);border-color:var(--accent-2)}
 .vt[aria-pressed="true"]{border-color:var(--accent-2);color:var(--accent-2)}
 .vt svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
@@ -142,7 +144,7 @@ h2{font-family:var(--display);font-weight:800;font-size:24px;letter-spacing:-.01
 .link{background:none;border:0;padding:0;text-align:left;width:100%}
 .link>.gt,.link>.meta{display:block}
 
-nav{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);background:var(--bg);padding-bottom:4px}
+nav{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);background:var(--bg);padding-bottom:4px}
 nav button{background:none;border:0;padding:11px 2px 9px;display:grid;justify-items:center;gap:3px;color:var(--muted);font-size:12px;font-weight:600;position:relative}
 nav button[aria-current="page"]{color:var(--ink)}
 nav button[aria-current="page"] svg{stroke:var(--accent)}
@@ -304,7 +306,7 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
   <main>
     <section class="view" id="view-bolhas" aria-label="Bolhas">
       <div id="topbar">
-        <p class="hint gut" id="hint">Arraste pra girar. Toque 1×: curto · 2×: é minha vida · 3×: sai. Segure uma bolha pra entrar. Logado, segure e arraste até "Excluir" pra apagar; pra guardar uma bolha dentro de outra, use o botão Mover.</p>
+        <p class="hint gut" id="hint">Arraste pra girar. Toque 1× pra marcar a bolha; 2 toques (ou segure no celular) pra entrar nela e escolher "É minha vida ♥". Logado, segure e arraste até "Excluir" pra apagar; pra guardar uma bolha dentro de outra, use o botão Mover.</p>
         <div class="trend gut" id="trend"></div>
       </div>
       <div class="crumb gut" id="crumb" hidden>
@@ -315,6 +317,7 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
       </div>
       <div class="stage">
         <canvas id="globe" aria-label="Globo de bolhas de interesses"></canvas>
+        <button class="vt f2" id="filter-toggle" type="button" aria-label="Filtro: ver tudo" title="Filtro: ver tudo"></button>
         <button class="vt" id="view-toggle" type="button" aria-pressed="false" aria-label="Ver todas as bolhas espalhadas" title="Ver todas as bolhas espalhadas"></button>
       </div>
       <div class="dock gut" id="dock-top">
@@ -356,7 +359,7 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
   <nav class="gut" aria-label="Navegação">
     <button data-view="bolhas" aria-current="page">
       <svg viewBox="0 0 24 24"><circle cx="9" cy="10" r="6"/><circle cx="17" cy="16" r="4"/><circle cx="17.5" cy="5.5" r="2"/></svg>Bolhas</button>
-    <button data-view="matches">
+    <button data-view="matches" style="display:none">
       <svg viewBox="0 0 24 24"><circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/></svg>Matches<span class="badge" id="match-badge" hidden></span></button>
     <button data-view="eventos">
       <svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Eventos<span class="badge" id="event-badge" hidden></span></button>
@@ -944,7 +947,7 @@ function fitSpread(){ // enquadra todas as bolhas na tela
 }
 function initSpread(){ // explode a partir de onde as bolhas estão no globo agora
   const from=new Map(pts.map(p=>[p.it.id,p]));
-  items=[...INTERESTS,...visibleEvents()];
+  items=[...applyF(INTERESTS),...evF()];
   items.forEach(it=>{ it.sp=null; });
   layoutSpread();
   items.forEach(it=>{
@@ -989,7 +992,7 @@ function stepSpread(){
 const ICON_GLOBE='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3.200 3 3.200 15 0 18M12 3c-3.200 3-3.200 15 0 18"/></svg>';
 const ICON_SPREAD='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6.500" cy="7" r="2.800"/><circle cx="17" cy="6" r="2"/><circle cx="18" cy="15.500" r="3.200"/><circle cx="8" cy="17.500" r="2.300"/><circle cx="12.500" cy="11.500" r="1.200"/></svg>';
 const HINT_GLOBE=document.getElementById("hint").textContent;
-const HINT_SPREAD="Todas as bolhas, sem agrupar. Arraste pra mover a tela e use a pinça ou a rodinha pra dar zoom. Toque numa bolha pra estourar; segure e arraste até "Excluir" pra apagar.";
+const HINT_SPREAD="Todas as bolhas, sem agrupar. Arraste pra mover a tela e use a pinça ou a rodinha pra dar zoom. Toque numa bolha pra marcar; segure e arraste até "Excluir" pra apagar.";
 function setSpread(on){
   if(anim || on===spread.on) return;
   if(on){ state.focus=null; initSpread(); spread.on=true; }
@@ -1003,10 +1006,25 @@ function setSpread(on){
   try{ localStorage.setItem("estoura-view",on?"spread":"globe"); }catch(_){}
 }
 
+const HEART='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.400-7-10a4 4 0 0 1 7-2.600A4 4 0 0 1 19 10c0 5.600-7 10-7 10z"';
+const FILTERS=[
+  {k:"all",t:"Ver tudo",ic:HEART+' stroke-dasharray="2.500 2.500"/></svg>'},
+  {k:"liked",t:"Só as que curti",ic:HEART+' fill="currentColor"/></svg>'},
+  {k:"unliked",t:"Só as que não curti",ic:HEART+'/></svg>'}];
+let bubbleFilter="all";
+const applyF=list=>bubbleFilter==="all"?list:list.filter(it=>(bubbleFilter==="liked")===state.lv.has(it.id));
+const evF=()=>bubbleFilter==="all"?visibleEvents():[];
+function setFilter(k){
+  bubbleFilter=k; const f=FILTERS.find(x=>x.k===k), b=document.getElementById("filter-toggle");
+  b.innerHTML=f.ic; b.title=f.t; b.setAttribute("aria-label","Filtro: "+f.t); b.classList.toggle("on",k!=="all");
+  if(spread.on) spread.auto=true;
+  rebuild(true); toast(f.t);
+  try{ localStorage.setItem("estoura-filter",k); }catch(_){}
+}
 function rebuild(fresh){
-  if(spread.on){ items=[...INTERESTS,...visibleEvents()]; layoutSpread(); if(spread.auto) fitSpread(); return; }
-  if(state.focus){ items=[...kids(state.focus),ADD]; if(items.length>SPHERE_MIN) fib(items); }
-  else { items=[...INTERESTS.filter(i=>!i.parent),...visibleEvents()]; fib(items); }
+  if(spread.on){ items=[...applyF(INTERESTS),...evF()]; layoutSpread(); if(spread.auto) fitSpread(); return; }
+  if(state.focus){ items=[...applyF(kids(state.focus)),ADD]; if(items.length>SPHERE_MIN) fib(items); }
+  else { items=[...applyF(INTERESTS.filter(i=>!i.parent)),...evF()]; fib(items); }
   items.forEach(it=>{ if(fresh||it.dr==null) it.dr=reduce?targetR(it):0; });
 }
 function resize(){
@@ -1244,29 +1262,29 @@ function setLevel(it,L,silent){
   if(window.estouraSync) window.estouraSync(); // salva no Supabase quando há login
 }
 
+let lastTap={id:null,t:0};
 function tap(it){
   if(it.type==="add") return openNewSub();
   if(it.type==="event") return openEvent(it);
-  const L=state.lv.get(it.id)||0;
-  if(kids(it.id).length && !spread.on){ // tem sub-bolhas (em qualquer nível): entra (na visão espalhada tudo já está à mostra)
-    if(!L){ setLevel(it,1,true); toast(`Estourou ${it.name}! Agora escolha os detalhes`); setTimeout(()=>enter(it.id),reduce?0:420); }
-    else enter(it.id);
-    return;
+  const L=state.lv.get(it.id)||0, t=performance.now();
+  if(!spread.on && lastTap.id===it.id && t-lastTap.t<380){ // 2 toques (PC) ou toque longo (celular): entra na bolha
+    lastTap={id:null,t:0};
+    if(!L) setLevel(it,1,true);
+    return enter(it.id);
   }
-  setLevel(it,(L+1)%3);
+  lastTap={id:it.id,t};
+  setLevel(it,L?0:1); // 1 toque marca / desmarca; "é minha vida" fica só dentro da bolha
 }
 
 /* ---------- mover e excluir bolhas ----------
    Segurar uma bolha (~0,5 s) "pega" ela:
    - solta no mesmo lugar  -> entra na bolha (jeito de criar sub-bolhas);
-   - dentro de uma bolha, arrasta pra fora do círculo -> volta a ser bolha principal;
    - arrasta até "Excluir" -> exclui (com confirmação).
    Quem pode fazer isso é decidido no banco (can_manage_interests): hoje, qualquer pessoa logada. */
 const BODYFONT="Figtree, system-ui, sans-serif";
 const canManage=()=>!!(window.estouraAuthed && window.estouraMoveInterest);
 const trashZone=()=>({x:W/2,y:H-46,r:32});
 const overTrash=g=>{ const z=trashZone(); return Math.hypot(g.x-z.x,g.y-z.y)<z.r+20; };
-const outsideShell=g=>{ if(!state.focus) return false; const c=shellC(); return Math.hypot(g.x-c.x,g.y-c.y)>shellR(); };
 const drawAll=()=>pts.forEach(p=>{ if(!grab||p.it!==grab.it) drawBubble(p); }); // a bolha pega é desenhada à parte
 function drawGrab(){
   if(!grab) return;
@@ -1276,7 +1294,6 @@ function drawGrab(){
   ctx.beginPath(); ctx.arc(z.x,z.y,z.r+(hot?6:0),0,7); ctx.fill(); ctx.stroke(); ctx.setLineDash([]);
   ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillStyle=hot?"#ffd0d0":"#f1f5ff"; ctx.font=`700 12px ${BODYFONT}`;
   ctx.fillText("Excluir",z.x,z.y);
-  if(outsideShell(grab) && !hot){ ctx.font=`600 12px ${BODYFONT}`; ctx.fillStyle="#8ff0de"; ctx.fillText("solte pra tirar da bolha",W/2,18); }
   const base=pts.find(p=>p.it===grab.it);
   drawBubble({it:grab.it,sx:grab.x,sy:grab.y,r:(base?base.r:30)*1.12,z:1});
 }
@@ -1390,7 +1407,6 @@ cv.addEventListener("pointerup",e=>{
   if(grab){ const g=grab; grab=null;
     if(!g.moved){ if(!spread.on){ if(!state.lv.has(g.it.id)) setLevel(g.it,1,true); enter(g.it.id); } return; } // segurou e soltou no lugar: entra (só no globo)
     if(overTrash(g)) return askDelete(g.it);
-    if(outsideShell(g)) return doMove(g.it,(byId(state.focus)||{}).parent||null); // arrastou pra fora: sobe um nível
     return; }
   if(lpDone){ lpDone=false; return; } // o toque longo já entrou na bolha
   if(anim || Math.hypot(e.clientX-start.x,e.clientY-start.y)>=7) return;
@@ -1447,6 +1463,8 @@ document.addEventListener("keydown",e=>{ if(e.key==="Escape" && layer.firstEleme
 // girar a tela / redimensionar a janela: refaz o canvas
 addEventListener("orientationchange",()=>setTimeout(resize,250));
 document.getElementById("view-toggle").innerHTML=ICON_SPREAD;
+document.getElementById("filter-toggle").innerHTML=FILTERS[0].ic;
+document.getElementById("filter-toggle").onclick=()=>setFilter(FILTERS[(FILTERS.findIndex(x=>x.k===bubbleFilter)+1)%FILTERS.length].k);
 document.getElementById("view-toggle").onclick=()=>setSpread(!spread.on);
 resize(); rebuild(); renderAll(); welcome(); requestAnimationFrame(frame);
 try{ if(localStorage.getItem("estoura-view")==="spread") setSpread(true); }catch(_){} // lembra a última visão
