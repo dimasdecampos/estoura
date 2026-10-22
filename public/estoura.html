@@ -1382,7 +1382,9 @@ cv.addEventListener("pointerdown",e=>{
       // parou um instante: a bolha começa a crescer (vai entrar). Segurou mais: pronta pra entrar. Segurou bem mais: modo excluir.
       if(!spread.on){
         lpG=setTimeout(()=>{ if(drag) grow={it:h.it,t0:performance.now()}; },300);
-        lpE=setTimeout(()=>{ if(!drag) return; lpDone=true; try{ navigator.vibrate && navigator.vibrate(15); }catch(_){} },1000);
+        lpE=setTimeout(()=>{ if(!drag) return; lpDone=true; grow=null; try{ navigator.vibrate && navigator.vibrate(15); }catch(_){}
+          if(!state.lv.has(h.it.id)) setLevel(h.it,1,true);
+          enter(h.it.id); },1000); // segurou ~1 s: entra na bolha sem precisar soltar
       }
       lp=setTimeout(()=>{
         if(!drag||!canManage()) return;
@@ -1422,7 +1424,7 @@ cv.addEventListener("pointerup",e=>{
     if(!g.moved) return; // segurou pra excluir e soltou no lugar: nada acontece
     if(overTrash(g)) return askDelete(g.it);
     return; }
-  if(lpDone){ lpDone=false; const h=hitAt(e); if(h&&!h.it.type&&!anim){ if(!state.lv.has(h.it.id)) setLevel(h.it,1,true); enter(h.it.id); } return; } // segurou o bastante e soltou: entra na bolha
+  if(lpDone){ lpDone=false; return; } // o toque longo já entrou na bolha
   if(anim || Math.hypot(e.clientX-start.x,e.clientY-start.y)>=7) return;
   if(!state.focus){ vY=AUTO; vX=0; } else if(sphere()){ fvY=AUTO; fvX=0; }
   const b=cv.getBoundingClientRect(), x=e.clientX-b.left, y=e.clientY-b.top;
