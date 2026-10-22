@@ -1216,7 +1216,7 @@ document.getElementById("focus-back").onclick=leave;
 document.getElementById("focus-add").onclick=openNewSub;
 document.getElementById("focus-move").onclick=()=>{ if(canManage()) openMove(); else toast("Entre na sua conta para mover bolhas"); };
 document.getElementById("focus-out").onclick=()=>{ const it=byId(state.focus); setLevel(it,0); leave(); };
-document.getElementById("focus-seg").onclick=e=>{ const b=e.target.closest("[data-l]"); if(b) setLevel(byId(state.focus),+b.dataset.l); };
+document.getElementById("focus-seg").onclick=e=>{ const b=e.target.closest("[data-l]"); if(!b) return; const it=byId(state.focus), l=+b.dataset.l; setLevel(it,l===2&&state.lv.get(it.id)===2?1:l); }; // tocar de novo em "É minha vida" desmarca (volta pra Curto)
 
 function frame(t){
   now=t||0;
