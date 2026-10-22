@@ -59,6 +59,14 @@ button.pill:hover{border-color:#3a4f7a}
 .hr{display:flex;align-items:center;gap:8px}
 .pill.auth{display:inline-flex;align-items:center;gap:6px;color:var(--ink)}
 .pill.auth img{width:20px;height:20px;border-radius:50%;object-fit:cover}
+#ptr{position:fixed;top:calc(env(safe-area-inset-top,0px) + 6px);left:50%;width:38px;height:38px;border-radius:50%;background:var(--surface-2);border:1px solid var(--line);z-index:25;display:grid;place-items:center;pointer-events:none;opacity:0;transform:translate(-50%,-46px);box-shadow:0 6px 20px #0008}
+#ptr.snap{transition:transform .22s ease,opacity .22s}
+#ptr i{width:16px;height:16px;border-radius:50%;border:2.5px solid var(--accent);border-top-color:transparent}
+#ptr.spin i{animation:ptrspin .7s linear infinite}
+@keyframes ptrspin{to{transform:rotate(360deg)}}
+a.soc-ic{width:50px;height:50px;border-radius:15px;display:grid;place-items:center;background:var(--surface-2);border:1px solid var(--line);color:var(--c,var(--ink));transition:transform .15s,border-color .15s,background .15s}
+a.soc-ic svg{width:26px;height:26px}
+a.soc-ic:hover{transform:translateY(-2px);border-color:var(--c);background:#22335a}
 a.soc{text-decoration:none;color:var(--ink);display:inline-flex;align-items:center;min-height:40px;border:1px solid transparent;user-select:auto;transition:border-color .15s,background .15s}
 a.soc:hover{border-color:#3a4f7a;background:#22335a}
 .ex{display:inline-block;margin-left:6px;vertical-align:middle;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--warn);border:1px solid #ffd28a66;border-radius:999px;padding:1px 7px}
@@ -298,7 +306,8 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
       <div class="crumb gut" id="crumb" hidden>
         <button class="btn sm" id="focus-back">← Voltar</button>
         <span class="path">Todas as bolhas › <b id="focus-title"></b></span>
-        <button class="btn sm" id="focus-add" style="margin-left:auto;flex:none">+ Sub-bolha</button>
+        <button class="btn sm" id="focus-move" style="margin-left:auto;flex:none">Mover</button>
+        <button class="btn sm" id="focus-add" style="flex:none">+ Sub-bolha</button>
       </div>
       <div class="stage">
         <canvas id="globe" aria-label="Globo de bolhas de interesses"></canvas>
@@ -393,6 +402,11 @@ TOP.forEach(([id,name,hue,base,week])=>{
 });
 const byId = id => INTERESTS.find(i=>i.id===id);
 const kids = id => INTERESTS.filter(i=>i.parent===id);
+// árvore sem limite de níveis: bolha > sub-bolha > sub-sub-bolha > ...
+const ancestors = id => { const out=[]; let p=(byId(id)||{}).parent, n=0; while(p && n++<200){ out.push(p); p=(byId(p)||{}).parent; } return out; }; // ids, da mais próxima à raiz
+const descendants = id => { const out=[]; const walk=x=>kids(x).forEach(k=>{ out.push(k); walk(k.id); }); walk(id); return out; };
+const isDescendant = (id,ofId) => ancestors(id).includes(ofId);
+const pathOf = id => [...ancestors(id).reverse().map(a=>byId(a).name), byId(id).name];
 
 const CITIES = {"São Paulo":[-23.55,-46.63],"Campinas":[-22.90,-47.06],"Santos":[-23.96,-46.33],"Rio de Janeiro":[-22.91,-43.17],
   "Curitiba":[-25.43,-49.27],"Florianópolis":[-27.59,-48.55],"Belo Horizonte":[-19.92,-43.94],"Porto Alegre":[-30.03,-51.23],
@@ -428,14 +442,23 @@ function socialLink(key,value){
   v=v.replace(/^@/,"").replace(/\/+$/,"");
   return n.re.test(v) ? n.url(v) : null;
 }
+// ícones das redes (desenhos simples, na cor de cada rede)
+const SOCIAL_ICONS = {
+  Instagram:{c:"#f06a9d", svg:'<rect x="3.5" y="3.5" width="17" height="17" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.2" cy="6.8" r="1.2" fill="currentColor"/>'},
+  Facebook:{c:"#5b9bff", svg:'<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M13.2 20v-6.2h2.1l.4-2.6h-2.5V9.6c0-.8.3-1.3 1.4-1.3h1.2V6c-.2 0-1-.1-1.9-.1-1.9 0-3.2 1.200-3.2 3.300v1.800H8.600v2.600h2.100V20z" fill="currentColor"/>'},
+  YouTube:{c:"#ff5a5a", svg:'<rect x="2.8" y="5.8" width="18.4" height="12.4" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10.200 9.300v5.400l4.700-2.700z" fill="currentColor"/>'},
+  LinkedIn:{c:"#4aa8ee", svg:'<rect x="4.500" y="9.500" width="3" height="10" fill="currentColor"/><circle cx="6" cy="5.800" r="1.800" fill="currentColor"/><path d="M10.500 9.500h2.800v1.400c.5-.9 1.600-1.600 3.100-1.600 2.800 0 3.100 1.900 3.100 4.200v6h-3v-5.300c0-1.200-.1-2.200-1.400-2.200s-1.600 1.100-1.600 2.200v5.300h-3z" fill="currentColor"/>'},
+  WhatsApp:{c:"#3ddc84", svg:'<path d="M12 3.200a8.800 8.800 0 0 0-7.500 13.400L3.200 20.800l4.300-1.200A8.800 8.800 0 1 0 12 3.200z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9.200 8.600c-.3.700-.1 1.800.9 3.200 1 1.400 2.200 2.300 3.500 2.700.9.200 1.500-.2 1.800-.8l.2-.5-1.700-.9-.8.800c-.9-.4-1.800-1.200-2.300-2.200l.7-.8-.8-1.800z" fill="currentColor"/>'}
+};
 function realSocials(p){
   const c=p.conn, nm=esc(p.name.split(" ")[0]);
   if(c && c.status==="accepted"){
     const order=k=>{ const i=SOCIAL_NETS.findIndex(n=>n.key===k); return i<0?99:i; };
     const e=Object.entries(c.socials||{}).filter(([,v])=>v).sort((a,b)=>order(a[0])-order(b[0]));
-    return e.length ? `<div class="socials">${e.map(([k,v])=>{ const href=socialLink(k,v);
-        return href ? `<a class="soc" href="${esc(href)}" target="_blank" rel="noopener noreferrer"><span>${esc(k)}</span>${esc(v)}</a>`
-                    : `<span class="soc"><span>${esc(k)}</span>${esc(v)}</span>`; }).join("")}</div>`
+    // só os ícones, cada um é um link pro perfil (valores que não viram link são ignorados)
+    const links=e.map(([k])=>({k,href:socialLink(k,c.socials[k])})).filter(x=>x.href&&SOCIAL_ICONS[x.k]);
+    return links.length ? `<div class="socials">${links.map(({k,href})=>
+        `<a class="soc-ic" href="${esc(href)}" target="_blank" rel="noopener noreferrer" title="${esc(k)}" aria-label="${esc(k)} de ${nm}" style="--c:${SOCIAL_ICONS[k].c}"><svg viewBox="0 0 24 24" aria-hidden="true">${SOCIAL_ICONS[k].svg}</svg></a>`).join("")}</div>`
       : `<div class="locked">${LOCK}<div><b>Sem redes por enquanto</b><span>${nm} ainda não adicionou as redes sociais.</span></div></div>`;
   }
   return `<div class="locked">${LOCK}<div><b>Redes sociais protegidas</b><span>Aparecem quando vocês dois aceitarem conversar.</span></div></div>`;
@@ -513,7 +536,7 @@ const both2 = (p,id) => p && state.lv.get(id)===2 && p.lv.get(id)===2;
 function chip(id,{dim,p}={}){ const i=byId(id); const h=both2(p,id);
   return `<span class="chip${dim?" dim":""}${i.parent?" sub":""}" style="--h:${i.hue}"${h?' title="Os dois: é minha vida"':""}>${esc(i.name)}${h?" ♥":""}</span>`; }
 const avatar = p => `<span class="av" style="--h:${hueOf(p)}">${p.photo?`<img src="${esc(p.photo)}" alt="" referrerpolicy="no-referrer" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`:initials(p.name)}</span>`;
-const relevant = id => { const i=byId(id); return state.lv.has(id) || (i.parent && state.lv.has(i.parent)); };
+const relevant = id => state.lv.has(id) || ancestors(id).some(a=>state.lv.has(a));
 
 // em alta = bolhas que mais ganharam gente nos últimos 7 dias (pelo menos 2 pessoas novas)
 function trending(){ return INTERESTS.filter(i=>!i.parent && i.week>=2).map(i=>({i,r:i.week})).sort((a,b)=>b.r-a.r).slice(0,3); }
@@ -566,7 +589,8 @@ function renderFocus(){
   document.getElementById("topbar").hidden=!!f; document.getElementById("dock-top").hidden=!!f;
   document.getElementById("crumb").hidden=!f; document.getElementById("dock-focus").hidden=!f;
   if(f){
-    document.getElementById("focus-title").textContent=byId(f).name;
+    const pn=pathOf(f); // Todas as bolhas › A › B › <b>C</b>
+    document.querySelector("#crumb .path").innerHTML=`Todas as bolhas › ${pn.slice(0,-1).map(esc).join(" › ")}${pn.length>1?" › ":""}<b id="focus-title">${esc(pn[pn.length-1])}</b>`;
     document.querySelectorAll("#focus-seg button").forEach(b=>b.setAttribute("aria-pressed", String(+b.dataset.l===(state.lv.get(f)||0))));
   }
 }
@@ -729,7 +753,7 @@ function openCreateEvent(){
     <p class="sub" style="margin-bottom:6px">Aparece no globo de quem está perto e some depois da data.</p>
     <form class="form" id="ev-form">
       <label for="ev-title">Nome do rolê<input type="text" id="ev-title" maxlength="40" value="Slack + piquenique no Villa-Lobos" required></label>
-      <label for="ev-int">Bolha<select id="ev-int">${list.map(i=>`<option value="${i.id}">${esc(i.parent?byId(i.parent).name+" › "+i.name:i.name)}</option>`).join("")}</select></label>
+      <label for="ev-int">Bolha<select id="ev-int">${list.map(i=>`<option value="${i.id}">${esc(pathOf(i.id).join(" › "))}</option>`).join("")}</select></label>
       <div class="two">
         <label for="ev-day">Quando<select id="ev-day">${[1,2,3,4,5,6,7,14].map(d=>`<option value="${d}"${d===4?" selected":""}>${d===1?"amanhã":`em ${d} dias`}</option>`).join("")}</select></label>
         <label for="ev-time">Hora<input type="time" id="ev-time" value="15:00"></label>
@@ -822,9 +846,9 @@ function openMine(){
   const tops=INTERESTS.filter(i=>!i.parent && state.lv.has(i.id));
   openSheet(`<h3 style="font-family:var(--display);font-size:22px;margin:0 0 4px">Minhas bolhas</h3>
     <p class="sub" style="margin-bottom:4px">É assim que as pessoas te encontram. Ajuste a intensidade ou toque no nome pra entrar na bolha.</p>
-    <div class="mine">${tops.length?tops.map(i=>{ const subs=kids(i.id).filter(k=>state.lv.has(k.id)), L=state.lv.get(i.id);
+    <div class="mine">${tops.length?tops.map(i=>{ const all=descendants(i.id), subs=all.filter(k=>state.lv.has(k.id)), L=state.lv.get(i.id);
       return `<div class="group" style="--h:${i.hue}">
-        <div class="row"><button class="link" style="width:auto" data-open="${i.id}"><span class="gt">${esc(i.name)}</span>${kids(i.id).length?` <span class="meta">› ${subs.length} de ${kids(i.id).length} sub-bolhas</span>`:""}</button>
+        <div class="row"><button class="link" style="width:auto" data-open="${i.id}"><span class="gt">${esc(i.name)}</span>${all.length?` <span class="meta">› ${subs.length} de ${all.length} sub-bolhas</span>`:""}</button>
           <div class="seg" role="group" aria-label="Intensidade de ${esc(i.name)}"><button data-set="${i.id}" data-l="1" aria-pressed="${L===1}">Curto</button><button data-set="${i.id}" data-l="2" aria-pressed="${L===2}">♥</button><button data-set="${i.id}" data-l="0" class="out" aria-label="Sair de ${esc(i.name)}">✕</button></div></div>
         ${subs.length?`<div class="chips" style="margin:0">${subs.map(s=>chip(s.id)).join("")}</div>`:""}
       </div>`; }).join(""):`<div class="empty">Nenhuma bolha estourada ainda.</div>`}</div>
@@ -857,19 +881,22 @@ const cv=document.getElementById("globe"), ctx=cv.getContext("2d");
 const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
 const AUTO=reduce?0:0.0025, AUTO_O=reduce?0:0.0016;
 let W=0,H=0,R=100,DPR=1, rotY=0.6, rotX=-0.25, vY=AUTO, vX=0, orbit=0, vO=AUTO_O;
+let fY=0.6, fX=-0.25, fvY=AUTO, fvX=0; // giro da esfera de dentro de uma bolha com muitas sub-bolhas
 let pts=[], fx=[], items=[], target=null, anim=null, fade=1, now=0;
 const ADD={type:"add",id:"__add"};
 const TREND=new Set();
 const lerp=(a,b,t)=>a+(b-a)*t, ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
 const shellR=()=>Math.min(W*.47,H*.44), shellC=()=>({x:W/2,y:H/2-6});
 
+// distribui os itens numa esfera (espiral de Fibonacci)
+function fib(list){ const n=list.length, g=Math.PI*(3-Math.sqrt(5));
+  list.forEach((it,k)=>{ const y=1-(k+.5)/n*2, r=Math.sqrt(1-y*y), t=k*g; it.p=[Math.cos(t)*r,y,Math.sin(t)*r]; }); }
+// muitas sub-bolhas: dentro da bolha elas giram numa esfera, igual ao globo principal
+const SPHERE_MIN=7;
+const sphere=()=>!!state.focus && items.length>SPHERE_MIN;
 function rebuild(fresh){
-  if(state.focus) items=[...kids(state.focus),ADD];
-  else {
-    items=[...INTERESTS.filter(i=>!i.parent),...visibleEvents()];
-    const n=items.length, g=Math.PI*(3-Math.sqrt(5));
-    items.forEach((it,k)=>{ const y=1-(k+.5)/n*2, r=Math.sqrt(1-y*y), t=k*g; it.p=[Math.cos(t)*r,y,Math.sin(t)*r]; });
-  }
+  if(state.focus){ items=[...kids(state.focus),ADD]; if(items.length>SPHERE_MIN) fib(items); }
+  else { items=[...INTERESTS.filter(i=>!i.parent),...visibleEvents()]; fib(items); }
   items.forEach(it=>{ if(fresh||it.dr==null) it.dr=reduce?targetR(it):0; });
 }
 function resize(){
@@ -883,9 +910,11 @@ new ResizeObserver(resize).observe(cv.parentElement);
 // à bolha mais popular do grupo. Com poucas pessoas as bolhas continuam grandes.
 const peak = list => Math.max(1,...list.map(count));
 function targetR(it){
-  if(state.focus){ const S=shellR(); if(it.type==="add") return Math.max(S*.14,26);
+  if(state.focus){ const S=shellR(), sp=sphere();
+    if(it.type==="add") return Math.max(S*.14,sp?22:26);
     const rel=Math.sqrt(count(it)/peak(kids(state.focus)));
-    return Math.min(S*.3,(S/115)*(19+15*rel)); }
+    const fit=sp?Math.max(.42,Math.sqrt((SPHERE_MIN-1)/(items.length-1))):1; // quanto mais sub-bolhas, menores
+    return Math.min(S*.3,(S/115)*(19+15*rel))*fit; }
   const k=R/150;
   if(it.type==="event") return k*(13+evCount(it)*3.2);
   const rel=Math.sqrt(count(it)/peak(INTERESTS.filter(i=>!i.parent)));
@@ -893,6 +922,16 @@ function targetR(it){
 }
 
 function project(){
+  if(state.focus && sphere()){ // esfera dentro da bolha: mesma animação do globo principal
+    const S=shellR(), c=shellC(), Rin=S*.64, D=Rin*3.2;
+    const cy=Math.cos(fY),sy=Math.sin(fY),cx=Math.cos(fX),sx=Math.sin(fX);
+    pts=items.map(it=>{
+      const [x,y,z]=it.p, x1=x*cy+z*sy, z1=-x*sy+z*cy, y2=y*cx-z1*sx, z2=y*sx+z1*cx, s=D/(D-z2*Rin);
+      it.dr+=(targetR(it)-it.dr)*0.12;
+      return {it,sx:c.x+x1*Rin*s,sy:c.y+y2*Rin*s,r:Math.max(0,it.dr*s),z:z2};
+    }).sort((a,b)=>a.z-b.z);
+    return;
+  }
   if(state.focus){
     const S=shellR(), c=shellC(), n=items.length, ring=S*.62;
     pts=items.map((it,k)=>{ const a=orbit+k/n*Math.PI*2-Math.PI/2; it.dr+=(targetR(it)-it.dr)*.12;
@@ -920,7 +959,7 @@ function split(name,r){
 
 function drawBubble({it,sx,sy,r,z}){
   if(r<1) return;
-  const d=(z+1)/2, showLabel=state.focus||z>-.35;
+  const d=(z+1)/2, showLabel=(state.focus&&!sphere())||z>-.35;
   ctx.globalAlpha=(.28+.72*d)*fade;
   if(it.type==="add"){
     ctx.setLineDash([4,4]); ctx.lineWidth=1.5; ctx.strokeStyle="rgba(236,241,255,.6)";
@@ -961,7 +1000,7 @@ function drawBubble({it,sx,sy,r,z}){
     ctx.beginPath(); ctx.arc(sx,sy,r*.9,Math.PI*.15,Math.PI*.75); ctx.stroke();
   }
   // tem sub-bolhas: anel de pontinhos
-  if(!state.focus && !it.parent && kids(it.id).length && r>10){
+  if(kids(it.id).length && r>10){ // pontinhos = tem sub-bolhas (em qualquer nível)
     const n=kids(it.id).length, off=r+(L===2?10:6); ctx.fillStyle=L?`hsl(${h} 100% 92%)`:`hsla(${h} 95% 80% / .9)`;
     for(let k=0;k<n;k++){ const t=-Math.PI/2+(k-(n-1)/2)*.32; ctx.beginPath(); ctx.arc(sx+Math.cos(t)*off,sy+Math.sin(t)*off,1.8,0,7); ctx.fill(); }
   }
@@ -1026,12 +1065,14 @@ function enter(id){
 function doEnter(id){ state.focus=id; orbit=0; vO=AUTO_O; rebuild(true); renderFocus(); renderTrend(); }
 function leave(){
   if(anim||!state.focus) return;
-  const id=state.focus; state.focus=null; rebuild(); items.forEach(it=>it.dr=targetR(it));
+  const id=state.focus; state.focus=(byId(id)||{}).parent||null; // sobe um nível: volta pra bolha de fora (ou pro globo)
+  rebuild(); items.forEach(it=>it.dr=targetR(it));
   renderFocus(); renderTrend();
   if(!reduce) anim={dir:"out",t:0,id,h:byId(id).hue};
 }
 document.getElementById("focus-back").onclick=leave;
 document.getElementById("focus-add").onclick=openNewSub;
+document.getElementById("focus-move").onclick=()=>{ if(canManage()) openMove(); else toast("Entre na sua conta para mover bolhas"); };
 document.getElementById("focus-out").onclick=()=>{ const it=byId(state.focus); setLevel(it,0); leave(); };
 document.getElementById("focus-seg").onclick=e=>{ const b=e.target.closest("[data-l]"); if(b) setLevel(byId(state.focus),+b.dataset.l); };
 
@@ -1052,7 +1093,10 @@ function frame(t){
         if(anim.t>=1) anim=null;
       }
     } else if(state.focus){
-      if(!drag && !hoverPause){ orbit+=vO; vO+=(AUTO_O-vO)*.03; }
+      if(!drag && !hoverPause){
+        if(sphere()){ fY+=fvY; fX+=fvX; fvX*=.95; fvY+=((reduce?0:AUTO*Math.sign(fvY||1))-fvY)*.02; fX=Math.max(-1.3,Math.min(1.3,fX)); }
+        else { orbit+=vO; vO+=(AUTO_O-vO)*.03; }
+      }
       const S=shellR(), c=shellC(); drawShell(c.x,c.y,S,byId(state.focus).hue,1,0); drawCenter();
       project(); drawAll();
     } else {
@@ -1072,9 +1116,9 @@ function frame(t){
 
 /* ---------- interação ---------- */
 function setLevel(it,L,silent){
-  if(L){ const was=state.lv.get(it.id)||0; state.lv.set(it.id,L); if(it.parent && !state.lv.has(it.parent)) state.lv.set(it.parent,1); burst(it,!was);
+  if(L){ const was=state.lv.get(it.id)||0; state.lv.set(it.id,L); ancestors(it.id).forEach(a=>{ if(!state.lv.has(a)) state.lv.set(a,1); }); burst(it,!was);
     try{ navigator.vibrate && navigator.vibrate(L===2?[10,40,10]:12); }catch(e){} }
-  else { state.lv.delete(it.id); kids(it.id).forEach(k=>state.lv.delete(k.id)); }
+  else { state.lv.delete(it.id); descendants(it.id).forEach(k=>state.lv.delete(k.id)); }
   if(!silent){
     const n=everyone().filter(p=>p.lv.has(it.id)).length;
     toast(L===1?`Estourou ${it.name}!${n?` +${n} ${n>1?"pessoas":"pessoa"} no seu radar`:""}`: L===2?`${it.name} é sua vida ♥ peso maior no match`:`Você saiu de ${it.name}`);
@@ -1087,7 +1131,7 @@ function tap(it){
   if(it.type==="add") return openNewSub();
   if(it.type==="event") return openEvent(it);
   const L=state.lv.get(it.id)||0;
-  if(!state.focus && kids(it.id).length){
+  if(kids(it.id).length){ // tem sub-bolhas (em qualquer nível): entra
     if(!L){ setLevel(it,1,true); toast(`Estourou ${it.name}! Agora escolha os detalhes`); setTimeout(()=>enter(it.id),reduce?0:420); }
     else enter(it.id);
     return;
@@ -1107,7 +1151,8 @@ const canManage=()=>!!(window.estouraAuthed && window.estouraMoveInterest);
 const trashZone=()=>({x:W/2,y:H-46,r:32});
 const overTrash=g=>{ const z=trashZone(); return Math.hypot(g.x-z.x,g.y-z.y)<z.r+20; };
 const outsideShell=g=>{ if(!state.focus) return false; const c=shellC(); return Math.hypot(g.x-c.x,g.y-c.y)>shellR(); };
-const nestTarget=g=>state.focus ? null : [...pts].reverse().find(p=>p.it.id!==g.it.id && !p.it.type && Math.hypot(p.sx-g.x,p.sy-g.y)<p.r);
+// bolha sob o dedo onde dá pra guardar a segurada (em qualquer nível; nunca dentro dela mesma)
+const nestTarget=g=>[...pts].reverse().find(p=>p.it.id!==g.it.id && !p.it.type && Math.hypot(p.sx-g.x,p.sy-g.y)<p.r);
 const drawAll=()=>pts.forEach(p=>{ if(!grab||p.it!==grab.it) drawBubble(p); }); // a bolha pega é desenhada à parte
 function drawGrab(){
   if(!grab) return;
@@ -1118,26 +1163,26 @@ function drawGrab(){
   ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillStyle=hot?"#ffd0d0":"#f1f5ff"; ctx.font=`700 12px ${BODYFONT}`;
   ctx.fillText("Excluir",z.x,z.y);
   const t=nestTarget(grab);
-  if(t){ const ok=!kids(grab.it.id).length;
+  if(t){ const ok=!isDescendant(t.it.id,grab.it.id);
     ctx.strokeStyle=ok?"#8ff0de":"#ff7a7a"; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(t.sx,t.sy,t.r+6,0,7); ctx.stroke();
     ctx.font=`600 12px ${BODYFONT}`; ctx.fillStyle=ok?"#8ff0de":"#ff9e9e";
-    ctx.fillText(ok?`guardar dentro de ${t.it.name}`:"tem sub-bolhas",t.sx,t.sy-t.r-14); }
-  else if(outsideShell(grab) && !hot){ ctx.font=`600 12px ${BODYFONT}`; ctx.fillStyle="#8ff0de"; ctx.fillText("solte pra virar bolha principal",W/2,18); }
+    ctx.fillText(ok?`guardar dentro de ${t.it.name}`:"não dá: fica dentro dela mesma",t.sx,t.sy-t.r-14); }
+  else if(outsideShell(grab) && !hot){ ctx.font=`600 12px ${BODYFONT}`; ctx.fillStyle="#8ff0de"; ctx.fillText("solte pra tirar da bolha",W/2,18); }
   const base=pts.find(p=>p.it===grab.it);
   drawBubble({it:grab.it,sx:grab.x,sy:grab.y,r:(base?base.r:30)*1.12,z:1});
 }
 function askDelete(it){
-  const subs=kids(it.id), n=count(it);
+  const subs=descendants(it.id), n=count(it), nomes=subs.slice(0,5).map(s=>esc(s.name)).join(", ")+(subs.length>5?` e mais ${subs.length-5}`:"");
   openSheet(`<h3 style="font-family:var(--display);font-size:22px;margin:0 0 4px">Excluir "${esc(it.name)}"?</h3>
-    <p class="sub" style="margin-bottom:6px">${subs.length?`Isso também exclui ${subs.length} sub-bolha${subs.length>1?"s":""} (${subs.map(s=>esc(s.name)).join(", ")}). `:""}A bolha sai do perfil de ${n} ${n===1?"pessoa":"pessoas"} e os eventos ligados a ela somem. Não dá para desfazer pelo app.</p>
+    <p class="sub" style="margin-bottom:6px">${subs.length?`Isso também exclui ${subs.length} sub-bolha${subs.length>1?"s":""} (${nomes}). `:""}A bolha sai do perfil de ${n} ${n===1?"pessoa":"pessoas"} e os eventos ligados a ela somem. Não dá para desfazer pelo app.</p>
     <div class="actions"><button class="btn" data-close>Cancelar</button><button class="btn primary" id="del-ok" style="background:#ff7a7a;color:#2a0d0d">Excluir</button></div>`,{type:"delete"});
   document.getElementById("del-ok").onclick=()=>{ closeLayer(); doDelete(it); };
 }
 async function doDelete(it){
-  const ids=[it.id,...kids(it.id).map(k=>k.id)], gone=new Set(ids);
+  const ids=[it.id,...descendants(it.id).map(k=>k.id)], gone=new Set(ids);
   const backup=INTERESTS.filter(i=>gone.has(i.id)), levels=ids.filter(id=>state.lv.has(id)).map(id=>[id,state.lv.get(id)]);
   for(let i=INTERESTS.length-1;i>=0;i--) if(gone.has(INTERESTS[i].id)) INTERESTS.splice(i,1);
-  ids.forEach(id=>state.lv.delete(id)); if(gone.has(state.focus)) state.focus=null;
+  ids.forEach(id=>state.lv.delete(id)); if(gone.has(state.focus)) state.focus=it.parent||null; // estava dentro dela: sobe pra fora
   rebuild(); renderAll(); toast(`Bolha "${it.name}" excluída`);
   if(window.estouraDeleteInterest){
     const ok=await window.estouraDeleteInterest(it,ids);
@@ -1147,13 +1192,36 @@ async function doDelete(it){
 async function doMove(it,newParent){
   const old=it.parent, par=newParent?byId(newParent):null;
   it.parent=newParent;
-  if(par && state.lv.has(it.id) && !state.lv.has(par.id)) state.lv.set(par.id,1); // quem curte a sub-bolha curte a bolha-mãe
+  // quem curte algo dentro da bolha movida passa a curtir também a bolha de destino e todas as acima dela
+  if(par && [it,...descendants(it.id)].some(x=>state.lv.has(x.id))) [par.id,...ancestors(par.id)].forEach(a=>{ if(!state.lv.has(a)) state.lv.set(a,1); });
   rebuild(); renderAll();
   toast(par?`"${it.name}" agora está dentro de ${par.name}`:`"${it.name}" voltou a ser uma bolha principal`);
   if(window.estouraMoveInterest){
     const ok=await window.estouraMoveInterest(it,newParent);
     if(!ok){ it.parent=old; rebuild(); renderAll(); } else if(window.estouraSync) window.estouraSync();
   }
+}
+
+// Mover a bolha que está aberta, junto com tudo o que tem dentro, para outro lugar da árvore
+function openMove(){
+  const it=byId(state.focus); if(!it) return;
+  const banned=new Set([it.id,...descendants(it.id).map(d=>d.id)]); // não dá pra guardar dentro de si mesma
+  const rows=[], walk=(parent,dep)=>INTERESTS.filter(i=>(i.parent||null)===parent).sort((a,b)=>a.name.localeCompare(b.name,"pt-BR"))
+    .forEach(i=>{ if(banned.has(i.id)) return; rows.push({i,dep}); walk(i.id,dep+1); });
+  walk(null,0);
+  const btn=(to,label,dep,cur)=>`<button class="btn" data-to="${esc(to)}" ${cur?"disabled":""} style="justify-content:flex-start;text-align:left;padding-left:${14+dep*18}px">${esc(label)}${cur?" (onde está agora)":""}</button>`;
+  const n=descendants(it.id).length;
+  openSheet(`<h3 style="font-family:var(--display);font-size:22px;margin:0 0 4px">Mover "${esc(it.name)}"</h3>
+    <p class="sub" style="margin-bottom:8px">${n?`Leva a bolha e as ${n} sub-bolha${n>1?"s":""} que estão dentro dela. `:""}Escolha onde guardar:</p>
+    <input type="text" id="mv-q" placeholder="Buscar bolha" autocomplete="off" style="width:100%;margin-bottom:8px">
+    <div id="mv-list" style="display:grid;gap:6px">
+      ${btn("","Bolha principal (fora de todas)",0,!it.parent)}
+      ${rows.map(({i,dep})=>btn(i.id,i.name,dep+1,it.parent===i.id)).join("")}
+    </div>
+    <div class="actions"><button class="btn" data-close>Cancelar</button></div>`,{type:"move"});
+  const q=document.getElementById("mv-q"), list=document.getElementById("mv-list");
+  q.oninput=()=>{ const t=q.value.trim().toLowerCase(); list.querySelectorAll("button").forEach(b=>{ b.hidden=!!t && !b.textContent.toLowerCase().includes(t); }); };
+  list.onclick=e=>{ const b=e.target.closest("[data-to]"); if(!b||b.disabled) return; closeLayer(); doMove(it,b.dataset.to||null); };
 }
 
 let drag=false, start=null, last=null, lp=null, lpDone=false, hoverPause=false, grab=null;
@@ -1165,7 +1233,7 @@ cv.addEventListener("pointerdown",e=>{
   cv.setPointerCapture(e.pointerId); drag=true; target=null; hoverPause=false; cv.classList.add("drag"); start=last={x:e.clientX,y:e.clientY};
   lpDone=false; clearTimeout(lp);
   if(!anim){ const h=hitAt(e), p0=localXY(e);
-    if(h && !h.it.type && (canManage() || !state.focus)) lp=setTimeout(()=>{
+    if(h && !h.it.type) lp=setTimeout(()=>{
       if(!drag) return;
       try{ navigator.vibrate && navigator.vibrate(15); }catch(_){}
       if(canManage()){ grab={it:h.it,x:p0.x,y:p0.y,x0:p0.x,y0:p0.y,moved:false}; return; } // logado: pega a bolha
@@ -1181,28 +1249,65 @@ cv.addEventListener("pointermove",e=>{
   if(grab){ const p=localXY(e); grab.x=p.x; grab.y=p.y; if(Math.hypot(p.x-grab.x0,p.y-grab.y0)>10) grab.moved=true; return; }
   if(start && Math.hypot(e.clientX-start.x,e.clientY-start.y)>=7) clearTimeout(lp);
   const dx=e.clientX-last.x, dy=e.clientY-last.y; last={x:e.clientX,y:e.clientY};
-  if(state.focus){ orbit+=dx*.006; vO=dx*.006; return; }
+  if(state.focus){
+    if(sphere()){ fY+=dx*.008; fX-=dy*.008; fvY=dx*.008; fvX=-dy*.008; } // esfera de dentro da bolha
+    else { orbit+=dx*.006; vO=dx*.006; }
+    return; }
   // arrastar o dedo pra baixo faz a frente do globo descer junto
   rotY+=dx*.008; rotX-=dy*.008; vY=dx*.008; vX=-dy*.008;
 });
 cv.addEventListener("pointerup",e=>{
   drag=false; cv.classList.remove("drag"); clearTimeout(lp);
   if(grab){ const g=grab; grab=null;
-    if(!g.moved){ if(!state.focus){ if(!state.lv.has(g.it.id)) setLevel(g.it,1,true); enter(g.it.id); } return; } // segurou e soltou no lugar: entra
+    if(!g.moved){ if(!state.lv.has(g.it.id)) setLevel(g.it,1,true); enter(g.it.id); return; } // segurou e soltou no lugar: entra
     if(overTrash(g)) return askDelete(g.it);
-    if(!state.focus){ const t=nestTarget(g);
-      if(t) return kids(g.it.id).length ? toast("Essa bolha já tem sub-bolhas. Mova ou exclua elas primeiro.") : doMove(g.it,t.it.id); }
-    else if(outsideShell(g)) return doMove(g.it,null);
+    const t=nestTarget(g);
+    if(t) return isDescendant(t.it.id,g.it.id) ? toast("Não dá para guardar uma bolha dentro dela mesma.") : doMove(g.it,t.it.id);
+    if(outsideShell(g)) return doMove(g.it,(byId(state.focus)||{}).parent||null); // arrastou pra fora: sobe um nível
     return; }
   if(lpDone){ lpDone=false; return; } // o toque longo já entrou na bolha
   if(anim || Math.hypot(e.clientX-start.x,e.clientY-start.y)>=7) return;
-  if(!state.focus){ vY=AUTO; vX=0; }
+  if(!state.focus){ vY=AUTO; vX=0; } else if(sphere()){ fvY=AUTO; fvX=0; }
   const b=cv.getBoundingClientRect(), x=e.clientX-b.left, y=e.clientY-b.top;
   const hit=hitAt(e);
   if(hit) return tap(hit.it);
   if(state.focus){ const c=shellC(); if(Math.hypot(x-c.x,y-c.y)>shellR()) leave(); }
 });
 cv.addEventListener("pointercancel",()=>{drag=false;grab=null;clearTimeout(lp);cv.classList.remove("drag")});
+
+/* ---------- puxar pra baixo pra atualizar (celular) ----------
+   No app instalado o navegador não oferece esse gesto, então fazemos o nosso.
+   Vale nas telas de lista (Matches, Eventos, Grupos) e na faixa de cima do globo
+   (no globo, arrastar gira, por isso a área do globo em si fica de fora). */
+(function(){
+  const ind=document.createElement("div"); ind.id="ptr"; ind.setAttribute("aria-hidden","true"); ind.innerHTML="<i></i>"; document.body.appendChild(ind);
+  const TH=64; let y0=null, pull=0, busy=false;
+  const setInd=(px,snap)=>{ ind.classList.toggle("snap",!!snap); ind.style.opacity=Math.min(1,px/40); ind.style.transform=`translate(-50%,${px-46}px)`; ind.firstChild.style.transform=`rotate(${px*4}deg)`; };
+  const zone=t=>t.closest(".view:not(#view-bolhas), header, #topbar, #crumb");
+  document.addEventListener("touchstart",e=>{
+    if(busy||e.touches.length!==1||layer.firstElementChild) return;
+    const z=zone(e.target); if(!z) return;
+    if(z.classList.contains("view") && z.scrollTop>0) return; // só puxa quando a lista está no topo
+    y0=e.touches[0].clientY; pull=0;
+  },{passive:true});
+  document.addEventListener("touchmove",e=>{
+    if(y0==null) return; const dy=e.touches[0].clientY-y0;
+    if(dy<=0){ pull=0; setInd(0); return; }
+    pull=Math.min(dy*.5,100); setInd(pull);
+  },{passive:true});
+  const end=async()=>{
+    if(y0==null) return; const go=pull>=TH*.8; y0=null;
+    if(!go){ setInd(0,true); return; }
+    busy=true; ind.classList.add("spin"); setInd(56,true);
+    try{
+      if(window.estouraRefreshAll) await window.estouraRefreshAll();
+      else { location.reload(); return; } // sem login: recarrega a página
+      toast("Atualizado");
+    }catch(_){ toast("Não consegui atualizar"); }
+    ind.classList.remove("spin"); setInd(0,true); busy=false;
+  };
+  document.addEventListener("touchend",end); document.addEventListener("touchcancel",()=>{ y0=null; setInd(0,true); });
+})();
 
 // teclado virtual (iOS/Android): o chat encolhe junto com a área visível
 if(window.visualViewport){
@@ -1402,8 +1507,8 @@ if (cfg.url && cfg.key) {
       if (!it) { const n = { id: r.id, name: r.name, hue: r.hue, base: r.people, week: r.week_count, parent: r.parent_id }; INTERESTS.push(n); out.fresh.push(n); }
       else if (it.parent !== r.parent_id) { it.parent = r.parent_id; out.moved++; }
     });
-    // se a bolha em que você estava foi excluída ou virou sub-bolha, volta pro início
-    if (state.focus) { const f = byId(state.focus); if (!f || f.parent) state.focus = null; }
+    // se a bolha em que você estava foi excluída, volta pro início
+    if (state.focus && !byId(state.focus)) state.focus = null;
     COMMUNITY = community(rows);
     rows.forEach(r => { const it = byId(r.id); it.base = r.people - (state.lv.has(r.id) ? 1 : 0); it.week = r.week_count; });
     return out;
@@ -1412,7 +1517,7 @@ if (cfg.url && cfg.key) {
   const manageError = e => (/permissao/i.test(e.message || "") ? "Você não tem permissão para isso" : null);
   window.estouraMoveInterest = async (it, parent) => {
     const { error } = await sb.rpc("move_interest", { p_id: it.id, p_parent: parent });
-    if (error) { toast(manageError(error) || (/sub-bolhas/i.test(error.message || "") ? "Essa bolha tem sub-bolhas" : "Não consegui mover a bolha")); return false; }
+    if (error) { toast(manageError(error) || (/propria bolha/i.test(error.message || "") ? "Não dá para guardar uma bolha dentro dela mesma" : "Não consegui mover a bolha")); return false; }
     return true;
   };
   window.estouraDeleteInterest = async (it, ids) => {
@@ -1424,24 +1529,26 @@ if (cfg.url && cfg.key) {
 
   // bolhas novas (de qualquer pessoa), contagens e matches ao vivo
   let worldTimer = null;
-  function refreshWorld(){
-    clearTimeout(worldTimer);
-    worldTimer = setTimeout(async () => {
-      if (!uid || loading) return;
-      const st = await sb.rpc("interest_stats");
-      if (st.error || !uid) return;
-      const ch = syncInterests(st.data);
-      if (ch.fresh.length || ch.removed || ch.moved) {
-        rebuild();
-        if (ch.fresh.length) toast(ch.fresh.length === 1 ? `Nova bolha: ${ch.fresh[0].name}` : `${ch.fresh.length} bolhas novas`);
-        else if (ch.removed) toast("Uma bolha foi excluída");
-        else toast("Uma bolha foi movida");
-      }
-      renderAll();
-      loadMatches();
-      loadEvents();
-    }, 400);
+  async function refreshWorldNow(){
+    if (!uid || loading) return;
+    const st = await sb.rpc("interest_stats");
+    if (st.error || !uid) return;
+    const ch = syncInterests(st.data);
+    if (ch.fresh.length || ch.removed || ch.moved) {
+      rebuild();
+      if (ch.fresh.length) toast(ch.fresh.length === 1 ? `Nova bolha: ${ch.fresh[0].name}` : `${ch.fresh.length} bolhas novas`);
+      else if (ch.removed) toast("Uma bolha foi excluída");
+      else toast("Uma bolha foi movida");
+    }
+    renderAll();
+    await Promise.all([loadMatches(), loadEvents()]);
   }
+  function refreshWorld(){ clearTimeout(worldTimer); worldTimer = setTimeout(refreshWorldNow, 400); }
+  // puxar pra baixo pra atualizar: rebusca bolhas, matches, convites e eventos e espera terminar
+  window.estouraRefreshAll = async () => {
+    if (!uid) { location.reload(); return new Promise(() => {}); }
+    await Promise.all([refreshWorldNow(), loadConnections()]);
+  };
   let pulse = null;
   function startPulse(){
     if (pulse) return;
