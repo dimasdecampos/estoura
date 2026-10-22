@@ -1289,7 +1289,10 @@ const BODYFONT="Figtree, system-ui, sans-serif";
 const canManage=()=>!!(window.estouraAuthed && window.estouraMoveInterest);
 const trashZone=()=>({x:W/2,y:H-46,r:32});
 const overTrash=g=>{ const z=trashZone(); return Math.hypot(g.x-z.x,g.y-z.y)<z.r+20; };
-const drawAll=()=>pts.forEach(p=>{ if(!grab||p.it!==grab.it) drawBubble(p); }); // a bolha pega é desenhada à parte
+const drawAll=()=>pts.forEach(p=>{
+  if(grab&&p.it===grab.it) return;
+  if(grow&&p.it===grow.it){ const k=1+.4*Math.min(1,(performance.now()-grow.t0)/480); drawBubble({...p,r:p.r*k}); return; } // cresce pra mostrar que vai entrar
+  drawBubble(p); }); // a bolha pega é desenhada à parte
 function drawGrab(){
   if(!grab) return;
   const z=trashZone(), hot=overTrash(grab);
@@ -1354,7 +1357,8 @@ function openMove(){
   list.onclick=e=>{ const b=e.target.closest("[data-to]"); if(!b||b.disabled) return; closeLayer(); doMove(it,b.dataset.to||null); };
 }
 
-let drag=false, start=null, last=null, lp=null, lpDone=false, hoverPause=false, grab=null;
+let drag=false, start=null, last=null, lp=null, lpG=null, lpE=null, lpDone=false, hoverPause=false, grab=null, grow=null;
+const clearLP=()=>{ clearTimeout(lp); clearTimeout(lpG); clearTimeout(lpE); grow=null; };
 const hitAt=e=>{ const b=cv.getBoundingClientRect(), x=e.clientX-b.left, y=e.clientY-b.top;
   const slop=e.pointerType==="touch"?12:4; // dedo é mais impreciso que o mouse
   return [...pts].reverse().find(p=>Math.hypot(p.sx-x,p.sy-y)<p.r+slop); };
@@ -1368,18 +1372,22 @@ const zoomAt=(x,y,k)=>{ const k0=spread.k; k=Math.max(.15,Math.min(4,k));
   spread.tk=k; spread.tpx=spread.px; spread.tpy=spread.py; spread.auto=false; };
 cv.addEventListener("pointerdown",e=>{
   cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
-  if(spread.on && ptrs.size===2){ const g=pinchGeom(); pinch={d0:g.d,k0:spread.k}; pinchBusy=true; clearTimeout(lp); grab=null; return; }
+  if(spread.on && ptrs.size===2){ const g=pinchGeom(); pinch={d0:g.d,k0:spread.k}; pinchBusy=true; clearLP(); grab=null; return; }
   drag=true; target=null; hoverPause=false; spread.mouse=null; cv.classList.add("drag"); start=last={x:e.clientX,y:e.clientY};
-  lpDone=false; clearTimeout(lp);
+  lpDone=false; clearLP();
   if(!anim){ const h=hitAt(e), p0=localXY(e);
-    if(h && !h.it.type) lp=setTimeout(()=>{
-      if(!drag) return;
-      try{ navigator.vibrate && navigator.vibrate(15); }catch(_){}
-      if(canManage()){ grab={it:h.it,x:p0.x,y:p0.y,x0:p0.x,y0:p0.y,moved:false}; return; } // logado: pega a bolha
-      lpDone=true; // sem login: segurar só entra na bolha
-      if(!state.lv.has(h.it.id)) setLevel(h.it,1,true);
-      enter(h.it.id);
-    },450); } });
+    if(h && !h.it.type){
+      // parou um instante: a bolha começa a crescer (vai entrar). Segurou mais: pronta pra entrar. Segurou bem mais: modo excluir.
+      if(!spread.on){
+        lpG=setTimeout(()=>{ if(drag) grow={it:h.it,t0:performance.now()}; },220);
+        lpE=setTimeout(()=>{ if(!drag) return; lpDone=true; try{ navigator.vibrate && navigator.vibrate(15); }catch(_){} },700);
+      }
+      lp=setTimeout(()=>{
+        if(!drag||!canManage()) return;
+        try{ navigator.vibrate && navigator.vibrate([20,40,20]); }catch(_){}
+        lpDone=false; grow=null; grab={it:h.it,x:p0.x,y:p0.y,x0:p0.x,y0:p0.y,moved:false}; // logado: segurou bastante, pega pra excluir
+      },1600);
+    } } });
 cv.addEventListener("contextmenu",e=>e.preventDefault());
 cv.addEventListener("pointerleave",()=>{ hoverPause=false; spread.mouse=null; cv.style.cursor=""; });
 cv.addEventListener("pointermove",e=>{
@@ -1389,7 +1397,7 @@ cv.addEventListener("pointermove",e=>{
   // mouse parado em cima de uma bolha: o globo para de girar
   if(!drag){ if(e.pointerType==="mouse"){ const h=hitAt(e); hoverPause=!!h; cv.style.cursor=h?"pointer":""; if(spread.on) spread.mouse=localXY(e); } return; }
   if(grab){ const p=localXY(e); grab.x=p.x; grab.y=p.y; if(Math.hypot(p.x-grab.x0,p.y-grab.y0)>10) grab.moved=true; return; }
-  if(start && Math.hypot(e.clientX-start.x,e.clientY-start.y)>=7) clearTimeout(lp);
+  if(start && Math.hypot(e.clientX-start.x,e.clientY-start.y)>=7){ clearLP(); lpDone=false; }
   const dx=e.clientX-last.x, dy=e.clientY-last.y; last={x:e.clientX,y:e.clientY};
   if(spread.on){ spread.px+=dx; spread.py+=dy; spread.tpx=spread.px; spread.tpy=spread.py; spread.auto=false; return; } // arrastar move a tela
   if(state.focus){
@@ -1407,12 +1415,12 @@ cv.addEventListener("dblclick",()=>{ if(spread.on){ spread.auto=true; fitSpread(
 cv.addEventListener("pointerup",e=>{
   ptrs.delete(e.pointerId);
   if(pinch||pinchBusy){ pinch=null; pinchBusy=ptrs.size>0; drag=pinchBusy; if(!drag) cv.classList.remove("drag"); return; } // fim da pinça: sem toque fantasma
-  drag=false; cv.classList.remove("drag"); clearTimeout(lp);
+  drag=false; cv.classList.remove("drag"); clearLP();
   if(grab){ const g=grab; grab=null;
-    if(!g.moved){ if(!spread.on){ if(!state.lv.has(g.it.id)) setLevel(g.it,1,true); enter(g.it.id); } return; } // segurou e soltou no lugar: entra (só no globo)
+    if(!g.moved) return; // segurou pra excluir e soltou no lugar: nada acontece
     if(overTrash(g)) return askDelete(g.it);
     return; }
-  if(lpDone){ lpDone=false; return; } // o toque longo já entrou na bolha
+  if(lpDone){ lpDone=false; const h=hitAt(e); if(h&&!h.it.type&&!anim){ if(!state.lv.has(h.it.id)) setLevel(h.it,1,true); enter(h.it.id); } return; } // segurou o bastante e soltou: entra na bolha
   if(anim || Math.hypot(e.clientX-start.x,e.clientY-start.y)>=7) return;
   if(!state.focus){ vY=AUTO; vX=0; } else if(sphere()){ fvY=AUTO; fvX=0; }
   const b=cv.getBoundingClientRect(), x=e.clientX-b.left, y=e.clientY-b.top;
@@ -1421,7 +1429,7 @@ cv.addEventListener("pointerup",e=>{
   if(hit) return tap(hit.it);
   if(state.focus){ const c=shellC(); if(Math.hypot(x-c.x,y-c.y)>shellR()) leave(); }
 });
-cv.addEventListener("pointercancel",e=>{ptrs.delete(e.pointerId);pinch=null;pinchBusy=ptrs.size>0;drag=pinchBusy;grab=null;clearTimeout(lp);if(!drag) cv.classList.remove("drag")});
+cv.addEventListener("pointercancel",e=>{ptrs.delete(e.pointerId);pinch=null;pinchBusy=ptrs.size>0;drag=pinchBusy;grab=null;clearLP();lpDone=false;if(!drag) cv.classList.remove("drag")});
 
 /* ---------- puxar pra baixo pra atualizar (celular) ----------
    No app instalado o navegador não oferece esse gesto, então fazemos o nosso.
