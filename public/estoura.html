@@ -1187,7 +1187,7 @@ function starPath(x,y,rr){
 }
 // coraçãozinho no topo à direita de uma bolha marcada: toque pra virar "é minha vida"
 const heartSpot=p=>({x:p.sx+p.r*.42,y:p.sy-p.r*.56,hr:Math.max(11,p.r*.26)});
-const heartable=p=>!p.it.type&&p.r>18&&p.z>-.35&&state.lv.has(p.it.id)&&(p.it.hu||0)>performance.now(); // o coração aparece ao marcar e some; volta ao encostar na bolha
+const heartable=p=>!p.it.type&&p.r>18&&p.z>-.35&&state.lv.get(p.it.id)===1&&(p.it.hu||0)>performance.now(); // o coração aparece ao marcar e some; volta ao encostar na bolha
 const showHeart=it=>{ if(!it.type) it.hu=performance.now()+1800; };
 function heartHit(x,y){ for(const p of pts){ if(!heartable(p)) continue; const h=heartSpot(p); if(Math.hypot(x-h.x,y-h.y)<h.hr+6) return p; } return null; }
 function heartTap(p){
