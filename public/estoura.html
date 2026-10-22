@@ -1141,7 +1141,10 @@ function drawBubble({it,sx,sy,r,z}){
   ctx.fillStyle="rgba(255,255,255,.75)"; ctx.beginPath(); ctx.ellipse(sx-r*.4,sy-r*.45,r*.18,r*.1,-.7,0,7); ctx.fill();
   if(r>15 && showLabel){
     const fs=Math.max(9,Math.min(state.focus?14:15,r*.3)); ctx.font=`700 ${fs}px Figtree, system-ui, sans-serif`;
-    label(split(it.name,r),sx,sy,fs,L?"#10172a":"#f1f5ff",r>24?count(it).toLocaleString("pt-BR"):null);
+    const lines=split(it.name,r), extra=r>24?count(it).toLocaleString("pt-BR"):null;
+    if(L===2){ // já deu coração: coraçãozinho preto centralizado acima do nome, do tamanho da fonte
+      const top=sy-(lines.length-1)*fs*.55-(extra?fs*.35:0)-fs*1.15; ctx.fillStyle="#10172a"; heartPath(sx,top,fs*.42); ctx.fill(); }
+    label(lines,sx,sy,fs,L?"#10172a":"#f1f5ff",extra);
   }
   if(L && showLabel && heartable({it,r,z})){ // só o coração, dentro da bolha, no topo à direita
     const k=heartSpot({sx,sy,r}), on=L===2; ctx.globalAlpha*=Math.max(0,Math.min(1,(it.hu-performance.now())/400));
