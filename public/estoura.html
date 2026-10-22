@@ -7,6 +7,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Estoura">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Crect width='160' height='160' rx='36' fill='%230b1322'/%3E%3Cpath d='M125.31 62.87A50 50 0 1 1 92.94 35.70' fill='none' stroke='%23ff9ec4' stroke-width='11' stroke-linecap='round'/%3E%3Ccircle cx='111' cy='33' r='6' fill='%23ff9ec4'/%3E%3Ccircle cx='130' cy='43' r='4.5' fill='%23ff9ec4'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
@@ -351,6 +353,7 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
 <div id="layer"></div>
 
 <script src="/config.js"></script>
+<script>if("serviceWorker" in navigator) addEventListener("load",()=>navigator.serviceWorker.register("/sw.js").catch(()=>{}));</script>
 <script>
 /* ================= DADOS DE EXEMPLO ================= */
 // [id, nome, matiz, pessoas no total, novas nesta semana]
