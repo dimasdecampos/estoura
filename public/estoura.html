@@ -1,0 +1,1111 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Estoura</title>
+<meta name="description" content="Estoura: estoure as bolhas dos seus interesses e ache a sua turma.">
+<meta name="theme-color" content="#0b1322">
+<meta name="color-scheme" content="dark">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Estoura">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Crect width='160' height='160' rx='36' fill='%230b1322'/%3E%3Cpath d='M125.31 62.87A50 50 0 1 1 92.94 35.70' fill='none' stroke='%23ff9ec4' stroke-width='11' stroke-linecap='round'/%3E%3Ccircle cx='111' cy='33' r='6' fill='%23ff9ec4'/%3E%3Ccircle cx='130' cy='43' r='4.5' fill='%23ff9ec4'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one-screen app. A rotating globe of interest bubbles fills the middle (tap a big one to dive inside it), bottom nav switches views, profiles, events and chats slide up as sheets. */
+:root{
+  --bg:#0b1322; --surface:#131d33; --surface-2:#1b2844; --line:#28385a;
+  --ink:#ecf1ff; --muted:#94a1c3; --accent:#ff9ec4; --accent-2:#8ff0de; --warn:#ffd28a;
+  --display:"Bricolage Grotesque","Trebuchet MS",sans-serif;
+  --body:"Figtree",system-ui,-apple-system,sans-serif;
+  color-scheme:dark;
+}
+html{height:100%;box-sizing:border-box}
+*,*::before,*::after{box-sizing:inherit}
+body{height:100%;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;overflow:hidden}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent-2);outline-offset:2px}
+.app{height:100%;display:grid;grid-template-rows:auto 1fr auto;max-width:720px;margin:0 auto}
+.gut{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+header{padding-block:12px 6px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.logo{font-family:var(--display);font-weight:800;font-size:26px;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
+.logo svg{width:32px;height:32px;color:var(--accent);flex:none}
+.wlogo{width:56px;height:56px;color:var(--accent);display:block;margin-bottom:10px}
+.pill{font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:5px 10px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.pill b{color:var(--ink)}
+
+main{position:relative;min-height:0;overflow:hidden}
+.view{position:absolute;inset:0;overflow-y:auto}
+#view-bolhas{overflow:hidden;display:flex;flex-direction:column}
+.crumb{display:flex;align-items:center;gap:10px;padding-block:4px 0;min-height:44px}
+.crumb .path{min-width:0;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crumb .path b{font-family:var(--display);font-size:19px;color:var(--ink);margin-left:2px}
+.dock .seg{flex:1}
+.dock .seg button{flex:1;padding-block:10px}
+.hint{font-size:13px;color:var(--muted);padding-block:2px 0;margin:0}
+.trend{display:flex;gap:6px;align-items:center;overflow-x:auto;padding-block:8px 0;scrollbar-width:none}
+.trend .tag{flex:none;margin-right:2px}
+.trend button{flex:none;border:1px solid hsl(var(--h) 80% 65% / .45);background:hsl(var(--h) 70% 50% / .12);color:hsl(var(--h) 95% 84%);border-radius:999px;padding:5px 10px;font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums}
+.trend button b{color:var(--warn);font-weight:700;margin-left:4px}
+.stage{position:relative;min-height:0;flex:1}
+canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:grab}
+canvas.drag{cursor:grabbing}
+.pill{background:none}
+button.pill{cursor:pointer}
+button.pill:hover{border-color:#3a4f7a}
+.hr{display:flex;align-items:center;gap:8px}
+.pill.auth{display:inline-flex;align-items:center;gap:6px;color:var(--ink)}
+.pill.auth img{width:20px;height:20px;border-radius:50%;object-fit:cover}
+.why{display:grid;grid-template-columns:minmax(0,9em) 1fr auto;gap:10px;align-items:center;font-size:13px;margin-top:8px}
+.why span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wb{height:6px;border-radius:6px;background:var(--line);overflow:hidden}
+.wb i{display:block;height:100%;background:hsl(var(--h) 85% 70%)}
+.why b{font-variant-numeric:tabular-nums;font-size:12px;color:var(--muted);font-weight:600}
+.steps{display:grid;gap:14px;margin:16px 0 4px}
+.step{display:grid;grid-template-columns:44px 1fr;gap:12px;align-items:center}
+.step i{width:44px;height:44px;border-radius:50%;display:block;border:1.5px solid hsl(var(--h) 90% 75%);background:radial-gradient(circle at 32% 30%,#fff9 0 10%,transparent 11%),hsl(var(--h) 80% 60% / .25)}
+.step i.full{background:radial-gradient(circle at 32% 30%,#fff9 0 10%,transparent 11%),hsl(var(--h) 80% 65%)}
+.step i.dash{border-style:dashed}
+.step b{display:block}
+.step span{font-size:13px;color:var(--muted);line-height:1.4}
+.mine{display:grid;gap:10px;margin-top:8px}
+.mine .group{gap:8px;padding:12px}
+.mine .seg button{padding:6px 9px;font-size:12px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface)}
+.seg button{background:none;border:0;padding:7px 11px;font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--surface-2);color:var(--ink)}
+.seg button.out{color:#ff9e9e}
+.dock{padding-block:8px 10px;display:flex;gap:8px;align-items:center}
+.dock form{flex:1;display:flex;gap:8px;min-width:0}
+input[type=text],input[type=time],select{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:11px 12px;color:var(--ink);min-width:0}
+input::placeholder{color:var(--muted)}
+.dock input{flex:1}
+.btn{border:0;border-radius:12px;padding:11px 14px;font-weight:600;background:var(--surface-2);white-space:nowrap}
+.btn.sm{padding:7px 11px;font-size:13px}
+.btn.primary{background:var(--accent);color:#2a0d1b}
+.btn.mint{background:var(--accent-2);color:#06261f}
+.btn:disabled{opacity:.55;cursor:default}
+
+h2{font-family:var(--display);font-weight:800;font-size:24px;letter-spacing:-.015em;margin:14px 0 2px;text-wrap:balance}
+.sub{color:var(--muted);font-size:14px;margin:0 0 14px;max-width:60ch;line-height:1.45}
+.filters{display:grid;gap:10px;margin-bottom:14px}
+.filters label{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.filters select{padding:7px 10px;font-size:14px}
+.note{font-size:12.5px;color:var(--muted);margin-top:-4px}
+.list{display:grid;gap:10px;padding-bottom:20px}
+.card{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px;text-align:left;width:100%}
+.card:hover{border-color:#3a4f7a}
+.who{min-width:0}
+.name{font-weight:700}
+.meta{font-size:12.5px;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.chip{font-size:12px;padding:3px 8px;border-radius:999px;background:hsl(var(--h) 60% 50% / .18);color:hsl(var(--h) 90% 82%);border:1px solid hsl(var(--h) 70% 60% / .35);white-space:nowrap}
+.chip.dim{background:transparent;color:var(--muted);border-color:var(--line)}
+.chip.sub{border-style:dashed}
+.ok{font-size:11px;font-weight:700;color:var(--accent-2);text-transform:uppercase;letter-spacing:.05em}
+.av{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:15px;color:#0b1322;flex:none;
+  background:radial-gradient(circle at 30% 28%,#fff8 0 14%,transparent 15%),hsl(var(--h) 75% 70%)}
+.av.me{background:radial-gradient(circle at 30% 28%,#fff8 0 14%,transparent 15%),var(--accent)}
+.score{text-align:right;font-family:var(--display);font-weight:800;font-size:22px;font-variant-numeric:tabular-nums;line-height:1}
+.score small{display:block;font-family:var(--body);font-weight:500;font-size:11px;color:var(--muted);margin-top:3px}
+.bar{height:4px;border-radius:4px;background:var(--line);margin-top:6px;overflow:hidden;width:56px;margin-left:auto}
+.bar span{display:block;height:100%;background:linear-gradient(90deg,var(--accent-2),var(--accent))}
+.empty{border:1px dashed var(--line);border-radius:16px;padding:22px;color:var(--muted);text-align:center}
+.tag{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+
+.group{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;display:grid;gap:10px;text-align:left}
+.group.ev{border-style:dashed;border-color:hsl(var(--h) 60% 55% / .6)}
+.gt{font-weight:700;font-size:16px}
+.when{font-size:12px;font-weight:700;color:var(--warn);font-variant-numeric:tabular-nums}
+.stack{display:flex;align-items:center}
+.stack .av{width:32px;height:32px;font-size:11px;border:2px solid var(--surface);margin-right:-8px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.link{background:none;border:0;padding:0;text-align:left;width:100%}
+.link>.gt,.link>.meta{display:block}
+
+nav{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);background:var(--bg);padding-bottom:4px}
+nav button{background:none;border:0;padding:11px 2px 9px;display:grid;justify-items:center;gap:3px;color:var(--muted);font-size:12px;font-weight:600;position:relative}
+nav button[aria-current="page"]{color:var(--ink)}
+nav button[aria-current="page"] svg{stroke:var(--accent)}
+nav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8}
+.badge{position:absolute;top:6px;left:calc(50% + 8px);background:var(--accent);color:#2a0d1b;font-size:10px;font-weight:700;border-radius:999px;padding:1px 6px;font-variant-numeric:tabular-nums}
+
+.scrim{position:fixed;inset:0;background:#050912b3;z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--surface);border:1px solid var(--line);border-bottom:0;border-radius:22px 22px 0 0;width:100%;max-width:720px;max-height:88%;overflow-y:auto;
+  padding-block:10px calc(18px + env(safe-area-inset-bottom,0px));animation:up .22s ease-out}
+@keyframes up{from{transform:translateY(30px);opacity:.4}}
+.grab{width:38px;height:4px;border-radius:4px;background:var(--line);margin:0 auto 12px}
+.ph{display:flex;gap:14px;align-items:center}
+.ph .av{width:64px;height:64px;font-size:20px}
+.ph h3{font-family:var(--display);font-size:22px;margin:0;text-wrap:balance}
+.sec{margin-top:16px}
+.socials{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.soc{background:var(--surface-2);border-radius:10px;padding:8px 10px;font-size:13px;user-select:all}
+.soc span{color:var(--muted);margin-right:6px}
+.locked{display:flex;gap:12px;align-items:center;margin-top:6px;background:var(--surface-2);border-radius:12px;padding:12px}
+.locked svg{width:22px;height:22px;flex:none;stroke:var(--warn);fill:none;stroke-width:1.8}
+.locked span{display:block;font-size:13px;color:var(--muted);margin-top:2px}
+.actions{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
+.actions .btn{flex:1}
+.form{display:grid;gap:12px;margin-top:6px}
+.form label{display:grid;gap:6px;font-size:13px;color:var(--muted)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+.chat{position:fixed;inset:0;z-index:30;background:var(--bg);display:grid;grid-template-rows:auto 1fr auto auto;max-width:720px;margin:0 auto;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.ch{display:flex;align-items:center;gap:12px;padding-block:12px;border-bottom:1px solid var(--line)}
+.ch .back{background:none;border:0;font-size:22px;padding:4px 8px 4px 0}
+.ch .t{font-weight:700;min-width:0}
+.ch .t small{display:block;font-weight:400;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.msgs{overflow-y:auto;padding-block:14px;display:flex;flex-direction:column;gap:8px}
+.sys{align-self:center;text-align:center;font-size:12.5px;color:var(--muted);background:var(--surface);border-radius:12px;padding:8px 12px;max-width:85%;line-height:1.4}
+.m{max-width:78%;padding:9px 12px;border-radius:16px;line-height:1.4;min-width:0;overflow-wrap:anywhere}
+.m.them{align-self:flex-start;background:var(--surface-2);border-bottom-left-radius:4px}
+.m.me{align-self:flex-end;background:var(--accent);color:#2a0d1b;border-bottom-right-radius:4px}
+.m .from{display:block;font-size:11px;font-weight:700;color:hsl(var(--h) 85% 78%);margin-bottom:2px}
+.typing{align-self:flex-start;color:var(--muted);font-size:13px}
+.ice{display:flex;gap:6px;overflow-x:auto;padding-block:6px}
+.ice button{flex:none;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:7px 11px;font-size:13px;color:var(--accent-2)}
+.composer{display:flex;gap:8px;padding-block:8px 10px}
+.composer input{flex:1}
+
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);font-weight:600;font-size:13.5px;padding:9px 14px;border-radius:12px;z-index:40;max-width:calc(100% - 32px);text-align:center;transition:opacity .2s}
+.toast[data-off]{opacity:0;pointer-events:none}
+@media (prefers-reduced-motion:reduce){.sheet{animation:none}}
+
+/* ================= RESPONSIVO: celular, tablet e desktop ================= */
+:root{padding:0;--vvh:100dvh}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{height:100vh;height:100dvh;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;-webkit-font-smoothing:antialiased}
+.app{height:100vh;height:100dvh;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.view{top:0;right:0;bottom:0;left:0;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.scrim,.chat{top:0;right:0;bottom:0;left:0}
+canvas{top:0;left:0;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+button{-webkit-appearance:none;appearance:none;touch-action:manipulation}
+input,select{font-size:16px;-webkit-appearance:none;appearance:none}
+select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' stroke='%2394a1c3' stroke-width='2'%3E%3Cpath d='m1 1 5 5 5-5'/%3E%3C/svg%3E") no-repeat right 11px center}
+.scrim{-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+.btn,.seg button,.ice button{min-height:40px}
+.chip.sub{margin:0;max-width:none;font-size:12px;line-height:1.4}
+.chip{align-self:auto;line-height:1.4}
+.list>.note{grid-column:1/-1;margin:0}
+.filters{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
+.filters .seg{flex:none;max-width:100%;overflow-x:auto}
+.btn.sm{min-height:36px}
+.seg button{min-height:40px}
+.sheet,.msgs,.view{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.card,.group,.btn{transition:border-color .15s,background .15s,transform .15s}
+@media (hover:hover){.btn:hover{filter:brightness(1.12)}.card:hover{transform:translateY(-2px)}}
+
+/* celular pequeno */
+@media (max-width:380px){
+  .logo{font-size:22px}
+  .pill{font-size:11px;padding:4px 8px}
+  h2{font-size:21px}
+  .card{grid-template-columns:auto 1fr;}
+  .card>span:last-child{grid-column:1/-1;display:flex;align-items:center;gap:10px;justify-content:space-between}
+  .card .bar{margin:0;flex:1}
+  .two{grid-template-columns:1fr}
+  .actions .btn{flex:1 1 100%}
+  nav button{font-size:11px}
+}
+/* celular: o chat acompanha o teclado virtual */
+@media (max-width:759px){
+  .chat{height:var(--vvh);bottom:auto}
+}
+/* celular deitado */
+@media (max-height:500px) and (orientation:landscape) and (max-width:1000px){
+  header{padding-block:4px 2px}
+  .hint,.trend{display:none}
+  .crumb{min-height:36px}
+  .dock{padding-block:4px 6px}
+  nav button{padding:5px 2px 4px;grid-auto-flow:column;justify-content:center;align-items:center;gap:8px}
+  nav svg{width:18px;height:18px}
+  .badge{position:static}
+  .sheet{max-height:94%}
+}
+/* tablet */
+@media (min-width:760px){
+  .app{max-width:900px}
+  .gut{padding-left:max(28px,env(safe-area-inset-left,0px));padding-right:max(28px,env(safe-area-inset-right,0px))}
+  h2{font-size:30px}
+  .list{grid-template-columns:repeat(auto-fill,minmax(360px,1fr));align-items:start}
+  .scrim{align-items:center;padding:24px}
+  .sheet{max-width:560px;max-height:min(86dvh,820px);border:1px solid var(--line);border-radius:24px;padding-block:14px 22px;animation:pop .2s ease-out}
+  .grab{display:none}
+  .chat{top:4dvh;bottom:4dvh;left:0;right:0;max-width:560px;border:1px solid var(--line);border-radius:24px;overflow:hidden;box-shadow:0 0 0 100vmax #050912b3,0 30px 80px #000a}
+  .toast{bottom:28px}
+}
+@keyframes pop{from{transform:scale(.96);opacity:.4}}
+/* desktop: menu lateral, tela larga */
+@media (min-width:1024px){
+  .app{max-width:1280px;grid-template-columns:240px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);grid-template-areas:"head head" "nav main"}
+  header{grid-area:head;padding-block:18px 10px}
+  main{grid-area:main}
+  nav{grid-area:nav;grid-template-columns:1fr;align-content:start;gap:4px;border-top:0;border-right:1px solid var(--line);padding-block:14px}
+  nav button{grid-template-columns:auto 1fr auto;justify-items:start;align-items:center;gap:12px;font-size:15px;padding:13px 14px;border-radius:14px;text-align:left}
+  nav button:hover{background:var(--surface);color:var(--ink)}
+  nav button[aria-current="page"]{background:var(--surface-2)}
+  nav svg{width:24px;height:24px}
+  .badge{position:static}
+  .logo{font-size:30px}
+  .hint{font-size:14px}
+  .trend{padding-block:10px 2px}
+  .crumb .path b{font-size:22px}
+  .dock{padding-block:12px 18px}
+  .dock input{max-width:380px}
+  .view.gut{padding-left:36px;padding-right:36px;padding-bottom:30px}
+  h2{font-size:34px;margin-top:24px}
+  p.sub{font-size:15px}
+  .list{grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:14px}
+  .toast{left:calc(50% + 120px)}
+}
+@media (min-width:1500px){
+  .app{max-width:1440px}
+}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="mark" viewBox="0 0 160 160">
+    <path d="M125.31 62.87 A50 50 0 1 1 92.94 35.70" fill="none" stroke="currentColor" stroke-width="11" stroke-linecap="round"/>
+    <path d="M54 86 A26 26 0 0 1 72 61" fill="none" stroke="var(--accent-2)" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="111" cy="33" r="6" fill="currentColor"/><circle cx="130" cy="43" r="4.5" fill="currentColor"/>
+    <circle cx="119" cy="14" r="4" fill="currentColor"/><circle cx="141" cy="25" r="3" fill="currentColor"/>
+  </symbol>
+</defs></svg>
+<div class="app">
+  <header class="gut">
+    <div class="logo"><svg viewBox="0 0 160 160" aria-hidden="true"><use href="#mark"/></svg>estoura</div>
+    <div class="hr">
+      <button class="pill auth" id="auth-btn" hidden>Entrar</button>
+      <button class="pill" id="pop-count" aria-label="Minhas bolhas"><b>0</b> estouradas ›</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="view" id="view-bolhas" aria-label="Bolhas">
+      <div id="topbar">
+        <p class="hint gut" id="hint">Arraste pra girar. Toque 1×: curto · 2×: é minha vida · 3×: sai.</p>
+        <div class="trend gut" id="trend"></div>
+      </div>
+      <div class="crumb gut" id="crumb" hidden>
+        <button class="btn sm" id="focus-back">← Voltar</button>
+        <span class="path">Todas as bolhas › <b id="focus-title"></b></span>
+      </div>
+      <div class="stage">
+        <canvas id="globe" aria-label="Globo de bolhas de interesses"></canvas>
+      </div>
+      <div class="dock gut" id="dock-top">
+        <form id="new-form">
+          <input type="text" id="new-input" maxlength="24" placeholder="Não achou? Crie uma bolha" autocomplete="off">
+          <button class="btn" type="submit">Criar</button>
+        </form>
+        <button class="btn primary" id="go-matches">Matches</button>
+      </div>
+      <div class="dock gut" id="dock-focus" hidden>
+        <div class="seg" id="focus-seg" role="group" aria-label="Quanto você curte esta bolha">
+          <button data-l="1">Curto</button><button data-l="2">É minha vida ♥</button>
+        </div>
+        <button class="btn" id="focus-out">Sair da bolha</button>
+      </div>
+    </section>
+
+    <section class="view gut" id="view-matches" hidden aria-label="Matches">
+      <h2>Quem estourou o mesmo que você</h2>
+      <p class="sub">Interesses raros e sub-bolhas pesam mais. Quem marcou "é minha vida" no mesmo que você ganha bônus (♥). Perfis de exemplo.</p>
+      <div class="filters" id="filters"></div>
+      <div class="list" id="match-list"></div>
+    </section>
+
+    <section class="view gut" id="view-eventos" hidden aria-label="Eventos">
+      <h2>Bolhas de evento</h2>
+      <p class="sub">Rolês com data marcada. A bolha aparece no globo e some sozinha depois do evento.</p>
+      <div class="row" style="margin-bottom:14px"><span class="note" id="ev-note"></span><button class="btn mint sm" id="new-event">Criar evento</button></div>
+      <div class="list" id="event-list"></div>
+    </section>
+
+    <section class="view gut" id="view-grupos" hidden aria-label="Grupos">
+      <h2>Grupos sugeridos</h2>
+      <p class="sub">Combinações das suas bolhas e sub-bolhas que outras pessoas também estouraram.</p>
+      <div class="list" id="group-list"></div>
+    </section>
+  </main>
+
+  <nav class="gut" aria-label="Navegação">
+    <button data-view="bolhas" aria-current="page">
+      <svg viewBox="0 0 24 24"><circle cx="9" cy="10" r="6"/><circle cx="17" cy="16" r="4"/><circle cx="17.5" cy="5.5" r="2"/></svg>Bolhas</button>
+    <button data-view="matches">
+      <svg viewBox="0 0 24 24"><circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/></svg>Matches<span class="badge" id="match-badge" hidden></span></button>
+    <button data-view="eventos">
+      <svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Eventos<span class="badge" id="event-badge" hidden></span></button>
+    <button data-view="grupos">
+      <svg viewBox="0 0 24 24"><path d="M4 6h16v10H9l-5 4z"/></svg>Grupos<span class="badge" id="group-badge" hidden></span></button>
+  </nav>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" data-off></div>
+<div id="layer"></div>
+
+<script src="/config.js"></script>
+<script>
+/* ================= DADOS DE EXEMPLO ================= */
+// [id, nome, matiz, pessoas no total, novas nesta semana]
+const TOP = [
+  ["viagens","Viagens",200,2380,60],["slackline","Slackline",165,310,96],["futebol","Futebol",130,2140,30],
+  ["croche","Crochê",330,640,150],["escalada","Escalada",25,520,20],["fotografia","Fotografia",280,1460,25],
+  ["cafe","Café especial",30,980,22],["trilhas","Trilhas",145,1210,70],["surf","Surf",190,870,12],
+  ["tabuleiro","Jogos de tabuleiro",260,560,40],["cerveja","Cerveja artesanal",40,1130,15],["yoga","Yoga",300,940,18],
+  ["corrida","Corrida",350,1580,45],["vegana","Cozinha vegana",110,690,10],["astronomia","Astronomia",235,410,118],
+  ["skate","Skate",15,480,8],["jardinagem","Jardinagem",95,600,20],["cinema","Cinema",345,1820,30],
+  ["programacao","Programação",210,1290,35],["samba","Samba",5,760,25],["rafting","Rafting",180,260,14],
+  ["ciclismo","Ciclismo",60,1050,20],["leitura","Leitura",270,1690,28],["pintura","Pintura",320,450,9],
+  ["pets","Pets",20,2010,40],["vinil","Discos de vinil",250,330,6]
+];
+const SUBS = {
+  viagens:[["mochilao","Mochilão",420],["patagonia","Patagônia",150],["intercambio","Intercâmbio",310],["roadtrip","Road trip",260],["nomade","Nômade digital",190]],
+  slackline:[["highline","Highline",70],["trickline","Trickline",55],["waterline","Waterline",40]],
+  futebol:[["pelada","Pelada de fim de semana",640],["futsal","Futsal",380],["torcida","Ir ao estádio",520]],
+  croche:[["amigurumi","Amigurumi",210],["roupas","Roupas de crochê",150],["tapecaria","Tapeçaria",60]],
+  escalada:[["boulder","Boulder",190],["esportiva","Esportiva",160],["bigwall","Big wall",35]],
+  fotografia:[["analogica","Analógica",170],["natureza","Natureza",380],["rua","Fotografia de rua",240]],
+  trilhas:[["travessias","Travessias",180],["camping","Camping selvagem",230],["cachoeiras","Cachoeiras",410]],
+  surf:[["longboard","Longboard",160],["bodyboard","Bodyboard",130]],
+  rafting:[["corredeiras","Classe IV+",45],["canoagem","Canoagem",90],["boiacross","Boia-cross",70]],
+  corrida:[["maratona","Maratona",260],["trailrun","Trail run",210],["rua","Corrida de rua",590]],
+  tabuleiro:[["euro","Eurogames",140],["rpg","RPG de mesa",230],["party","Party games",150]],
+  cinema:[["terror","Terror",420],["cult","Cinema cult",210],["nacional","Cinema nacional",280]],
+  programacao:[["games","Game dev",230],["ia","IA",410],["opensource","Open source",190]]
+};
+const INTERESTS = [];
+TOP.forEach(([id,name,hue,base,week])=>{
+  INTERESTS.push({id,name,hue,base,week,parent:null});
+  (SUBS[id]||[]).forEach(([s,n,b],k)=>INTERESTS.push({id:id+"/"+s,name:n,hue:(hue+(k-1)*24+360)%360,base:b,week:0,parent:id}));
+});
+const byId = id => INTERESTS.find(i=>i.id===id);
+const kids = id => INTERESTS.filter(i=>i.parent===id);
+
+const CITIES = {"São Paulo":[-23.55,-46.63],"Campinas":[-22.90,-47.06],"Santos":[-23.96,-46.33],"Rio de Janeiro":[-22.91,-43.17],
+  "Curitiba":[-25.43,-49.27],"Florianópolis":[-27.59,-48.55],"Belo Horizonte":[-19.92,-43.94],"Porto Alegre":[-30.03,-51.23],
+  "Brasília":[-15.79,-47.88],"Salvador":[-12.97,-38.50],"Recife":[-8.05,-34.88]};
+
+// nome, idade, cidade, coordenadas, bio, bolhas (":2" = é minha vida), redes, demora pra responder?
+const PEOPLE = [
+  ["Marina Coelho",29,"Florianópolis",[-27.60,-48.48],"Fotógrafa de viagem, monto slack na praia todo fim de tarde.",["viagens","viagens/nomade","slackline:2","slackline/waterline","surf:2","surf/longboard","fotografia","fotografia/natureza","yoga","cafe"],{Instagram:"@marina.exemplo",Strava:"marina-c"}],
+  ["Rafael Duarte",34,"São Paulo",[-23.56,-46.69],"Dev de dia, mestre de Catan à noite.",["futebol:2","futebol/pelada","cerveja","programacao:2","programacao/opensource","tabuleiro:2","tabuleiro/euro","cinema"],{Instagram:"@rafa.exemplo",LinkedIn:"rafaelduarte-ex"}],
+  ["Lia Fernandes",26,"Belo Horizonte",[-19.93,-43.94],"Faço amigurumi e tenho 3 gatos e 40 plantas.",["croche:2","croche/amigurumi","pintura","jardinagem","pets:2","leitura","cafe"],{Instagram:"@lia.croche.ex"}],
+  ["Tiago Moraes",31,"Curitiba",[-25.44,-49.27],"Escalo no Anhangava, fotografo o céu à noite.",["escalada:2","escalada/boulder","slackline:2","slackline/highline","trilhas","trilhas/travessias","astronomia","fotografia","fotografia/natureza"],{Instagram:"@tiago.vertical.ex",Strava:"tiagom"}],
+  ["Bruna Sato",28,"São Paulo",[-23.59,-46.64],"Maratonista em treino, viciada em receita vegana.",["corrida:2","corrida/maratona","yoga","vegana","viagens","viagens/mochilao","leitura"],{Instagram:"@bru.corre.ex",Strava:"brunasato"}],
+  ["Diego Albuquerque",37,"Rio de Janeiro",[-22.98,-43.20],"Roda de samba no sábado, surf no domingo.",["futebol:2","futebol/torcida","samba:2","surf","cerveja","viagens"],{Instagram:"@diego.rj.ex"}],
+  ["Camila Rocha",24,"Porto Alegre",[-30.03,-51.22],"Skate, vinil e cinema de rua.",["skate:2","vinil","cinema:2","cinema/cult","fotografia","fotografia/analogica","programacao"],{Instagram:"@cami.rocha.ex"},true],
+  ["Pedro Lins",33,"Brotas",[-22.28,-48.13],"Guia de rafting. Se tem água e corda, eu topo.",["rafting:2","rafting/corredeiras","rafting/canoagem","trilhas:2","trilhas/cachoeiras","slackline","slackline/highline","escalada","ciclismo","viagens","viagens/patagonia"],{Instagram:"@pedro.rio.ex",Strava:"pedrolins"}],
+  ["Júlia Martins",30,"Recife",[-8.05,-34.90],"Noite de jogos lá em casa toda quinta.",["croche","croche/amigurumi","tabuleiro:2","tabuleiro/party","cinema","cafe","pets"],{Instagram:"@ju.martins.ex"}],
+  ["André Nogueira",41,"Campinas",[-22.90,-47.06],"Pedal de madrugada, café coado e telescópio.",["ciclismo:2","corrida","corrida/trailrun","cafe:2","astronomia:2","leitura"],{Strava:"andre-nog",LinkedIn:"andrenogueira-ex"}],
+  ["Nina Oliveira",27,"Salvador",[-12.98,-38.51],"Pinto, danço e cozinho sem carne.",["samba:2","vegana","pintura:2","viagens","viagens/mochilao","yoga"],{Instagram:"@nina.ssa.ex"}],
+  ["Lucas Prado",25,"Florianópolis",[-27.58,-48.51],"Surf de manhã, slack à tarde, disco à noite.",["surf:2","skate","slackline","slackline/trickline","vinil","cerveja"],{Instagram:"@lucas.prado.ex"}],
+  ["Helena Castro",35,"Brasília",[-15.80,-47.89],"Horta no apê e clube do livro.",["jardinagem:2","croche","croche/tapecaria","leitura:2","astronomia","vegana"],{Instagram:"@helena.horta.ex"}],
+  ["Gabriel Reis",29,"São Paulo",[-23.54,-46.57],"Programo, desço corredeira e jogo boardgame.",["programacao:2","programacao/ia","tabuleiro","tabuleiro/rpg","corrida","rafting","rafting/boiacross","viagens","viagens/patagonia","trilhas"],{Instagram:"@gabi.reis.ex",LinkedIn:"gabrielreis-ex"}],
+  ["Sofia Mendes",32,"São Paulo",[-23.53,-46.68],"Faço highline na Pedra Grande e organizo mochilões.",["slackline:2","slackline/highline","viagens:2","viagens/mochilao","viagens/patagonia","trilhas","trilhas/camping","fotografia"],{Instagram:"@sofia.nas.alturas.ex",Strava:"sofiamendes"}],
+  ["Caio Ventura",27,"Santo André",[-23.66,-46.53],"Camping selvagem sempre que dá.",["trilhas:2","trilhas/camping","trilhas/cachoeiras","escalada","escalada/esportiva","ciclismo","cerveja"],{Instagram:"@caio.mato.ex"}],
+  ["Larissa Tavares",30,"Jundiaí",[-23.19,-46.88],"Faço roupas de crochê e cuido de 2 cachorros.",["croche:2","croche/roupas","jardinagem","pets","cafe","cinema","cinema/nacional"],{Instagram:"@lari.fios.ex"}],
+  ["Mateus Okada",36,"Santos",[-23.96,-46.33],"Bodyboard, waterline e road trip pelo litoral.",["surf:2","surf/bodyboard","slackline","slackline/waterline","viagens","viagens/roadtrip","fotografia"],{Instagram:"@mateus.okada.ex"}]
+].map(([name,age,city,c,bio,ints,social,shy],i)=>({id:"p"+i,name,age,city,c,bio,social,shy:!!shy,
+  lv:new Map(ints.map(s=>{const [id,l]=s.split(":");return [id,+(l||1)];}))}));
+const personNamed = first => PEOPLE.find(p=>p.name.startsWith(first));
+
+// título, título curto, bolha, daqui a N dias, hora, lugar, coordenadas, quem vai
+const EVENTS = [
+  ["Pedal noturno no Minhocão","Pedal noturno","ciclismo",1,"21:00","Minhocão, São Paulo",[-23.538,-46.651],["André","Caio"]],
+  ["Noite de Catan & cia","Noite de Catan","tabuleiro",2,"19:30","Bar em Pinheiros, São Paulo",[-23.566,-46.690],["Rafael","Gabriel"]],
+  ["Slack no Ibirapuera","Slack no Ibira","slackline",3,"15:00","Parque Ibirapuera, São Paulo",[-23.587,-46.657],["Sofia","Mateus","Lucas"]],
+  ["Nascer do sol no Pico do Jaraguá","Pico do Jaraguá","trilhas",5,"05:30","Pico do Jaraguá, São Paulo",[-23.457,-46.766],["Caio","Gabriel","Sofia"]],
+  ["Roda de amigurumi","Roda de amigurumi","croche/amigurumi",6,"14:00","Biblioteca Mário de Andrade, São Paulo",[-23.547,-46.643],["Larissa"]],
+  ["Planejando a Patagônia","Rumo à Patagônia","viagens/patagonia",8,"19:00","Café na Vila Madalena, São Paulo",[-23.556,-46.690],["Sofia","Gabriel","Bruna"]],
+  ["Descida do Jacaré-Pepira","Descida em Brotas","rafting",10,"09:00","Rio Jacaré-Pepira, Brotas",[-22.280,-48.120],["Pedro","Gabriel"]]
+].map(([title,short,interest,days,time,place,c,going],i)=>({type:"event",id:"e"+i,title,short,interest,days,time,place,c,going:going.map(personNamed)}));
+
+const ICE = {
+  viagens:"Qual viagem mudou sua cabeça?", "viagens/patagonia":"Torres del Paine ou El Chaltén?", "viagens/mochilao":"Qual o mochilão mais roots que você já fez?",
+  slackline:"Bora montar um slack no parque esse fim de semana?", "slackline/highline":"Qual foi seu highline mais alto?",
+  futebol:"Pra que time você torce?", croche:"Qual foi a última peça que você fez?", escalada:"Indoor ou rocha?",
+  trilhas:"Qual a melhor trilha que você já fez?", "trilhas/camping":"Barraca ou rede?", surf:"Qual seu pico favorito?",
+  rafting:"Qual o rio mais insano que você já desceu?", tabuleiro:"Qual jogo você sempre leva pra mesa?", cafe:"Qual método de preparo você prefere?",
+  cinema:"Último filme que te pegou?", astronomia:"Já viu a Via Láctea a olho nu?", corrida:"Tá treinando pra alguma prova?"
+};
+const REPLIES = [
+  i=>`Demais! ${i} é das coisas que mais curto.`, i=>`Haha sim! Faz tempo que procuro gente pra ${i.toLowerCase()} aqui.`,
+  ()=>`Topo! Qual dia funciona pra você?`, i=>`Conta mais, como você começou com ${i.toLowerCase()}?`,
+  ()=>`Que bom que a bolha juntou a gente 😄`
+];
+
+/* ================= ESTADO ================= */
+const state = {
+  lv:new Map([["viagens",1],["viagens/patagonia",1],["viagens/mochilao",2],["slackline",2],["slackline/highline",1],["trilhas",1],["trilhas/camping",1]]),
+  chats:{}, created:new Set(), conn:{p14:"accepted"}, going:new Set(), city:"São Paulo", radius:300, focus:null
+};
+const TOTAL = 6000;
+const count = i => i.base + (state.lv.has(i.id)?1:0);
+const weight = id => Math.log(TOTAL / Math.max(2,count(byId(id))));
+const myC = () => CITIES[state.city];
+function km(a,b){const t=x=>x*Math.PI/180,dA=t(b[0]-a[0]),dO=t(b[1]-a[1]);const h=Math.sin(dA/2)**2+Math.cos(t(a[0]))*Math.cos(t(b[0]))*Math.sin(dO/2)**2;return 12742*Math.asin(Math.sqrt(h));}
+const fmtDist = d => d<5?"menos de 5 km": d<100?`~${Math.round(d/5)*5} km`:`~${Math.round(d/10)*10} km`;
+const inRadius = d => state.radius===0 || d<=state.radius;
+
+function match(p){
+  const mine=state.lv; if(!mine.size) return {pct:0,shared:[]};
+  const ids=new Set([...mine.keys(),...p.lv.keys()]);
+  let s=0,u=0; const shared=[], parts={};
+  ids.forEach(id=>{ if(!byId(id)) return; const w=weight(id); u+=w;
+    if(mine.has(id)&&p.lv.has(id)){ const v=w*(mine.get(id)===p.lv.get(id)?1:.7); s+=v; parts[id]=v; shared.push(id); } });
+  shared.sort((a,b)=>parts[b]-parts[a]);
+  const why=shared.map(id=>({id,pts:100*parts[id]/u}));
+  return {pct:Math.round(100*s/u),shared,why};
+}
+function ranked(){
+  return PEOPLE.map(p=>({p,...match(p),d:km(myC(),p.c)})).filter(x=>x.shared.length).sort((a,b)=>b.pct-a.pct);
+}
+const hueOf = p => byId([...p.lv.keys()][0]).hue;
+const initials = n => n.split(" ").map(s=>s[0]).slice(0,2).join("");
+const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const both2 = (p,id) => p && state.lv.get(id)===2 && p.lv.get(id)===2;
+function chip(id,{dim,p}={}){ const i=byId(id); const h=both2(p,id);
+  return `<span class="chip${dim?" dim":""}${i.parent?" sub":""}" style="--h:${i.hue}"${h?' title="Os dois: é minha vida"':""}>${esc(i.name)}${h?" ♥":""}</span>`; }
+const avatar = p => `<span class="av" style="--h:${hueOf(p)}">${initials(p.name)}</span>`;
+const relevant = id => { const i=byId(id); return state.lv.has(id) || (i.parent && state.lv.has(i.parent)); };
+
+function trending(){ return INTERESTS.filter(i=>!i.parent && i.base>50).map(i=>({i,r:i.week/i.base})).sort((a,b)=>b.r-a.r).slice(0,3); }
+const evDate = e => { const d=new Date(); d.setDate(d.getDate()+e.days); const [h,m]=e.time.split(":"); d.setHours(+h,+m,0,0); return d; };
+const evWhen = e => e.days===0?"hoje":e.days===1?"amanhã":`em ${e.days} dias`;
+const evLong = e => evDate(e).toLocaleDateString("pt-BR",{weekday:"short",day:"numeric",month:"short"});
+const evShortDay = e => evDate(e).toLocaleDateString("pt-BR",{weekday:"short",day:"numeric"}).replace(".","").replace(",","");
+const evCount = e => e.going.length + (state.going.has(e.id)?1:0);
+const visibleEvents = () => EVENTS.filter(e=>e.days>=0 && inRadius(km(myC(),e.c)));
+
+function suggestGroups(){
+  const mine=[...state.lv.keys()], combos=[], out=[], seen=new Set();
+  const related=(a,b)=>byId(a).parent===b||byId(b).parent===a;
+  for(let a=0;a<mine.length;a++)for(let b=a+1;b<mine.length;b++){
+    if(related(mine[a],mine[b])) continue; combos.push([mine[a],mine[b]]);
+    for(let c=b+1;c<mine.length;c++) if(!related(mine[a],mine[c])&&!related(mine[b],mine[c])) combos.push([mine[a],mine[b],mine[c]]);
+  }
+  combos.forEach(ids=>{
+    const members=PEOPLE.filter(p=>ids.every(i=>p.lv.has(i)));
+    if(members.length>=2) out.push({ids,members,key:"g:"+ids.slice().sort().join("+"),w:ids.reduce((s,i)=>s+weight(i),0)});
+  });
+  out.sort((x,y)=>y.ids.length-x.ids.length || y.w-x.w);
+  return out.filter(g=>{const k=g.members.map(m=>m.id).join();if(seen.has(k))return false;seen.add(k);return true;}).slice(0,5);
+}
+
+/* ================= UI ================= */
+let tt; function toast(t){ const el=document.getElementById("toast"); el.textContent=t; delete el.dataset.off; clearTimeout(tt); tt=setTimeout(()=>el.dataset.off="",2400); }
+
+function setView(v){
+  document.querySelectorAll(".view").forEach(s=>s.hidden = s.id!=="view-"+v);
+  document.querySelectorAll("nav button").forEach(b=>{ if(b.dataset.view===v) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current"); });
+  if(v==="bolhas") resize();
+}
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>setView(b.dataset.view));
+document.getElementById("go-matches").onclick=()=>setView("matches");
+
+function renderAll(){ renderHeader(); renderTrend(); renderFocus(); renderMatches(); renderEvents(); renderGroups(); }
+function renderHeader(){ document.querySelector("#pop-count b").textContent = state.lv.size; }
+
+function renderTrend(){
+  const el=document.getElementById("trend"); el.hidden=!!state.focus;
+  el.innerHTML=`<span class="tag">Em alta</span>`+trending().map(({i,r})=>`<button data-trend="${i.id}" style="--h:${i.hue}">${esc(i.name)}<b>+${Math.round(r*100)}%</b></button>`).join("")
+    +`<span class="note" style="flex:none;margin:0 0 0 4px">na semana</span>`;
+}
+document.getElementById("trend").onclick=e=>{ const b=e.target.closest("[data-trend]"); if(b) spinTo(b.dataset.trend); };
+
+function renderFocus(){
+  const f=state.focus;
+  document.getElementById("topbar").hidden=!!f; document.getElementById("dock-top").hidden=!!f;
+  document.getElementById("crumb").hidden=!f; document.getElementById("dock-focus").hidden=!f;
+  if(f){
+    document.getElementById("focus-title").textContent=byId(f).name;
+    document.querySelectorAll("#focus-seg button").forEach(b=>b.setAttribute("aria-pressed", String(+b.dataset.l===(state.lv.get(f)||0))));
+  }
+}
+
+function renderMatches(){
+  document.getElementById("filters").innerHTML=`
+    <label for="city">Você está em <select id="city">${Object.keys(CITIES).map(c=>`<option${c===state.city?" selected":""}>${c}</option>`).join("")}</select></label>
+    <div class="seg" role="group" aria-label="Raio de distância">${[[10,"10 km"],[50,"50 km"],[300,"300 km"],[0,"Brasil todo"]].map(([v,l])=>`<button data-r="${v}" aria-pressed="${state.radius===v}">${l}</button>`).join("")}</div>`;
+  const all=ranked(), r=all.filter(x=>inRadius(x.d)), out=all.length-r.length;
+  const mb=document.getElementById("match-badge"); mb.hidden=!r.length; mb.textContent=r.length;
+  document.getElementById("match-list").innerHTML =
+    (out?`<div class="note">${out} ${out>1?"pessoas":"pessoa"} com bolhas em comum fora do raio.</div>`:"") +
+    (r.length ? r.map(({p,pct,shared,d})=>`
+    <button class="card" data-person="${p.id}">
+      ${avatar(p)}
+      <span class="who"><span class="name">${esc(p.name)}</span> ${state.conn[p.id]==="accepted"?'<span class="ok">conectados</span>':""}
+        <span class="meta" style="display:block">${p.age} · ${esc(p.city)} · ${fmtDist(d)}</span>
+        <span class="chips">${shared.slice(0,5).map(i=>chip(i,{p})).join("")}${shared.length>5?`<span class="chip dim">+${shared.length-5}</span>`:""}</span></span>
+      <span><span class="score">${pct}%<small>${shared.length} em comum</small></span><span class="bar"><span style="width:${pct}%"></span></span></span>
+    </button>`).join("") : `<div class="empty">${state.lv.size?"Ninguém nesse raio ainda. Aumente a distância.":"Estoure algumas bolhas pra ver seus matches."}</div>`);
+}
+document.getElementById("filters").addEventListener("change",e=>{ if(e.target.id==="city"){ state.city=e.target.value; rebuild(); renderAll(); } });
+document.getElementById("filters").addEventListener("click",e=>{ const b=e.target.closest("[data-r]"); if(b){ state.radius=+b.dataset.r; rebuild(); renderAll(); } });
+document.getElementById("match-list").onclick=e=>{ const b=e.target.closest("[data-person]"); if(b) openProfile(PEOPLE.find(p=>p.id===b.dataset.person)); };
+
+function renderEvents(){
+  const vis=visibleEvents().sort((a,b)=>(relevant(b.interest)-relevant(a.interest))||a.days-b.days);
+  const rel=vis.filter(e=>relevant(e.interest)).length;
+  const eb=document.getElementById("event-badge"); eb.hidden=!rel; eb.textContent=rel;
+  const hidden=EVENTS.filter(e=>e.days>=0).length-vis.length;
+  document.getElementById("ev-note").textContent = `${vis.length} perto de ${state.city}${hidden?` · ${hidden} fora do raio`:""}`;
+  document.getElementById("event-list").innerHTML = vis.length ? vis.map(e=>{ const i=byId(e.interest), me=state.going.has(e.id);
+    return `<div class="group ev" style="--h:${i.hue}">
+      <button class="link" data-event="${e.id}">
+        <span class="row"><span>${chip(e.interest)} ${relevant(e.interest)?'<span class="ok">combina com você</span>':""}</span><span class="when">${evWhen(e)}</span></span>
+        <span class="gt" style="margin-top:8px">${esc(e.title)}</span>
+        <span class="meta">${esc(evLong(e))} · ${e.time} · ${esc(e.place)} · ${fmtDist(km(myC(),e.c))}</span>
+      </button>
+      <div class="row"><div class="stack">${me?'<span class="av me">EU</span>':""}${e.going.map(avatar).join("")}<span class="meta" style="margin-left:14px">${evCount(e)} ${evCount(e)>1?"vão":"vai"}</span></div>
+        <button class="btn sm ${me?"":"primary"}" data-go="${e.id}">${me?"Abrir chat":"Eu vou"}</button></div>
+    </div>`; }).join("") : `<div class="empty">Nenhum evento nesse raio. Crie o primeiro!</div>`;
+}
+document.getElementById("event-list").onclick=e=>{
+  const g=e.target.closest("[data-go]"), o=e.target.closest("[data-event]");
+  if(g){ const ev=EVENTS.find(x=>x.id===g.dataset.go); state.going.has(ev.id)?openEventChat(ev):toggleGoing(ev); }
+  else if(o) openEvent(EVENTS.find(x=>x.id===o.dataset.event));
+};
+document.getElementById("new-event").onclick=openCreateEvent;
+
+function renderGroups(){
+  const gs=suggestGroups();
+  const gb=document.getElementById("group-badge"); gb.hidden=!gs.length; gb.textContent=gs.length;
+  document.getElementById("group-list").innerHTML = gs.length ? gs.map(g=>`
+    <div class="group">
+      <div class="chips" style="margin:0">${g.ids.map(i=>chip(i)).join("")}</div>
+      <div class="row"><div class="stack">${g.members.map(avatar).join("")}</div>
+        <span class="meta">você + ${g.members.length} pessoas</span></div>
+      <div class="row"><span class="gt">${esc(g.ids.map(i=>byId(i).name).join(" + "))}</span>
+        <button class="btn sm ${state.created.has(g.key)?"":"mint"}" data-group="${g.key}">${state.created.has(g.key)?"Abrir chat":"Criar grupo"}</button></div>
+    </div>`).join("") : `<div class="empty">Estoure pelo menos 2 bolhas pra gente sugerir grupos.</div>`;
+}
+document.getElementById("group-list").onclick=e=>{
+  const b=e.target.closest("[data-group]"); if(!b) return;
+  const g=suggestGroups().find(x=>x.key===b.dataset.group); if(!g) return;
+  state.created.add(g.key); renderGroups();
+  openChat({key:g.key,title:g.ids.map(i=>byId(i).name).join(" + "),members:g.members,shared:g.ids,
+    intro:"Grupo criado. As redes sociais de cada pessoa continuam ocultas até vocês aceitarem uma conversa 1:1."});
+};
+
+/* ---------- sheets ---------- */
+const layer=document.getElementById("layer");
+let sheet=null;
+function closeLayer(){ layer.innerHTML=""; sheet=null; current=null; }
+function openSheet(html,meta){
+  sheet=meta;
+  layer.innerHTML=`<div class="scrim" id="scrim"><div class="sheet gut" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div></div>`;
+  document.getElementById("scrim").addEventListener("click",e=>{ if(e.target.id==="scrim"||e.target.closest("[data-close]")) closeLayer(); });
+}
+const LOCK=`<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>`;
+
+function openProfile(p){
+  const {pct,shared,why=[]}=match(p), d=km(myC(),p.c), conn=state.conn[p.id];
+  const top=why.slice(0,5), max=Math.max(1,...top.map(w=>w.pts));
+  const others=[...p.lv.keys()].filter(i=>!shared.includes(i));
+  openSheet(`
+    <div class="ph">${avatar(p)}<div style="min-width:0"><h3>${esc(p.name)}</h3><div class="meta">${p.age} anos · ${esc(p.city)} · ${fmtDist(d)}</div></div>
+      <div class="score" style="margin-left:auto">${pct}%<small>match</small></div></div>
+    <p style="margin:14px 0 0;line-height:1.5">${esc(p.bio)}</p>
+    <div class="sec"><div class="tag">Por que ${pct}% de match</div>
+      ${top.map(w=>{ const i=byId(w.id); return `<div class="why" style="--h:${i.hue}"><span>${esc(i.name)}${both2(p,w.id)?" ♥":""}</span><span class="wb"><i style="width:${Math.round(100*w.pts/max)}%"></i></span><b>+${Math.round(w.pts)} · ${count(i).toLocaleString("pt-BR")} pessoas</b></div>`; }).join("")}
+      ${shared.length>5?`<div class="chips">${shared.slice(5).map(i=>chip(i,{p})).join("")}</div>`:""}
+      <div class="note" style="margin-top:8px">Bolha rara vale mais. ♥ = vocês dois marcaram "é minha vida".</div></div>
+    ${others.length?`<div class="sec"><div class="tag">Outras bolhas</div><div class="chips">${others.map(i=>chip(i,{dim:true})).join("")}</div></div>`:""}
+    <div class="sec"><div class="tag">Redes sociais</div>
+      ${conn==="accepted" ? `<div class="socials">${Object.entries(p.social).map(([k,v])=>`<span class="soc"><span>${k}</span>${esc(v)}</span>`).join("")}</div>`
+        : `<div class="locked">${LOCK}<div><b>${Object.keys(p.social).join(", ")} protegido${Object.keys(p.social).length>1?"s":""}</b><span>Aparece${Object.keys(p.social).length>1?"m":""} quando vocês dois aceitarem conversar.</span></div></div>`}</div>
+    <div class="actions"><button class="btn" data-close>Fechar</button>
+      ${conn==="accepted"?`<button class="btn primary" id="chat-btn">Abrir chat</button>`
+        : conn==="pending"?`<button class="btn" disabled>Aguardando ${esc(p.name.split(" ")[0])}</button>`
+        : `<button class="btn primary" id="invite-btn">Convidar pra conversar</button>`}</div>`,{type:"profile",id:p.id});
+  const c=document.getElementById("chat-btn"); if(c) c.onclick=()=>openChat({key:"p:"+p.id,title:p.name,members:[p],shared});
+  const iv=document.getElementById("invite-btn"); if(iv) iv.onclick=()=>invite(p);
+}
+function invite(p){
+  state.conn[p.id]="pending"; openProfile(p); toast(`Convite enviado pra ${p.name.split(" ")[0]}`);
+  if(p.shy) return;
+  setTimeout(()=>{
+    state.conn[p.id]="accepted"; renderMatches();
+    toast(`${p.name.split(" ")[0]} aceitou! Redes sociais liberadas`);
+    if(sheet && sheet.type==="profile" && sheet.id===p.id) openProfile(p);
+  },1800);
+}
+
+function openEvent(e){
+  const i=byId(e.interest), me=state.going.has(e.id);
+  openSheet(`
+    <div class="row"><span>${chip(e.interest)}</span><span class="when">${evWhen(e)}</span></div>
+    <h3 style="font-family:var(--display);font-size:24px;margin:10px 0 4px">${esc(e.title)}</h3>
+    <div class="meta">${esc(evLong(e))} · ${e.time}</div>
+    <div class="meta">${esc(e.place)} · ${fmtDist(km(myC(),e.c))}</div>
+    <div class="sec"><div class="tag">Quem vai (${evCount(e)})</div>
+      <div class="chips">${me?'<span class="chip" style="--h:330">Você</span>':""}${e.going.map(p=>`<span class="chip" style="--h:${hueOf(p)}">${esc(p.name.split(" ")[0])}</span>`).join("")}</div></div>
+    <p class="note" style="margin-top:14px">A bolha deste evento some do globo depois de ${esc(evLong(e))}.</p>
+    <div class="actions"><button class="btn" data-close>Fechar</button>
+      ${me?`<button class="btn" id="ev-leave">Não vou mais</button><button class="btn primary" id="ev-chat">Abrir chat</button>`:`<button class="btn primary" id="ev-go">Eu vou</button>`}</div>`,{type:"event",id:e.id});
+  const g=document.getElementById("ev-go"); if(g) g.onclick=()=>{ toggleGoing(e); openEvent(e); };
+  const l=document.getElementById("ev-leave"); if(l) l.onclick=()=>{ toggleGoing(e); openEvent(e); };
+  const c=document.getElementById("ev-chat"); if(c) c.onclick=()=>openEventChat(e);
+}
+function toggleGoing(e){
+  if(state.going.has(e.id)){ state.going.delete(e.id); toast("Tudo bem, você saiu do evento"); }
+  else { state.going.add(e.id); toast(`Você vai! Chat de ${e.short} liberado`); }
+  renderEvents();
+}
+function openEventChat(e){
+  openChat({key:e.id,title:e.title,members:e.going,shared:[e.interest],
+    intro:`Chat do evento · ${evLong(e)} às ${e.time} · ${e.place}. Ele é arquivado depois do evento.`});
+}
+function openCreateEvent(){
+  const opts=[...state.lv.keys()].map(byId); const list=(opts.length?opts:INTERESTS.filter(i=>!i.parent));
+  openSheet(`
+    <h3 style="font-family:var(--display);font-size:22px;margin:0 0 4px">Nova bolha de evento</h3>
+    <p class="sub" style="margin-bottom:6px">Aparece no globo de quem está perto e some depois da data.</p>
+    <form class="form" id="ev-form">
+      <label for="ev-title">Nome do rolê<input type="text" id="ev-title" maxlength="40" value="Slack + piquenique no Villa-Lobos" required></label>
+      <label for="ev-int">Bolha<select id="ev-int">${list.map(i=>`<option value="${i.id}">${esc(i.parent?byId(i.parent).name+" › "+i.name:i.name)}</option>`).join("")}</select></label>
+      <div class="two">
+        <label for="ev-day">Quando<select id="ev-day">${[1,2,3,4,5,6,7,14].map(d=>`<option value="${d}"${d===4?" selected":""}>${d===1?"amanhã":`em ${d} dias`}</option>`).join("")}</select></label>
+        <label for="ev-time">Hora<input type="time" id="ev-time" value="15:00"></label>
+      </div>
+      <label for="ev-place">Lugar<input type="text" id="ev-place" maxlength="60" value="Parque Villa-Lobos, São Paulo"></label>
+      <div class="actions"><button class="btn" type="button" data-close>Cancelar</button><button class="btn primary" type="submit">Soltar a bolha</button></div>
+    </form>`,{type:"create"});
+  document.getElementById("ev-form").onsubmit=ev=>{
+    ev.preventDefault();
+    const t=document.getElementById("ev-title").value.trim()||"Rolê sem nome";
+    const e={type:"event",id:"u"+Date.now(),title:t,short:t.length>18?t.slice(0,17)+"…":t,interest:document.getElementById("ev-int").value,
+      days:+document.getElementById("ev-day").value,time:document.getElementById("ev-time").value||"15:00",
+      place:document.getElementById("ev-place").value.trim()||state.city,c:myC(),going:[]};
+    EVENTS.push(e); state.going.add(e.id); rebuild(); renderAll(); closeLayer();
+    toast("Bolha de evento solta no globo!");
+  };
+}
+
+/* ---------- chat ---------- */
+let current=null;
+function openChat(c){
+  current=c; sheet=null;
+  if(!state.chats[c.key]) state.chats[c.key]=[{sys:(c.intro?c.intro+" ":"")+`Em comum: ${c.shared.map(i=>byId(i).name).join(", ")}.`}];
+  const n=c.members.length;
+  const sub = n>1||c.key.startsWith("e")||c.key.startsWith("u") ? (n?"você, "+c.members.map(m=>m.name.split(" ")[0]).join(", "):"só você por enquanto") : `${c.members[0].city} · match ${match(c.members[0]).pct}%`;
+  const ice=c.shared.map(i=>ICE[i]||`O que te levou a ${byId(i).name.toLowerCase()}?`);
+  layer.innerHTML=`<div class="chat" role="dialog" aria-modal="true" aria-label="Conversa: ${esc(c.title)}">
+    <div class="ch gut"><button class="back" id="back" aria-label="Voltar">←</button>
+      ${n>1?`<div class="stack">${c.members.slice(0,3).map(avatar).join("")}</div>`:n?avatar(c.members[0]):""}
+      <div class="t" style="margin-left:${n>1?8:0}px">${esc(c.title)}<small>${esc(sub)}</small></div></div>
+    <div class="msgs gut" id="msgs"></div>
+    <div class="ice gut" id="ice">${ice.map(q=>`<button data-q="${esc(q)}">${esc(q)}</button>`).join("")}</div>
+    <form class="composer gut" id="composer"><input type="text" id="msg-input" placeholder="Escreva uma mensagem" autocomplete="off"><button class="btn primary" type="submit">Enviar</button></form>
+  </div>`;
+  renderMsgs();
+  document.getElementById("back").onclick=closeLayer;
+  document.getElementById("ice").onclick=e=>{ const b=e.target.closest("[data-q]"); if(b) send(b.dataset.q); };
+  document.getElementById("composer").onsubmit=e=>{ e.preventDefault(); const i=document.getElementById("msg-input"); if(i.value.trim()){ send(i.value.trim()); i.value=""; } };
+}
+function renderMsgs(typing){
+  const box=document.getElementById("msgs"); if(!box||!current) return;
+  const grp=current.members.length>1;
+  box.innerHTML = state.chats[current.key].map(m=> m.sys?`<div class="sys">${esc(m.sys)}</div>`:
+    m.me?`<div class="m me">${esc(m.text)}</div>`:
+    `<div class="m them">${grp?`<span class="from" style="--h:${hueOf(m.p)}">${esc(m.p.name.split(" ")[0])}</span>`:""}${esc(m.text)}</div>`).join("")
+    + (typing?`<div class="typing">${esc(typing)} está digitando…</div>`:"");
+  box.scrollTop=box.scrollHeight;
+}
+function send(text){
+  const c=current; state.chats[c.key].push({me:true,text}); renderMsgs();
+  if(!c.members.length) return;
+  const who=c.members[Math.floor(Math.random()*c.members.length)];
+  setTimeout(()=>{ if(current===c) renderMsgs(who.name.split(" ")[0]); },500);
+  setTimeout(()=>{
+    const topic=byId(c.shared[Math.floor(Math.random()*c.shared.length)]).name;
+    state.chats[c.key].push({p:who,text:REPLIES[Math.floor(Math.random()*REPLIES.length)](topic)});
+    if(current===c) renderMsgs();
+  },1500+Math.random()*900);
+}
+
+/* ---------- nova bolha ---------- */
+function createBubble(name,parentId){
+  const pool=INTERESTS.filter(i=>i.parent===parentId);
+  const existing=pool.find(i=>i.name.toLowerCase()===name.toLowerCase());
+  if(existing){ if(!state.lv.has(existing.id)) setLevel(existing,1,true); toast(`"${existing.name}" já existia, estourei pra você`); return; }
+  const par=parentId?byId(parentId):null;
+  const i={id:(par?par.id+"/":"")+"u"+Date.now(),name,hue:par?(par.hue+40)%360:Math.floor(Math.random()*360),base:0,week:0,parent:par?par.id:null};
+  INTERESTS.push(i); rebuild(); setLevel(i,1,true); toast(`Bolha "${name}" criada. Agora é chamar a galera!`);
+}
+document.getElementById("new-form").onsubmit=e=>{
+  e.preventDefault(); const inp=document.getElementById("new-input"); const name=inp.value.trim(); if(!name) return;
+  createBubble(name,null); inp.value="";
+};
+function openNewSub(){
+  const par=byId(state.focus);
+  openSheet(`<h3 style="font-family:var(--display);font-size:22px;margin:0 0 4px">Nova sub-bolha em ${esc(par.name)}</h3>
+    <p class="sub" style="margin-bottom:6px">Quanto mais específica, mais forte o match com quem também estourar.</p>
+    <form class="form" id="sub-form"><label for="sub-name">Nome<input type="text" id="sub-name" maxlength="24" placeholder="${par.id==="viagens"?"Ex.: Sudeste Asiático":"Ex.: algo bem específico"}" required></label>
+    <div class="actions"><button class="btn" type="button" data-close>Cancelar</button><button class="btn primary" type="submit">Criar e estourar</button></div></form>`,{type:"sub"});
+  const inp=document.getElementById("sub-name"); setTimeout(()=>inp.focus(),50);
+  document.getElementById("sub-form").onsubmit=e=>{ e.preventDefault(); const n=inp.value.trim(); if(!n) return; closeLayer(); createBubble(n,par.id); };
+}
+
+/* ---------- minhas bolhas ---------- */
+function openMine(){
+  const tops=INTERESTS.filter(i=>!i.parent && state.lv.has(i.id));
+  openSheet(`<h3 style="font-family:var(--display);font-size:22px;margin:0 0 4px">Minhas bolhas</h3>
+    <p class="sub" style="margin-bottom:4px">É assim que as pessoas te encontram. Ajuste a intensidade ou toque no nome pra entrar na bolha.</p>
+    <div class="mine">${tops.length?tops.map(i=>{ const subs=kids(i.id).filter(k=>state.lv.has(k.id)), L=state.lv.get(i.id);
+      return `<div class="group" style="--h:${i.hue}">
+        <div class="row"><button class="link" style="width:auto" data-open="${i.id}"><span class="gt">${esc(i.name)}</span>${kids(i.id).length?` <span class="meta">› ${subs.length} de ${kids(i.id).length} sub-bolhas</span>`:""}</button>
+          <div class="seg" role="group" aria-label="Intensidade de ${esc(i.name)}"><button data-set="${i.id}" data-l="1" aria-pressed="${L===1}">Curto</button><button data-set="${i.id}" data-l="2" aria-pressed="${L===2}">♥</button><button data-set="${i.id}" data-l="0" class="out" aria-label="Sair de ${esc(i.name)}">✕</button></div></div>
+        ${subs.length?`<div class="chips" style="margin:0">${subs.map(s=>chip(s.id)).join("")}</div>`:""}
+      </div>`; }).join(""):`<div class="empty">Nenhuma bolha estourada ainda.</div>`}</div>
+    <div class="actions"><button class="btn" data-close>Fechar</button></div>`,{type:"mine"});
+  layer.querySelector(".mine").onclick=e=>{
+    const s=e.target.closest("[data-set]"), o=e.target.closest("[data-open]");
+    if(s){ setLevel(byId(s.dataset.set),+s.dataset.l); openMine(); }
+    else if(o){ closeLayer(); setView("bolhas"); spinTo(o.dataset.open,true); }
+  };
+}
+document.getElementById("pop-count").onclick=openMine;
+
+/* ---------- boas-vindas ---------- */
+function welcome(){
+  let seen=false; try{ seen=localStorage.getItem("estoura-welcome")==="1"; }catch(e){}
+  if(seen) return;
+  openSheet(`<svg class="wlogo" viewBox="0 0 160 160" role="img" aria-label="Estoura"><use href="#mark"/></svg><h3 style="font-family:var(--display);font-size:26px;margin:0;line-height:1.1">Estoure suas bolhas.<br>Ache sua turma.</h3>
+    <div class="steps">
+      <div class="step"><i class="full" style="--h:165"></i><div><b>Estoure o que você curte</b><span>Bolha grande é assunto popular. Toque de novo pra dizer que é sua vida.</span></div></div>
+      <div class="step"><i style="--h:200"></i><div><b>Entre nas bolhas com anel</b><span>Lá dentro tem sub-bolhas, como Patagônia dentro de Viagens. Específico conecta mais.</span></div></div>
+      <div class="step"><i class="dash" style="--h:40"></i><div><b>Encontre gente e rolês perto</b><span>Matches por afinidade, grupos e eventos com data. Suas redes só aparecem quando os dois aceitam conversar.</span></div></div>
+    </div>
+    <div class="actions"><button class="btn" id="w-zero">Começar do zero</button><button class="btn primary" id="w-ex">Ver com exemplo</button></div>`,{type:"welcome"});
+  const done=()=>{ try{ localStorage.setItem("estoura-welcome","1"); }catch(e){} closeLayer(); };
+  document.getElementById("w-ex").onclick=()=>{ done(); toast("Exemplo: você já estourou Viagens, Slackline e Trilhas"); };
+  document.getElementById("w-zero").onclick=()=>{ state.lv.clear(); renderAll(); done(); toast("Globo limpo. Toque nas bolhas que são a sua cara"); };
+}
+
+/* ================= GLOBO 3D ================= */
+const cv=document.getElementById("globe"), ctx=cv.getContext("2d");
+const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+const AUTO=reduce?0:0.0025, AUTO_O=reduce?0:0.0016;
+let W=0,H=0,R=100,DPR=1, rotY=0.6, rotX=-0.25, vY=AUTO, vX=0, orbit=0, vO=AUTO_O;
+let pts=[], fx=[], items=[], target=null, anim=null, fade=1, now=0;
+const ADD={type:"add",id:"__add"};
+const TREND=new Set();
+const lerp=(a,b,t)=>a+(b-a)*t, ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+const shellR=()=>Math.min(W*.47,H*.44), shellC=()=>({x:W/2,y:H/2-6});
+
+function rebuild(fresh){
+  if(state.focus) items=[...kids(state.focus),ADD];
+  else {
+    items=[...INTERESTS.filter(i=>!i.parent),...visibleEvents()];
+    const n=items.length, g=Math.PI*(3-Math.sqrt(5));
+    items.forEach((it,k)=>{ const y=1-(k+.5)/n*2, r=Math.sqrt(1-y*y), t=k*g; it.p=[Math.cos(t)*r,y,Math.sin(t)*r]; });
+  }
+  items.forEach(it=>{ if(fresh||it.dr==null) it.dr=reduce?targetR(it):0; });
+}
+function resize(){
+  const box=cv.parentElement.getBoundingClientRect(); if(!box.width) return;
+  DPR=Math.min(2,window.devicePixelRatio||1); W=box.width; H=box.height;
+  cv.width=W*DPR; cv.height=H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0);
+  R=Math.min(W,H)*0.36;
+}
+new ResizeObserver(resize).observe(cv.parentElement);
+function targetR(it){
+  if(state.focus){ const S=shellR(); if(it.type==="add") return S*.14; return Math.min(S*.27,(S/115)*(8+Math.sqrt(count(it)+20)*.9)); }
+  const k=R/150;
+  if(it.type==="event") return k*(13+evCount(it)*3.2);
+  return k*(9+Math.sqrt(count(it)+20)*0.95);
+}
+
+function project(){
+  if(state.focus){
+    const S=shellR(), c=shellC(), n=items.length, ring=S*.62;
+    pts=items.map((it,k)=>{ const a=orbit+k/n*Math.PI*2-Math.PI/2; it.dr+=(targetR(it)-it.dr)*.12;
+      return {it,sx:c.x+Math.cos(a)*ring,sy:c.y+Math.sin(a)*ring*.92,r:Math.max(0,it.dr),z:1}; });
+    return;
+  }
+  const cy=Math.cos(rotY),sy=Math.sin(rotY),cx=Math.cos(rotX),sx=Math.sin(rotX), D=R*3.2;
+  pts=items.map(it=>{
+    const [x,y,z]=it.p, x1=x*cy+z*sy, z1=-x*sy+z*cy, y2=y*cx-z1*sx, z2=y*sx+z1*cx, s=D/(D-z2*R);
+    it.dr+=(targetR(it)-it.dr)*0.12;
+    return {it,sx:W/2+x1*R*s,sy:H/2+y2*R*s,r:Math.max(0,it.dr*s),z:z2};
+  }).sort((a,b)=>a.z-b.z);
+}
+
+function label(lines,sx,sy,fs,color,extra){
+  ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillStyle=color;
+  const ty=sy-(lines.length-1)*fs*.55-(extra?fs*.35:0);
+  lines.forEach((l,k)=>ctx.fillText(l,sx,ty+k*fs*1.1));
+  if(extra){ ctx.font=`500 ${fs*.74}px Figtree, system-ui, sans-serif`; ctx.globalAlpha*=.85; ctx.fillText(extra,sx,ty+lines.length*fs*1.1); }
+}
+function split(name,r){
+  if(ctx.measureText(name).width<=r*1.75 || !name.includes(" ")) return [name];
+  const w=name.split(" "), m=Math.ceil(w.length/2); return [w.slice(0,m).join(" "),w.slice(m).join(" ")];
+}
+
+function drawBubble({it,sx,sy,r,z}){
+  if(r<1) return;
+  const d=(z+1)/2, showLabel=state.focus||z>-.35;
+  ctx.globalAlpha=(.28+.72*d)*fade;
+  if(it.type==="add"){
+    ctx.setLineDash([4,4]); ctx.lineWidth=1.5; ctx.strokeStyle="rgba(236,241,255,.6)";
+    ctx.beginPath(); ctx.arc(sx,sy,r,0,7); ctx.stroke(); ctx.setLineDash([]);
+    ctx.font=`600 ${Math.max(10,r*.32)}px Figtree, system-ui, sans-serif`;
+    label(["+","criar"],sx,sy,Math.max(11,r*.34),"rgba(236,241,255,.85)");
+    ctx.globalAlpha=1; return;
+  }
+  const h=it.hue ?? byId(it.interest).hue;
+  if(it.type==="event"){
+    const me=state.going.has(it.id);
+    ctx.fillStyle=`hsla(${h} 80% 60% / ${me?.35:.14})`; ctx.beginPath(); ctx.arc(sx,sy,r,0,7); ctx.fill();
+    ctx.setLineDash([5,4]); ctx.lineDashOffset=-now/60; ctx.lineWidth=1.8; ctx.strokeStyle=`hsl(${h} 95% 80%)`; ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle="#ffd28a"; ctx.beginPath(); ctx.arc(sx+r*.68,sy-r*.68,Math.max(3,r*.13),0,7); ctx.fill();
+    if(r>14 && showLabel){ const fs=Math.max(9,Math.min(13,r*.27)); ctx.font=`700 ${fs}px Figtree, system-ui, sans-serif`;
+      label(split(it.short,r),sx,sy,fs,"#f1f5ff",r>22?evShortDay(it):null); }
+    ctx.globalAlpha=1; return;
+  }
+  const L=state.lv.get(it.id)||0;
+  if(TREND.has(it.id) && !state.focus){
+    const pulse=(Math.sin(now/380+h)+1)/2;
+    ctx.strokeStyle=`hsla(${h} 100% 80% / ${.15+.4*pulse})`; ctx.lineWidth=2+3*pulse;
+    ctx.beginPath(); ctx.arc(sx,sy,r*(1.1+.12*pulse),0,7); ctx.stroke();
+  }
+  if(L){
+    const g=ctx.createRadialGradient(sx-r*.35,sy-r*.4,r*.1,sx,sy,r);
+    g.addColorStop(0,`hsl(${h} 95% ${L===2?84:78}%)`); g.addColorStop(1,`hsl(${h} 75% ${L===2?52:44}%)`);
+    if(L===2){ ctx.shadowColor=`hsl(${h} 100% 70%)`; ctx.shadowBlur=r*.6; }
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(sx,sy,r,0,7); ctx.fill(); ctx.shadowBlur=0;
+    ctx.strokeStyle=`hsl(${h} 100% 90%)`; ctx.lineWidth=2; ctx.stroke();
+    if(L===2){ ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(sx,sy,r+5,0,7); ctx.stroke(); }
+  } else {
+    const g=ctx.createRadialGradient(sx,sy,r*.2,sx,sy,r);
+    g.addColorStop(0,`hsla(${h} 90% 70% / .04)`); g.addColorStop(.8,`hsla(${h} 90% 70% / .16)`); g.addColorStop(1,`hsla(${h} 95% 75% / .42)`);
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(sx,sy,r,0,7); ctx.fill();
+    ctx.lineWidth=1.3; ctx.strokeStyle=`hsla(${h} 95% 78% / .75)`; ctx.stroke();
+    ctx.strokeStyle=`hsla(${(h+70)%360} 95% 78% / .55)`; ctx.lineWidth=1.6;
+    ctx.beginPath(); ctx.arc(sx,sy,r*.9,Math.PI*.15,Math.PI*.75); ctx.stroke();
+  }
+  // tem sub-bolhas: anel de pontinhos
+  if(!state.focus && !it.parent && kids(it.id).length && r>10){
+    const n=kids(it.id).length, off=r+(L===2?10:6); ctx.fillStyle=L?`hsl(${h} 100% 92%)`:`hsla(${h} 95% 80% / .9)`;
+    for(let k=0;k<n;k++){ const t=-Math.PI/2+(k-(n-1)/2)*.32; ctx.beginPath(); ctx.arc(sx+Math.cos(t)*off,sy+Math.sin(t)*off,1.8,0,7); ctx.fill(); }
+  }
+  ctx.fillStyle="rgba(255,255,255,.75)"; ctx.beginPath(); ctx.ellipse(sx-r*.4,sy-r*.45,r*.18,r*.1,-.7,0,7); ctx.fill();
+  if(r>15 && showLabel){
+    const fs=Math.max(9,Math.min(state.focus?14:15,r*.3)); ctx.font=`700 ${fs}px Figtree, system-ui, sans-serif`;
+    label(split(it.name,r),sx,sy,fs,L?"#10172a":"#f1f5ff",r>24?count(it).toLocaleString("pt-BR"):null);
+  }
+  ctx.globalAlpha=1;
+}
+
+function drawShell(x,y,r,h,alpha,solid){
+  if(r<1) return;
+  ctx.globalAlpha=alpha;
+  if(solid>0){ ctx.fillStyle=`hsla(${h} 80% 62% / ${solid})`; ctx.beginPath(); ctx.arc(x,y,r,0,7); ctx.fill(); }
+  const g=ctx.createRadialGradient(x-r*.3,y-r*.35,r*.1,x,y,r);
+  g.addColorStop(0,`hsla(${h} 90% 70% / .03)`); g.addColorStop(.85,`hsla(${h} 90% 65% / .09)`); g.addColorStop(1,`hsla(${h} 95% 75% / .3)`);
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r,0,7); ctx.fill();
+  ctx.strokeStyle=`hsla(${h} 95% 80% / .6)`; ctx.lineWidth=1.6; ctx.stroke();
+  ctx.fillStyle="rgba(255,255,255,.35)"; ctx.beginPath(); ctx.ellipse(x-r*.45,y-r*.55,r*.16,r*.06,-.6,0,7); ctx.fill();
+  ctx.globalAlpha=1;
+}
+function drawCenter(){
+  const it=byId(state.focus), c=shellC(), S=shellR(), ks=kids(it.id), on=ks.filter(k=>state.lv.has(k.id)).length, L=state.lv.get(it.id)||0;
+  const fs=Math.max(18,Math.min(30,S*.15));
+  ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillStyle="#f1f5ff"; ctx.font=`800 ${fs}px "Bricolage Grotesque", "Trebuchet MS", sans-serif`;
+  ctx.fillText(it.name,c.x,c.y-fs*.45);
+  ctx.font=`600 12.5px Figtree, system-ui, sans-serif`; ctx.fillStyle=`hsl(${it.hue} 90% 80%)`;
+  ctx.fillText(`${on} de ${ks.length} estouradas${L===2?" · ♥":""}`,c.x,c.y+fs*.5);
+  ctx.fillStyle="#94a1c3"; ctx.font=`500 12px Figtree, system-ui, sans-serif`;
+  ctx.fillText("toque fora da bolha pra voltar",c.x,Math.min(H-10,c.y+S+16));
+}
+
+function burst(it,big){
+  const p=pts.find(q=>q.it===it); if(!p||reduce) return;
+  fx.push({ring:true,x:p.sx,y:p.sy,r:p.r,t:0,h:it.hue});
+  for(let k=0;k<(big?14:6);k++){ const a=Math.random()*7,v=1.5+Math.random()*3; fx.push({x:p.sx,y:p.sy,vx:Math.cos(a)*v,vy:Math.sin(a)*v,t:0,h:it.hue}); }
+}
+function drawFx(){
+  fx=fx.filter(f=>f.t<1);
+  fx.forEach(f=>{ f.t+=0.035;
+    if(f.ring){ ctx.strokeStyle=`hsla(${f.h} 95% 80% / ${1-f.t})`; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(f.x,f.y,f.r*(1+f.t*.9),0,7); ctx.stroke(); }
+    else { f.x+=f.vx; f.y+=f.vy; f.vy+=.08; ctx.fillStyle=`hsla(${f.h} 95% 82% / ${1-f.t})`; ctx.beginPath(); ctx.arc(f.x,f.y,2.2,0,7); ctx.fill(); } });
+}
+
+const wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
+function spinTo(id,quiet){
+  if(state.focus){ state.focus=null; anim=null; rebuild(); renderFocus(); renderTrend(); }
+  const it=items.find(i=>i.id===id); if(!it) return;
+  const [x,y,z]=it.p; target={y:Math.atan2(-x,z), x:Math.atan2(y,Math.hypot(x,z))};
+  vY=0; vX=0; if(!quiet) toast(`${it.name}: +${it.week} pessoas esta semana`);
+}
+
+/* ---------- entrar e sair da bolha ---------- */
+function enter(id){
+  if(anim||state.focus===id) return;
+  const p=pts.find(q=>q.it.id===id);
+  if(reduce||!p) return doEnter(id);
+  target=null; anim={dir:"in",t:0,id,h:byId(id).hue,from:{x:p.sx,y:p.sy,r:p.r}};
+}
+function doEnter(id){ state.focus=id; orbit=0; vO=AUTO_O; rebuild(true); renderFocus(); renderTrend(); }
+function leave(){
+  if(anim||!state.focus) return;
+  const id=state.focus; state.focus=null; rebuild(); items.forEach(it=>it.dr=targetR(it));
+  renderFocus(); renderTrend();
+  if(!reduce) anim={dir:"out",t:0,id,h:byId(id).hue};
+}
+document.getElementById("focus-back").onclick=leave;
+document.getElementById("focus-out").onclick=()=>{ const it=byId(state.focus); setLevel(it,0); leave(); };
+document.getElementById("focus-seg").onclick=e=>{ const b=e.target.closest("[data-l]"); if(b) setLevel(byId(state.focus),+b.dataset.l); };
+
+function frame(t){
+  now=t||0;
+  if(W){
+    ctx.clearRect(0,0,W,H);
+    if(anim){
+      anim.t=Math.min(1,anim.t+0.045); const e=ease(anim.t), S=shellR(), c=shellC();
+      if(anim.dir==="in"){
+        rotY+=vY*.3; fade=1-e; project(); pts.forEach(drawBubble); fade=1;
+        const f=anim.from; drawShell(lerp(f.x,c.x,e),lerp(f.y,c.y,e),lerp(f.r,S,e),anim.h,1,(1-e)*.85);
+        if(anim.t>=1){ const id=anim.id; anim=null; doEnter(id); }
+      } else {
+        fade=e; project(); pts.forEach(drawBubble); fade=1;
+        const p=pts.find(q=>q.it.id===anim.id), to=p?{x:p.sx,y:p.sy,r:p.r}:{x:c.x,y:c.y,r:0};
+        drawShell(lerp(c.x,to.x,e),lerp(c.y,to.y,e),lerp(S,to.r,e),anim.h,1-e*.6,e*.6);
+        if(anim.t>=1) anim=null;
+      }
+    } else if(state.focus){
+      if(!drag){ orbit+=vO; vO+=(AUTO_O-vO)*.03; }
+      const S=shellR(), c=shellC(); drawShell(c.x,c.y,S,byId(state.focus).hue,1,0); drawCenter();
+      project(); pts.forEach(drawBubble);
+    } else {
+      if(target && !drag){
+        const dy=wrap(target.y-rotY), dx=target.x-rotX; rotY+=dy*.08; rotX+=dx*.08;
+        if(Math.abs(dy)<.002&&Math.abs(dx)<.002){ target=null; vY=AUTO; }
+      } else if(!drag){ rotY+=vY; rotX+=vX; vX*=.95; vY+=((reduce?0:AUTO*Math.sign(vY||1))-vY)*.02; }
+      rotX=Math.max(-1.3,Math.min(1.3,rotX));
+      const halo=ctx.createRadialGradient(W/2,H/2,R*.2,W/2,H/2,R*1.5);
+      halo.addColorStop(0,"rgba(143,240,222,.07)"); halo.addColorStop(1,"rgba(143,240,222,0)"); ctx.fillStyle=halo; ctx.fillRect(0,0,W,H);
+      project(); pts.forEach(drawBubble);
+    }
+    drawFx();
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ---------- interação ---------- */
+function setLevel(it,L,silent){
+  if(L){ const was=state.lv.get(it.id)||0; state.lv.set(it.id,L); if(it.parent && !state.lv.has(it.parent)) state.lv.set(it.parent,1); burst(it,!was);
+    try{ navigator.vibrate && navigator.vibrate(L===2?[10,40,10]:12); }catch(e){} }
+  else { state.lv.delete(it.id); kids(it.id).forEach(k=>state.lv.delete(k.id)); }
+  if(!silent){
+    const n=PEOPLE.filter(p=>p.lv.has(it.id)).length;
+    toast(L===1?`Estourou ${it.name}!${n?` +${n} ${n>1?"pessoas":"pessoa"} no seu radar`:""}`: L===2?`${it.name} é sua vida ♥ peso maior no match`:`Você saiu de ${it.name}`);
+  }
+  renderAll();
+}
+
+function tap(it){
+  if(it.type==="add") return openNewSub();
+  if(it.type==="event") return openEvent(it);
+  const L=state.lv.get(it.id)||0;
+  if(!state.focus && kids(it.id).length){
+    if(!L){ setLevel(it,1,true); toast(`Estourou ${it.name}! Agora escolha os detalhes`); setTimeout(()=>enter(it.id),reduce?0:420); }
+    else enter(it.id);
+    return;
+  }
+  setLevel(it,(L+1)%3);
+}
+
+let drag=false, start=null, last=null;
+cv.addEventListener("pointerdown",e=>{ cv.setPointerCapture(e.pointerId); drag=true; target=null; cv.classList.add("drag"); start=last={x:e.clientX,y:e.clientY}; });
+cv.addEventListener("pointermove",e=>{
+  if(!drag) return; const dx=e.clientX-last.x, dy=e.clientY-last.y; last={x:e.clientX,y:e.clientY};
+  if(state.focus){ orbit+=dx*.006; vO=dx*.006; return; }
+  // arrastar o dedo pra baixo faz a frente do globo descer junto
+  rotY+=dx*.008; rotX-=dy*.008; vY=dx*.008; vX=-dy*.008;
+});
+cv.addEventListener("pointerup",e=>{
+  drag=false; cv.classList.remove("drag");
+  if(anim || Math.hypot(e.clientX-start.x,e.clientY-start.y)>=7) return;
+  if(!state.focus){ vY=AUTO; vX=0; }
+  const b=cv.getBoundingClientRect(), x=e.clientX-b.left, y=e.clientY-b.top;
+  const hit=[...pts].reverse().find(p=>Math.hypot(p.sx-x,p.sy-y)<p.r+4);
+  if(hit) return tap(hit.it);
+  if(state.focus){ const c=shellC(); if(Math.hypot(x-c.x,y-c.y)>shellR()) leave(); }
+});
+cv.addEventListener("pointercancel",()=>{drag=false;cv.classList.remove("drag")});
+
+// simula gente estourando as bolhas em alta, ao vivo
+setInterval(()=>{
+  const tr=trending(); TREND.clear(); tr.forEach(x=>TREND.add(x.i.id));
+  const pick=tr[Math.floor(Math.random()*tr.length)].i; pick.base++; pick.week++;
+  if(!state.focus && !anim && !document.hidden) burst(pick,false);
+  renderTrend();
+},2800);
+
+trending().forEach(x=>TREND.add(x.i.id));
+// teclado virtual (iOS/Android): o chat encolhe junto com a área visível
+if(window.visualViewport){
+  const vv=visualViewport, fit=()=>{ document.documentElement.style.setProperty("--vvh",vv.height+"px"); if(vv.offsetTop) scrollTo(0,0); };
+  vv.addEventListener("resize",fit); vv.addEventListener("scroll",fit); fit();
+}
+// Esc fecha folhas e chat; Enter/Espaço já funcionam nos botões
+document.addEventListener("keydown",e=>{ if(e.key==="Escape" && layer.firstElementChild){ if(state.focus && !sheet && !current) return; closeLayer(); } });
+// girar a tela / redimensionar a janela: refaz o canvas
+addEventListener("orientationchange",()=>setTimeout(resize,250));
+resize(); rebuild(); renderAll(); welcome(); requestAnimationFrame(frame);
+</script>
+
+<script type="module">
+/* ================= LOGIN COM GOOGLE (Supabase) ================= */
+// Sem chaves em .env.local o botão fica escondido e o protótipo segue idêntico.
+const cfg = window.ESTOURA_CONFIG || {};
+const btn = document.getElementById("auth-btn");
+if (cfg.url && cfg.key) {
+  const { createClient } = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/+esm");
+  const sb = createClient(cfg.url, cfg.key, { auth: { flowType: "pkce" } });
+  window.estouraSupabase = sb;
+  btn.hidden = false;
+
+  const first = u => ((u.user_metadata && (u.user_metadata.full_name || u.user_metadata.name)) || u.email || "Você").split(" ")[0];
+  const photo = u => u.user_metadata && (u.user_metadata.avatar_url || u.user_metadata.picture);
+  const signIn = () => sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: location.origin + "/", queryParams: { prompt: "select_account" } } });
+
+  function openAccount(u){
+    openSheet(`<div class="ph">${photo(u) ? `<img src="${esc(photo(u))}" alt="" referrerpolicy="no-referrer" style="width:64px;height:64px;border-radius:50%;object-fit:cover">` : `<span class="av me">${esc(first(u)[0])}</span>`}
+        <div style="min-width:0"><h3>${esc((u.user_metadata && u.user_metadata.full_name) || first(u))}</h3><div class="meta">${esc(u.email || "")}</div></div></div>
+      <div class="actions"><button class="btn" data-close>Fechar</button><button class="btn primary" id="signout">Sair da conta</button></div>`, { type: "account" });
+    document.getElementById("signout").onclick = async () => { await sb.auth.signOut(); closeLayer(); };
+  }
+
+  let wasLogged = false;
+  function render(event, session){
+    const u = session && session.user;
+    if (u) {
+      btn.innerHTML = (photo(u) ? `<img src="${esc(photo(u))}" alt="" referrerpolicy="no-referrer">` : "") + esc(first(u));
+      btn.setAttribute("aria-label", "Minha conta");
+      btn.onclick = () => openAccount(u);
+      if (event === "SIGNED_IN" && !wasLogged) toast(`Olá, ${first(u)}!`);
+    } else {
+      btn.textContent = "Entrar";
+      btn.setAttribute("aria-label", "Entrar com o Google");
+      btn.onclick = signIn;
+      if (event === "SIGNED_OUT") toast("Você saiu da conta");
+    }
+    wasLogged = !!u;
+  }
+  sb.auth.onAuthStateChange((event, session) => render(event, session));
+  const { data } = await sb.auth.getSession();
+  render("INITIAL", data.session);
+}
+</script>
+
+</body></html>
