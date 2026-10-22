@@ -992,7 +992,7 @@ function stepSpread(){
 const ICON_GLOBE='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3.200 3 3.200 15 0 18M12 3c-3.200 3-3.200 15 0 18"/></svg>';
 const ICON_SPREAD='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6.500" cy="7" r="2.800"/><circle cx="17" cy="6" r="2"/><circle cx="18" cy="15.500" r="3.200"/><circle cx="8" cy="17.500" r="2.300"/><circle cx="12.500" cy="11.500" r="1.200"/></svg>';
 const HINT_GLOBE=document.getElementById("hint").textContent;
-const HINT_SPREAD="Todas as bolhas, sem agrupar. Arraste pra mover a tela e use a pinça ou a rodinha pra dar zoom. Toque numa bolha pra marcar; segure e arraste até "Excluir" pra apagar.";
+const HINT_SPREAD="Todas as bolhas, sem agrupar. Arraste pra mover a tela e use a pinça ou a rodinha pra dar zoom. Toque numa bolha pra marcar; segure e arraste até \"Excluir\" pra apagar.";
 function setSpread(on){
   if(anim || on===spread.on) return;
   if(on){ state.focus=null; initSpread(); spread.on=true; }
