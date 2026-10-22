@@ -304,7 +304,7 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
   <main>
     <section class="view" id="view-bolhas" aria-label="Bolhas">
       <div id="topbar">
-        <p class="hint gut" id="hint">Arraste pra girar. Toque 1×: curto · 2×: é minha vida · 3×: sai. Segure uma bolha pra entrar. Logado, segure e arraste: sobre outra bolha ela vira sub-bolha, em "Excluir" ela é apagada.</p>
+        <p class="hint gut" id="hint">Arraste pra girar. Toque 1×: curto · 2×: é minha vida · 3×: sai. Segure uma bolha pra entrar. Logado, segure e arraste até "Excluir" pra apagar; pra guardar uma bolha dentro de outra, use o botão Mover.</p>
         <div class="trend gut" id="trend"></div>
       </div>
       <div class="crumb gut" id="crumb" hidden>
@@ -902,7 +902,7 @@ const sphere=()=>!!state.focus && items.length>SPHERE_MIN;
 /* ---------- visão espalhada ("explodida") ----------
    Mostra TODAS as bolhas, de todos os níveis, soltas na tela ao mesmo tempo, sem agrupar.
    As bolhas da mesma família ficam perto umas das outras (e têm a mesma cor).
-   Arrastar move a tela; pinça ou rodinha dão zoom; toque estoura; segurar e arrastar move/exclui. */
+   Arrastar move a tela; pinça ou rodinha dão zoom; toque estoura; segurar e arrastar exclui. */
 const spread={on:false,k:1,px:0,py:0,tk:1,tpx:0,tpy:0,auto:true,mouse:null,poke:null};
 const spreadR=it=>it.type==="event" ? 20+evCount(it)*2 : 20+16*Math.sqrt(count(it)/peak(INTERESTS));
 function layoutSpread(){
@@ -989,7 +989,7 @@ function stepSpread(){
 const ICON_GLOBE='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3.200 3 3.200 15 0 18M12 3c-3.200 3-3.200 15 0 18"/></svg>';
 const ICON_SPREAD='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6.500" cy="7" r="2.800"/><circle cx="17" cy="6" r="2"/><circle cx="18" cy="15.500" r="3.200"/><circle cx="8" cy="17.500" r="2.300"/><circle cx="12.500" cy="11.500" r="1.200"/></svg>';
 const HINT_GLOBE=document.getElementById("hint").textContent;
-const HINT_SPREAD="Todas as bolhas, sem agrupar. Arraste pra mover a tela e use a pinça ou a rodinha pra dar zoom. Toque numa bolha pra estourar; segure e arraste pra mover ou excluir.";
+const HINT_SPREAD="Todas as bolhas, sem agrupar. Arraste pra mover a tela e use a pinça ou a rodinha pra dar zoom. Toque numa bolha pra estourar; segure e arraste até "Excluir" pra apagar.";
 function setSpread(on){
   if(anim || on===spread.on) return;
   if(on){ state.focus=null; initSpread(); spread.on=true; }
@@ -1259,7 +1259,6 @@ function tap(it){
 /* ---------- mover e excluir bolhas ----------
    Segurar uma bolha (~0,5 s) "pega" ela:
    - solta no mesmo lugar  -> entra na bolha (jeito de criar sub-bolhas);
-   - arrasta pra cima de outra bolha -> vira sub-bolha dela;
    - dentro de uma bolha, arrasta pra fora do círculo -> volta a ser bolha principal;
    - arrasta até "Excluir" -> exclui (com confirmação).
    Quem pode fazer isso é decidido no banco (can_manage_interests): hoje, qualquer pessoa logada. */
@@ -1268,8 +1267,6 @@ const canManage=()=>!!(window.estouraAuthed && window.estouraMoveInterest);
 const trashZone=()=>({x:W/2,y:H-46,r:32});
 const overTrash=g=>{ const z=trashZone(); return Math.hypot(g.x-z.x,g.y-z.y)<z.r+20; };
 const outsideShell=g=>{ if(!state.focus) return false; const c=shellC(); return Math.hypot(g.x-c.x,g.y-c.y)>shellR(); };
-// bolha sob o dedo onde dá pra guardar a segurada (em qualquer nível; nunca dentro dela mesma)
-const nestTarget=g=>[...pts].reverse().find(p=>p.it.id!==g.it.id && !p.it.type && Math.hypot(p.sx-g.x,p.sy-g.y)<p.r);
 const drawAll=()=>pts.forEach(p=>{ if(!grab||p.it!==grab.it) drawBubble(p); }); // a bolha pega é desenhada à parte
 function drawGrab(){
   if(!grab) return;
@@ -1279,12 +1276,7 @@ function drawGrab(){
   ctx.beginPath(); ctx.arc(z.x,z.y,z.r+(hot?6:0),0,7); ctx.fill(); ctx.stroke(); ctx.setLineDash([]);
   ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillStyle=hot?"#ffd0d0":"#f1f5ff"; ctx.font=`700 12px ${BODYFONT}`;
   ctx.fillText("Excluir",z.x,z.y);
-  const t=nestTarget(grab);
-  if(t){ const ok=!isDescendant(t.it.id,grab.it.id);
-    ctx.strokeStyle=ok?"#8ff0de":"#ff7a7a"; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(t.sx,t.sy,t.r+6,0,7); ctx.stroke();
-    ctx.font=`600 12px ${BODYFONT}`; ctx.fillStyle=ok?"#8ff0de":"#ff9e9e";
-    ctx.fillText(ok?`guardar dentro de ${t.it.name}`:"não dá: fica dentro dela mesma",t.sx,t.sy-t.r-14); }
-  else if(outsideShell(grab) && !hot){ ctx.font=`600 12px ${BODYFONT}`; ctx.fillStyle="#8ff0de"; ctx.fillText("solte pra tirar da bolha",W/2,18); }
+  if(outsideShell(grab) && !hot){ ctx.font=`600 12px ${BODYFONT}`; ctx.fillStyle="#8ff0de"; ctx.fillText("solte pra tirar da bolha",W/2,18); }
   const base=pts.find(p=>p.it===grab.it);
   drawBubble({it:grab.it,sx:grab.x,sy:grab.y,r:(base?base.r:30)*1.12,z:1});
 }
@@ -1398,8 +1390,6 @@ cv.addEventListener("pointerup",e=>{
   if(grab){ const g=grab; grab=null;
     if(!g.moved){ if(!spread.on){ if(!state.lv.has(g.it.id)) setLevel(g.it,1,true); enter(g.it.id); } return; } // segurou e soltou no lugar: entra (só no globo)
     if(overTrash(g)) return askDelete(g.it);
-    const t=nestTarget(g);
-    if(t) return isDescendant(t.it.id,g.it.id) ? toast("Não dá para guardar uma bolha dentro dela mesma.") : doMove(g.it,t.it.id);
     if(outsideShell(g)) return doMove(g.it,(byId(state.focus)||{}).parent||null); // arrastou pra fora: sobe um nível
     return; }
   if(lpDone){ lpDone=false; return; } // o toque longo já entrou na bolha
