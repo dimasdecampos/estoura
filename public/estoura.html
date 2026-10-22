@@ -69,6 +69,8 @@ button.pill:hover{border-color:#3a4f7a}
 #ptr{position:fixed;top:calc(env(safe-area-inset-top,0px) + 6px);left:50%;width:38px;height:38px;border-radius:50%;background:var(--surface-2);border:1px solid var(--line);z-index:25;display:grid;place-items:center;pointer-events:none;opacity:0;transform:translate(-50%,-46px);box-shadow:0 6px 20px #0008}
 #ptr.snap{transition:transform .22s ease,opacity .22s}
 #ptr i{width:16px;height:16px;border-radius:50%;border:2.5px solid var(--accent);border-top-color:transparent}
+#ptr.long{border-color:var(--accent-2);transform-origin:center}
+#ptr.long i{border-color:var(--accent-2);border-top-color:transparent}
 #ptr.spin i{animation:ptrspin .7s linear infinite}
 @keyframes ptrspin{to{transform:rotate(360deg)}}
 a.soc-ic{width:50px;height:50px;border-radius:15px;display:grid;place-items:center;background:var(--surface-2);border:1px solid var(--line);color:var(--c,var(--ink));transition:transform .15s,border-color .15s,background .15s}
@@ -1427,7 +1429,7 @@ cv.addEventListener("pointercancel",e=>{ptrs.delete(e.pointerId);pinch=null;pinc
    (no globo, arrastar gira, por isso a área do globo em si fica de fora). */
 (function(){
   const ind=document.createElement("div"); ind.id="ptr"; ind.setAttribute("aria-hidden","true"); ind.innerHTML="<i></i>"; document.body.appendChild(ind);
-  const TH=64; let y0=null, pull=0, busy=false;
+  const TH=64, LONG=96; let y0=null, pull=0, busy=false;
   const setInd=(px,snap)=>{ ind.classList.toggle("snap",!!snap); ind.style.opacity=Math.min(1,px/40); ind.style.transform=`translate(-50%,${px-46}px)`; ind.firstChild.style.transform=`rotate(${px*4}deg)`; };
   const zone=t=>t.closest(".view:not(#view-bolhas), header, #topbar, #crumb");
   document.addEventListener("touchstart",e=>{
@@ -1439,20 +1441,22 @@ cv.addEventListener("pointercancel",e=>{ptrs.delete(e.pointerId);pinch=null;pinc
   document.addEventListener("touchmove",e=>{
     if(y0==null) return; const dy=e.touches[0].clientY-y0;
     if(dy<=0){ pull=0; setInd(0); return; }
-    pull=Math.min(dy*.5,100); setInd(pull);
+    pull=Math.min(dy*.5,LONG+30); ind.classList.toggle("long",pull>=LONG); setInd(pull);
   },{passive:true});
   const end=async()=>{
     if(y0==null) return; const go=pull>=TH*.8; y0=null;
+    ind.classList.remove("long");
+    if(pull>=LONG){ busy=true; ind.classList.add("spin"); setInd(56,true); location.reload(); return; } // puxada longa: recarrega a página
     if(!go){ setInd(0,true); return; }
     busy=true; ind.classList.add("spin"); setInd(56,true);
     try{
       if(window.estouraRefreshAll) await window.estouraRefreshAll();
-      else { location.reload(); return; } // sem login: recarrega a página
+      else { location.reload(); return; } // sem login: recarrega a página também
       toast("Atualizado");
     }catch(_){ toast("Não consegui atualizar"); }
     ind.classList.remove("spin"); setInd(0,true); busy=false;
   };
-  document.addEventListener("touchend",end); document.addEventListener("touchcancel",()=>{ y0=null; setInd(0,true); });
+  document.addEventListener("touchend",end); document.addEventListener("touchcancel",()=>{ y0=null; ind.classList.remove("long"); setInd(0,true); });
 })();
 
 // teclado virtual (iOS/Android): o chat encolhe junto com a área visível
