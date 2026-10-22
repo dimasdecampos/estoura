@@ -853,11 +853,17 @@ function resize(){
   R=Math.min(W,H)*0.36;
 }
 new ResizeObserver(resize).observe(cv.parentElement);
+// Tamanho relativo: um piso confortável (toda bolha dá pra tocar) que cresce em proporção
+// à bolha mais popular do grupo. Com poucas pessoas as bolhas continuam grandes.
+const peak = list => Math.max(1,...list.map(count));
 function targetR(it){
-  if(state.focus){ const S=shellR(); if(it.type==="add") return S*.14; return Math.min(S*.27,(S/115)*(8+Math.sqrt(count(it)+20)*.9)); }
+  if(state.focus){ const S=shellR(); if(it.type==="add") return Math.max(S*.14,26);
+    const rel=Math.sqrt(count(it)/peak(kids(state.focus)));
+    return Math.min(S*.3,(S/115)*(19+15*rel)); }
   const k=R/150;
   if(it.type==="event") return k*(13+evCount(it)*3.2);
-  return k*(9+Math.sqrt(count(it)+20)*0.95);
+  const rel=Math.sqrt(count(it)/peak(INTERESTS.filter(i=>!i.parent)));
+  return k*(26+22*rel);
 }
 
 function project(){
