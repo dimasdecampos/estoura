@@ -1565,10 +1565,11 @@ function baseR(it){
     const rel=Math.sqrt(count(it)/peak(applyF(kids(state.focus))));
     const fit=sp?Math.max(.42,Math.sqrt((SPHERE_MIN-1)/(items.length-1))):1; // quanto mais sub-bolhas, menores
     return Math.min(S*.3,(S/115)*(19+15*rel))*fit; }
-  const k=R/150;
+  // quanto mais bolhas no globo, um pouco menores (senão se amontoam quando várias já têm gente)
+  const k=R/150*Math.sqrt(16/Math.max(16,items.length));
   if(it.type==="event") return k*(13+evCount(it)*3.2);
   const rel=Math.sqrt(count(it)/peak(applyF(INTERESTS.filter(i=>!i.parent))));
-  return k*(26+22*rel);
+  return k*(23+17*rel);
 }
 
 function project(){
@@ -1597,6 +1598,8 @@ function project(){
     it.dr+=(targetR(it)-it.dr)*0.12;
     return {it,sx:W/2+x1*RG*s,sy:H/2+y2*RG*s,r:Math.max(0,it.dr*s),z:z2};
   }).sort((a,b)=>a.z-b.z);
+  // bolha com outra na frente cobrindo o meio dela: não mostra o nome (senão os dois nomes se misturam)
+  pts.forEach((p,i)=>{ p.cov=false; for(let j=i+1;j<pts.length;j++){ const q=pts[j]; if(Math.hypot(q.sx-p.sx,q.sy-p.sy)<q.r*.8){ p.cov=true; break; } } });
 }
 
 function label(lines,sx,sy,fs,color,extra){
@@ -1610,9 +1613,9 @@ function split(name,r){
   const w=name.split(" "), m=Math.ceil(w.length/2); return [w.slice(0,m).join(" "),w.slice(m).join(" ")];
 }
 
-function drawBubble({it,sx,sy,r,z}){
+function drawBubble({it,sx,sy,r,z,cov}){
   if(r<1) return;
-  const d=(z+1)/2, showLabel=(state.focus&&!sphere())||z>-.35;
+  const d=(z+1)/2, showLabel=((state.focus&&!sphere())||z>-.35)&&!cov;
   ctx.globalAlpha=(.28+.72*d)*fade;
   if(it.type==="add"){
     ctx.setLineDash([4,4]); ctx.lineWidth=1.5; ctx.strokeStyle="rgba(236,241,255,.6)";
