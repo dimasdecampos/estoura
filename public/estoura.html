@@ -1143,7 +1143,7 @@ function drawBubble({it,sx,sy,r,z}){
   ctx.fillStyle="rgba(255,255,255,.75)"; ctx.beginPath(); ctx.ellipse(sx-r*.4,sy-r*.45,r*.18,r*.1,-.7,0,7); ctx.fill();
   if(r>15 && showLabel){
     const fs=Math.max(9,Math.min(state.focus?14:15,r*.3)); ctx.font=`700 ${fs}px Figtree, system-ui, sans-serif`;
-    const lines=split(it.name,r), extra=r>24?count(it).toLocaleString("pt-BR"):null;
+    const lines=split(it.name,r), extra=r>24&&count(it)>0?count(it).toLocaleString("pt-BR"):null; // sem ninguém, não mostra o 0
     const hc=HEARTN.get(it.id)||0; // sub-bolhas com coração
     if(L===2||hc){ // já deu coração: coraçãozinho preto centralizado acima do nome, do tamanho da fonte; com a quantidade das sub-bolhas ao lado
       const top=sy-(lines.length-1)*fs*.55-(extra?fs*.35:0)-fs*1.1, hs=fs*.34;
