@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
 <title>Estoura</title>
 <meta name="description" content="Estoura: estoure as bolhas dos seus interesses e ache a sua turma.">
 <meta name="theme-color" content="#0b1322">
@@ -217,6 +217,12 @@ nav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8}
 .badge.alert-on{animation:ping 1.8s ease-out infinite}
 @keyframes ping{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 70%,transparent)}80%,100%{box-shadow:0 0 0 8px transparent}}
 @media (prefers-reduced-motion:reduce){.badge.alert-on{animation:none}}
+/* aviso de instalação no primeiro acesso */
+.installbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));width:min(460px,calc(100% - 24px));display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--accent-2);border-radius:16px;padding:11px 12px;font-size:13px;line-height:1.4;z-index:42;box-shadow:0 12px 34px #000b}
+.installbar>span{flex:1;min-width:0}
+.installbar svg{width:15px;height:15px;vertical-align:-3px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.installbar .x{background:none;border:0;color:var(--muted);font-size:18px;line-height:1;padding:4px 6px}
+html.kb .installbar{display:none}
 /* aviso pra quem curte sem estar logado */
 .nudge{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top,0px));transform:translateX(-50%);width:min(460px,calc(100% - 24px));display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--accent);border-radius:16px;padding:10px 12px;font-size:13px;line-height:1.35;z-index:58;box-shadow:0 12px 34px #000b}
 .nudge>span{flex:1;min-width:0}
@@ -293,6 +299,7 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
   .grab{display:none}
   .chat{top:4dvh;bottom:4dvh;left:0;right:0;max-width:560px;border:1px solid var(--line);border-radius:24px;overflow:hidden;box-shadow:0 0 0 100vmax #050912b3,0 30px 80px #000a}
   .toast{bottom:28px}
+  .installbar{bottom:28px}
 }
 @keyframes pop{from{transform:scale(.96);opacity:.4}}
 /* desktop: menu lateral, tela larga */
@@ -317,12 +324,15 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
   p.sub{font-size:15px}
   .list{grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:14px}
   .toast{left:calc(50% + 120px)}
+  .installbar{left:calc(50% + 120px)}
 }
 @media (min-width:1500px){
   .app{max-width:1440px}
 }
 </style>
 
+</head>
+<body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
   <symbol id="mark" viewBox="0 0 160 160">
     <path d="M125.31 62.87 A50 50 0 1 1 92.94 35.70" fill="none" stroke="currentColor" stroke-width="11" stroke-linecap="round"/>
@@ -343,7 +353,7 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
   <main>
     <section class="view" id="view-bolhas" aria-label="Bolhas">
       <div id="topbar">
-        <p class="hint gut" id="hint" hidden>Arraste pra girar. Toque 1× pra marcar a bolha; 2 toques (ou segure no celular) pra entrar nela e escolher "É minha vida ♥". Pra tirar uma bolha das suas, segure e arraste até "Remover"; pra guardar uma bolha dentro de outra, use o botão Mover. Cada pessoa organiza as próprias bolhas. O globo vai trocando as bolhas que mostra; pra achar uma específica, use a busca (lupa), e pra criar uma nova, o botão +.</p>
+        <p class="hint gut" id="hint" hidden>Arraste pra girar. Toque 1× pra marcar a bolha; 2 toques (ou segure no celular) pra entrar nela e escolher "Eu amo! ♥". Pra tirar uma bolha das suas, segure e arraste até "Remover"; pra guardar uma bolha dentro de outra, use o botão Mover. Cada pessoa organiza as próprias bolhas. O globo vai trocando as bolhas que mostra; pra achar uma específica, use a busca (lupa), e pra criar uma nova, o botão +.</p>
         <div class="trend gut" id="trend"></div>
       </div>
       <div class="dock gut" id="dock-search" hidden>
@@ -373,7 +383,7 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
       </div>
       <div class="dock gut" id="dock-focus" hidden>
         <div class="seg" id="focus-seg" role="group" aria-label="Quanto você curte esta bolha">
-          <button data-l="1">Curto</button><button data-l="2">É minha vida ♥</button>
+          <button data-l="1">Curto</button><button data-l="2">Eu amo! ♥</button>
         </div>
         <button class="btn" id="focus-out">Sair da bolha</button>
       </div>
@@ -381,7 +391,7 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
 
     <section class="view gut" id="view-matches" hidden aria-label="Matches">
       <h2>Quem estourou o mesmo que você</h2>
-      <p class="sub">Interesses raros e sub-bolhas pesam mais. Quem marcou "é minha vida" no mesmo que você ganha bônus (♥).</p>
+      <p class="sub">Interesses raros e sub-bolhas pesam mais. Quem marcou "eu amo!" no mesmo que você ganha bônus (♥).</p>
       <div id="tip-bar"></div>
       <div class="filters" id="filters"></div>
       <div class="list" id="match-list"></div>
@@ -423,6 +433,7 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
 
 <div class="toast" id="toast" role="status" aria-live="polite" data-off></div>
 <button class="alert" id="alert" type="button" role="alert" data-off></button>
+<div class="installbar" id="install-bar" role="dialog" aria-label="Instalar o app" hidden></div>
 <div class="nudge" id="nudge" role="status" hidden><span>💾 Entre pra <b>salvar suas bolhas</b> e encontrar matches de verdade.</span><button class="btn sm primary" id="nudge-go" type="button">Entrar</button><button class="x" id="nudge-x" type="button" aria-label="Fechar">×</button></div>
 <div id="layer"></div>
 
@@ -619,7 +630,7 @@ const initials = n => n.split(" ").map(s=>s[0]).slice(0,2).join("");
 const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const both2 = (p,id) => p && state.lv.get(id)===2 && p.lv.get(id)===2;
 function chip(id,{dim,p}={}){ const i=byId(id); const h=both2(p,id);
-  return `<span class="chip${dim?" dim":""}${i.parent?" sub":""}" style="--h:${i.hue}"${h?' title="Os dois: é minha vida"':""}>${esc(i.name)}${h?" ♥":""}</span>`; }
+  return `<span class="chip${dim?" dim":""}${i.parent?" sub":""}" style="--h:${i.hue}"${h?' title="Os dois: eu amo!"':""}>${esc(i.name)}${h?" ♥":""}</span>`; }
 const avatar = p => `<span class="av" style="--h:${hueOf(p)}">${p.photo?`<img src="${esc(p.photo)}" alt="" referrerpolicy="no-referrer" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`:initials(p.name)}</span>`;
 const relevant = id => state.lv.has(id) || ancestors(id).some(a=>state.lv.has(a));
 
@@ -741,12 +752,39 @@ async function enableNotifications(){ // só depois de um toque da pessoa (regra
 }
 let deferredInstall=null;
 addEventListener("beforeinstallprompt",e=>{ e.preventDefault(); deferredInstall=e; renderTips(); });
-addEventListener("appinstalled",()=>{ deferredInstall=null; renderTips(); toast("App instalado!"); });
+addEventListener("appinstalled",()=>{ deferredInstall=null; setInstallSeen(); hideInstallBar(); renderTips(); toast("App instalado!"); });
 async function installApp(){
   if(!deferredInstall) return;
   deferredInstall.prompt(); try{ await deferredInstall.userChoice; }catch(e){}
   deferredInstall=null; renderTips();
 }
+/* aviso de instalação no primeiro acesso: aparece uma vez, quando o navegador permite instalar (ou no iPhone, com o passo a passo) */
+const SHARE_ICON='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4M8 8l4-4 4 4M6 12v7h12v-7"/></svg>';
+const installSeen=()=>{ try{ return localStorage.getItem("estoura-install-seen")==="1"; }catch(e){ return false; } };
+const setInstallSeen=()=>{ try{ localStorage.setItem("estoura-install-seen","1"); }catch(e){} };
+function hideInstallBar(){ document.getElementById("install-bar").hidden=true; }
+// devolve true quando não precisa mais tentar (mostrou, já instalado ou já viu)
+function maybeShowInstallBar(){
+  const el=document.getElementById("install-bar");
+  if(standalone()||installSeen()) return true;
+  if(!el.hidden) return true;
+  if(layer.firstElementChild) return false; // tem boas-vindas, conversa ou folha aberta: espera fechar
+  if(deferredInstall){
+    el.innerHTML=`<span>📲 <b>Instale o Estoura</b> no seu aparelho: abre em tela cheia e mais rápido.</span><button class="btn sm primary" id="install-go" type="button">Instalar</button><button class="x" id="install-x" type="button" aria-label="Agora não">×</button>`;
+    el.hidden=false; setInstallSeen();
+    document.getElementById("install-go").onclick=async()=>{ hideInstallBar(); await installApp(); };
+    document.getElementById("install-x").onclick=hideInstallBar;
+    return true;
+  }
+  if(isIOS){
+    el.innerHTML=`<span>📲 <b>Instale o Estoura</b>: toque em Compartilhar ${SHARE_ICON} e depois em <b>Adicionar à Tela de Início</b>.</span><button class="btn sm" id="install-x" type="button">Entendi</button>`;
+    el.hidden=false; setInstallSeen();
+    document.getElementById("install-x").onclick=hideInstallBar;
+    return true;
+  }
+  return false; // o navegador ainda não liberou a instalação
+}
+{ let tries=0; const t=setInterval(()=>{ if(maybeShowInstallBar()||++tries>40) clearInterval(t); },1500); }
 function renderTips(){
   const el=document.getElementById("tip-bar"); if(!el) return;
   const out=[];
@@ -770,7 +808,7 @@ function deviceHTML(){
     :n==="granted"&&!notifOff()?`<div class="row"><span>🔔 Notificações ligadas</span><button class="btn sm" type="button" id="dev-notif-off">Desligar</button></div>`
     :n==="denied"?`<span class="note" style="margin:0">Notificações bloqueadas. Libere nas configurações do navegador pra este site.</span>`
     :`<div class="row"><span>🔔 Notificações desligadas</span><button class="btn sm primary" type="button" id="dev-notif-on">Ativar</button></div>`;
-  const inst=standalone()?"":deferredInstall?`<div class="row"><span>📲 App na tela inicial</span><button class="btn sm primary" type="button" id="dev-install">Instalar</button></div>`:"";
+  const inst=standalone()?"":isIOS?`<span class="note" style="margin:0">📲 Pra instalar o app: toque em Compartilhar e depois em Adicionar à Tela de Início.</span>`:deferredInstall?`<div class="row"><span>📲 App na tela inicial</span><button class="btn sm primary" type="button" id="dev-install">Instalar</button></div>`:"";
   return `<div class="sec"><div class="tag">Este aparelho</div><div class="form">${notif}${inst}</div></div>`;
 }
 function wireDevice(reopen){
@@ -946,7 +984,7 @@ function openProfile(p){
     <div class="sec"><div class="tag">Por que ${pct}% de match</div>
       ${top.map(w=>{ const i=byId(w.id); return `<div class="why" style="--h:${i.hue}"><span>${esc(i.name)}${both2(p,w.id)?" ♥":""}</span><span class="wb"><i style="width:${Math.round(100*w.pts/max)}%"></i></span><b>+${Math.round(w.pts)} · ${count(i).toLocaleString("pt-BR")} pessoas</b></div>`; }).join("")}
       ${shared.length>5?`<div class="chips">${shared.slice(5).map(i=>chip(i,{p})).join("")}</div>`:""}
-      <div class="note" style="margin-top:8px">Bolha rara vale mais. ♥ = vocês dois marcaram "é minha vida".</div></div>
+      <div class="note" style="margin-top:8px">Bolha rara vale mais. ♥ = vocês dois marcaram "eu amo!".</div></div>
     ${others.length?`<div class="sec"><div class="tag">Outras bolhas</div><div class="chips">${others.map(i=>chip(i,{dim:true})).join("")}</div></div>`:""}
     <div class="sec"><div class="tag">Redes sociais</div>
       ${p.real ? realSocials(p)
@@ -1232,7 +1270,7 @@ function welcome(){
   if(seen) return;
   openSheet(`<svg class="wlogo" viewBox="0 0 160 160" role="img" aria-label="Estoura"><use href="#mark"/></svg><h3 style="font-family:var(--display);font-size:26px;margin:0;line-height:1.1">Estoure suas bolhas.<br>Ache sua turma.</h3>
     <div class="steps">
-      <div class="step"><i class="full" style="--h:165"></i><div><b>Estoure o que você curte</b><span>Bolha grande é assunto popular. Toque de novo pra dizer que é sua vida.</span></div></div>
+      <div class="step"><i class="full" style="--h:165"></i><div><b>Estoure o que você curte</b><span>Bolha grande é assunto popular. Toque de novo pra dizer que você ama.</span></div></div>
       <div class="step"><i style="--h:200"></i><div><b>Entre nas bolhas com anel</b><span>Lá dentro tem sub-bolhas, como Patagônia dentro de Viagens. Específico conecta mais.</span></div></div>
       <div class="step"><i class="dash" style="--h:40"></i><div><b>Encontre gente e rolês perto</b><span>Matches por afinidade, grupos e eventos com data. Suas redes só aparecem quando os dois aceitam conversar.</span></div></div>
     </div>
@@ -1599,7 +1637,7 @@ function heartPath(x,y,hs){
 function starPath(x,y,rr){
   ctx.beginPath(); for(let k=0;k<10;k++){ const a=-Math.PI/2+k*Math.PI/5, d=k%2?rr*.45:rr; ctx.lineTo(x+Math.cos(a)*d,y+Math.sin(a)*d); } ctx.closePath();
 }
-// coraçãozinho no topo à direita de uma bolha marcada: toque pra virar "é minha vida"
+// coraçãozinho no topo à direita de uma bolha marcada: toque pra virar "eu amo!"
 const heartSpot=p=>({x:p.sx+p.r*.42,y:p.sy-p.r*.56,hr:Math.max(11,p.r*.26)});
 const heartable=p=>!p.it.type&&p.r>18&&p.z>-.35&&state.lv.get(p.it.id)===1&&(p.it.hu||0)>performance.now(); // o coração aparece ao marcar e some; volta ao encostar na bolha
 const showHeart=it=>{ if(!it.type) it.hu=performance.now()+1800; };
@@ -1658,7 +1696,7 @@ document.getElementById("focus-del").onclick=()=>askDelete(byId(state.focus));
 document.getElementById("focus-move").onclick=openMove;
 document.getElementById("focus-out").onclick=()=>{ const it=byId(state.focus); setLevel(it,0); leave(); };
 document.getElementById("focus-seg").onclick=e=>{ const b=e.target.closest("[data-l]"); if(!b) return; const it=byId(state.focus), l=+b.dataset.l, cur=state.lv.get(it.id)||0;
-  setLevel(it, l!==cur ? l : l===2 ? 1 : 0); }; // tocar de novo no botão aceso desfaz: "É minha vida" volta pra Curto, "Curto" desmarca
+  setLevel(it, l!==cur ? l : l===2 ? 1 : 0); }; // tocar de novo no botão aceso desfaz: "Eu amo!" volta pra Curto, "Curto" desmarca
 
 // contagens usadas no desenho, calculadas uma vez por quadro (e não por bolha)
 let KIDN=new Map(), HEARTN=new Map();
@@ -1747,7 +1785,7 @@ function setLevel(it,L,silent){
   const back=!L && (it.parent||null)!==before ? ` (ela volta ${it.parent?"pra "+byId(it.parent).name:"pras bolhas principais"}, onde a maioria guarda)` : "";
   if(!silent || gone.length || back){
     const n=everyone().filter(p=>p.lv.has(it.id)).length;
-    toast(L===1?`Estourou ${it.name}!${n?` +${n} ${n>1?"pessoas":"pessoa"} no seu radar`:""}`: L===2?`${it.name} é sua vida ♥ peso maior no match`:`Você saiu de ${it.name}${gone.length?` e de ${gone.join(" e ")}`:""}${back}`);
+    toast(L===1?`Estourou ${it.name}!${n?` +${n} ${n>1?"pessoas":"pessoa"} no seu radar`:""}`: L===2?`Você ama ${it.name}! ♥ peso maior no match`:`Você saiu de ${it.name}${gone.length?` e de ${gone.join(" e ")}`:""}${back}`);
   }
   renderAll();
   if(window.estouraSync) window.estouraSync(); // salva no Supabase quando há login
@@ -1769,7 +1807,7 @@ function tap(it){
     return enter(it.id);
   }
   lastTap={id:it.id,t,marked:!L};
-  if(!L) return setLevel(it,1); // 1 toque marca; "é minha vida" fica só dentro da bolha
+  if(!L) return setLevel(it,1); // 1 toque marca; "eu amo!" fica só dentro da bolha
   if((it.hu||0)<t){ showHeart(it); toast(`Toque de novo pra desmarcar ${it.name}`); return; } // 1º toque numa marcada só mostra o coração
   lastTap={id:null,t:0};
   setLevel(it,0); // 2º toque (com o coração à mostra) desmarca

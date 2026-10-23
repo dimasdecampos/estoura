@@ -7,7 +7,7 @@ export type Interest = {
   people: number;
 };
 
-/** 1 = curto, 2 = é minha vida */
+/** 1 = curto, 2 = eu amo! */
 export type Level = 1 | 2;
 export type Levels = Record<string, Level>;
 

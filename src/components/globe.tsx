@@ -274,7 +274,7 @@ export function Globe({ interests, levels, onLevel, onCreate, onToast }: Props) 
         try { navigator.vibrate?.(L === 2 ? [10, 40, 10] : 12); } catch { /* sem vibração */ }
       }
       P.current.onLevel(it.id, L);
-      if (!silent) P.current.onToast(L === 1 ? `Estourou ${it.name}!` : L === 2 ? `${it.name} é sua vida ♥ peso maior no match` : `Você saiu de ${it.name}`);
+      if (!silent) P.current.onToast(L === 1 ? `Estourou ${it.name}!` : L === 2 ? `Você ama ${it.name}! ♥ peso maior no match` : `Você saiu de ${it.name}`);
     }
 
     function doEnter(id: string) { curFocus = id; setFocus(id); orbit = 0; vO = AUTO_O; rebuild(true); }
@@ -427,7 +427,7 @@ export function Globe({ interests, levels, onLevel, onCreate, onToast }: Props) 
         </div>
       ) : (
         <div className="px-4">
-          <p className="pt-1 text-[13px] text-muted">Arraste pra girar. Toque 1×: curto · 2×: é minha vida · 3×: sai.</p>
+          <p className="pt-1 text-[13px] text-muted">Arraste pra girar. Toque 1×: curto · 2×: eu amo! · 3×: sai.</p>
           {trend.length > 0 && (
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-2 [scrollbar-width:none]">
               <span className="shrink-0 text-[11px] uppercase tracking-wider text-muted">Em alta</span>
@@ -454,7 +454,7 @@ export function Globe({ interests, levels, onLevel, onCreate, onToast }: Props) 
         {focused ? (
           <>
             <div role="group" aria-label="Quanto você curte esta bolha" className="flex flex-1 overflow-hidden rounded-xl border border-line bg-surface">
-              {([[1, "Curto"], [2, "É minha vida ♥"]] as const).map(([l, t]) => (
+              {([[1, "Curto"], [2, "Eu amo! ♥"]] as const).map(([l, t]) => (
                 <button key={l} onClick={() => api.current?.setLevel(focused, l)} aria-pressed={L === l}
                   className={`min-h-11 flex-1 px-3 text-sm font-semibold ${L === l ? "bg-surface-2 text-ink" : "text-muted"} ${l === 2 ? "border-l border-line" : ""}`}>
                   {t}

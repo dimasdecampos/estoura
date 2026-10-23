@@ -35,7 +35,7 @@ supabase/
 ```
 
 ## Já funciona
-Login Google · globo de bolhas com sub-bolhas · marcar "curto" / "é minha vida" (salvo no banco) · criar bolhas e sub-bolhas · "em alta" · matches entre usuários reais · layout para celular, tablet e desktop.
+Login Google · globo de bolhas com sub-bolhas · marcar "curto" / "eu amo!" (salvo no banco) · criar bolhas e sub-bolhas · "em alta" · matches entre usuários reais · layout para celular, tablet e desktop.
 
 ## Próximos passos
 Eventos · grupos sugeridos · convite e chat (Supabase Realtime) · notificações push · cidade e distância · redes sociais liberadas só após aceite · PWA instalável.

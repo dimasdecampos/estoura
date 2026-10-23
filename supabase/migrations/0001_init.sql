@@ -25,7 +25,7 @@ create table public.interests (
 create table public.user_interests (
   user_id uuid not null references public.profiles (id) on delete cascade,
   interest_id text not null references public.interests (id) on delete cascade,
-  level smallint not null default 1 check (level in (1, 2)),  -- 1 = curto, 2 = é minha vida
+  level smallint not null default 1 check (level in (1, 2)),  -- 1 = curto, 2 = eu amo!
   created_at timestamptz not null default now(),
   primary key (user_id, interest_id)
 );

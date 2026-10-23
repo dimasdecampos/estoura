@@ -43,7 +43,7 @@ export function Matches({ interests, levels }: { interests: Interest[]; levels: 
     <div className="mx-auto w-full max-w-5xl px-4 pb-10 md:px-8">
       <h2 className="mt-5 font-display text-2xl font-extrabold tracking-tight md:text-4xl">Quem estourou o mesmo que você</h2>
       <p className="mb-5 mt-1 max-w-[60ch] text-sm leading-relaxed text-muted">
-        Interesses raros e sub-bolhas pesam mais. Quem marcou “é minha vida” no mesmo que você ganha bônus (♥).
+        Interesses raros e sub-bolhas pesam mais. Quem marcou “eu amo!” no mesmo que você ganha bônus (♥).
       </p>
 
       {rows === null ? (

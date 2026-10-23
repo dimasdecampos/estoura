@@ -12,7 +12,7 @@ const BUBBLES = [
 ];
 
 const STEPS = [
-  { h: 165, t: "Estoure o que você curte", p: "Cada bolha é um interesse. Toque uma vez para “curto”, duas para “é minha vida”." },
+  { h: 165, t: "Estoure o que você curte", p: "Cada bolha é um interesse. Toque uma vez para “curto”, duas para “eu amo!”." },
   { h: 200, t: "Entre nas sub-bolhas", p: "Dentro de Viagens mora a Patagônia. Quanto mais específico, mais você se conecta." },
   { h: 40, t: "Encontre a sua turma", p: "Matches por afinidade: bolha rara pesa mais. Suas redes só aparecem quando os dois aceitam." },
 ];
