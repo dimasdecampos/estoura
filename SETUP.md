@@ -117,4 +117,10 @@ Vercel → **Settings → Domains** → adicione `estoura.com.br` (ou o seu). De
 ## Para lançar de verdade
 
 - Rode também `0003_pulse.sql`, `0004_events.sql` e `0005_real_numbers.sql` (números 100% reais: contagem, "Em alta" e peso da raridade).
+- Rode `0006` a `0009`, nessa ordem. O `0009_bolhas_pessoais.sql` faz cada pessoa organizar as próprias bolhas:
+  - mover e remover mudam só a árvore de quem mexeu;
+  - o mapa de todo mundo mostra cada bolha onde a maioria guardou;
+  - nomes repetidos (com acento ou maiúscula diferente) viram uma bolha só.
+  **Rode o 0009 antes de publicar o `estoura.html` novo**: sem ele o app não consegue carregar as bolhas da conta.
+- Ninguém mexe no mapa de todo mundo pelo app. Para fundir duas bolhas repetidas, use o comando do topo do `0009` no SQL Editor.
 - Revise as políticas de privacidade e termos (você coleta nome, e-mail e foto — LGPD).

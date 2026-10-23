@@ -104,6 +104,18 @@ a.soc:hover{border-color:#3a4f7a;background:#22335a}
 input[type=text],input[type=time],select{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:11px 12px;color:var(--ink);min-width:0}
 input::placeholder{color:var(--muted)}
 .dock input{flex:1}
+/* sugestões enquanto digita o nome de uma bolha nova */
+#dock-top{position:relative}
+.sugg{display:grid;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:5px;max-height:46vh;overflow-y:auto}
+#dock-top .sugg{position:absolute;left:16px;right:16px;bottom:calc(100% - 4px);z-index:5;box-shadow:0 10px 30px #0009}
+.sheet .sugg{margin-top:8px}
+.sg{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;text-align:left;background:none;border:0;border-radius:10px;padding:8px 10px;color:var(--ink)}
+.sg:hover,.sg:focus-visible{background:var(--surface-2)}
+.sg>i{width:14px;height:14px;border-radius:50%;background:hsl(var(--h,215) 80% 65%)}
+.sg.new>i{background:none;border:1.5px dashed var(--muted)}
+.sg b{display:block;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sg .meta{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sg em{font-style:normal;font-size:12px;font-weight:700;color:var(--accent);white-space:nowrap}
 .btn{border:0;border-radius:12px;padding:11px 14px;font-weight:600;background:var(--surface-2);white-space:nowrap}
 .btn.sm{padding:7px 11px;font-size:13px}
 .btn.primary{background:var(--accent);color:#2a0d1b}
@@ -309,14 +321,14 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
   <main>
     <section class="view" id="view-bolhas" aria-label="Bolhas">
       <div id="topbar">
-        <p class="hint gut" id="hint" hidden>Arraste pra girar. Toque 1× pra marcar a bolha; 2 toques (ou segure no celular) pra entrar nela e escolher "É minha vida ♥". Logado, segure e arraste até "Excluir" pra apagar; pra guardar uma bolha dentro de outra, use o botão Mover.</p>
+        <p class="hint gut" id="hint" hidden>Arraste pra girar. Toque 1× pra marcar a bolha; 2 toques (ou segure no celular) pra entrar nela e escolher "É minha vida ♥". Pra tirar uma bolha das suas, segure e arraste até "Remover"; pra guardar uma bolha dentro de outra, use o botão Mover. Cada pessoa organiza as próprias bolhas.</p>
         <div class="trend gut" id="trend"></div>
       </div>
       <div class="crumb gut" id="crumb" hidden>
         <button class="btn sm" id="focus-back">← Voltar</button>
         <span class="path">Todas as bolhas › <b id="focus-title"></b></span>
         <button class="btn sm" id="focus-move" style="margin-left:auto;flex:none">Mover</button>
-        <button class="btn sm" id="focus-del" style="flex:none;color:#ff9a9a">Excluir</button>
+        <button class="btn sm" id="focus-del" style="flex:none;color:#ff9a9a">Remover</button>
         <button class="btn sm" id="focus-add" style="flex:none">+ Sub-bolha</button>
       </div>
       <div class="stage">
@@ -326,8 +338,9 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
         <button class="vt" id="view-toggle" type="button" aria-pressed="false" aria-label="Ver todas as bolhas espalhadas" title="Ver todas as bolhas espalhadas"></button>
       </div>
       <div class="dock gut" id="dock-top" hidden>
+        <div class="sugg" id="new-sugg" role="listbox" aria-label="Bolhas parecidas" hidden></div>
         <form id="new-form">
-          <input type="text" id="new-input" maxlength="24" placeholder="Não achou? Crie uma bolha" autocomplete="off" enterkeyhint="done">
+          <input type="text" id="new-input" maxlength="24" placeholder="Busque ou crie uma bolha" autocomplete="off" enterkeyhint="done" aria-controls="new-sugg">
         </form>
       </div>
       <div class="dock gut" id="dock-focus" hidden>
@@ -408,9 +421,16 @@ const SUBS = {
 const INTERESTS = [];
 TOP.forEach(([id,name,hue,base,week])=>{
   // sem números de exemplo: as contagens vêm das pessoas reais (Supabase)
-  INTERESTS.push({id,name,hue,base:0,week:0,parent:null});
-  (SUBS[id]||[]).forEach(([s,n,b],k)=>INTERESTS.push({id:id+"/"+s,name:n,hue:(hue+(k-1)*24+360)%360,base:0,week:0,parent:id}));
+  INTERESTS.push({id,name,hue,base:0,week:0,parent:null,gp:null});
+  (SUBS[id]||[]).forEach(([s,n,b],k)=>INTERESTS.push({id:id+"/"+s,name:n,hue:(hue+(k-1)*24+360)%360,base:0,week:0,parent:id,gp:id}));
 });
+/* Cada bolha tem dois lugares:
+   - gp: onde a maioria das pessoas guardou (o mapa de todo mundo, vem do banco);
+   - state.pp: onde VOCÊ guardou (só para as suas bolhas).
+   it.parent é o lugar que aparece na tela: o seu, se a bolha é sua; senão, o da maioria. */
+// mesmo cálculo da função slugify do banco: "Hip-Hop", "hip hop" e "Hiphop" viram "hiphop"
+const slugify = s => String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/[^a-z0-9]/g,"");
+const slugOf = i => i._s ?? (i._s = slugify(i.name));
 const byId = id => INTERESTS.find(i=>i.id===id);
 const kids = id => INTERESTS.filter(i=>i.parent===id);
 // árvore sem limite de níveis: bolha > sub-bolha > sub-sub-bolha > ...
@@ -418,6 +438,19 @@ const ancestors = id => { const out=[]; let p=(byId(id)||{}).parent, n=0; while(
 const descendants = id => { const out=[]; const walk=x=>kids(x).forEach(k=>{ out.push(k); walk(k.id); }); walk(id); return out; };
 const isDescendant = (id,ofId) => ancestors(id).includes(ofId);
 const pathOf = id => [...ancestors(id).reverse().map(a=>byId(a).name), byId(id).name];
+// recalcula onde cada bolha aparece (it.parent). Devolve true se alguma mudou de lugar.
+function reparent(){
+  const ids=new Set(INTERESTS.map(i=>i.id)); let changed=false;
+  INTERESTS.forEach(it=>{
+    let p=state.lv.has(it.id)&&state.pp.has(it.id)?state.pp.get(it.id):it.gp;
+    if(!p||p===it.id||!ids.has(p)) p=null;
+    if((it.parent||null)!==p){ it.parent=p; changed=true; }
+  });
+  // segurança: uma bolha nunca pode acabar dentro dela mesma (A em B e B em A)
+  INTERESTS.forEach(it=>{ const seen=new Set([it.id]); let p=it.parent;
+    while(p){ if(seen.has(p)){ it.parent=null; changed=true; break; } seen.add(p); p=(byId(p)||{}).parent; } });
+  return changed;
+}
 
 const CITIES = {"São Paulo":[-23.55,-46.63],"Campinas":[-22.90,-47.06],"Santos":[-23.96,-46.33],"Rio de Janeiro":[-22.91,-43.17],
   "Curitiba":[-25.43,-49.27],"Florianópolis":[-27.59,-48.55],"Belo Horizonte":[-19.92,-43.94],"Porto Alegre":[-30.03,-51.23],
@@ -516,6 +549,8 @@ const REPLIES = [
 /* ================= ESTADO ================= */
 const state = {
   lv:new Map(),
+  auto:new Set(), // bolhas-mãe marcadas só porque você marcou uma sub-bolha (saem junto quando a última sub-bolha sai)
+  pp:new Map(), // onde você guardou cada uma das suas bolhas: id -> id da bolha de fora (null = bolha principal)
   chats:{}, created:new Set(), conn:{p14:"accepted"}, going:new Set(), city:"São Paulo", radius:300, focus:null
 };
 let COMMUNITY = 1; // quantas pessoas existem no Estoura (vem do banco)
@@ -829,28 +864,86 @@ function send(text){
 }
 
 /* ---------- nova bolha ---------- */
+// Uma bolha existe uma vez só no Estoura. Se já tem uma com esse nome (mesmo com acento ou maiúscula
+// diferente), ela é reaproveitada e guardada no lugar escolhido, só na sua árvore.
+// parentId undefined (busca pelo "+" do globo): a que já existe é estourada onde está; a nova vira principal.
 function createBubble(name,parentId){
-  const pool=INTERESTS.filter(i=>i.parent===parentId);
-  const existing=pool.find(i=>i.name.toLowerCase()===name.toLowerCase());
-  if(existing){ if(!state.lv.has(existing.id)) setLevel(existing,1,true); toast(`"${existing.name}" já existia, estourei pra você`); return; }
+  name=String(name||"").replace(/\s+/g," ").trim().slice(0,24); if(!name) return;
+  const s=slugify(name), twin=s&&INTERESTS.find(i=>slugOf(i)===s);
+  if(twin) return useBubble(twin,parentId);
+  parentId=parentId||null;
   const par=parentId?byId(parentId):null;
-  const i={id:(par?par.id+"/":"")+"u"+Date.now(),name,hue:par?(par.hue+40)%360:Math.floor(Math.random()*360),base:0,week:0,parent:par?par.id:null};
-  INTERESTS.push(i); rebuild(); if(window.estouraCreateInterest) window.estouraCreateInterest(i); setLevel(i,1,true); toast(`Bolha "${name}" criada. Agora é chamar a galera!`);
+  const i={id:"u"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),name,hue:par?(par.hue+40)%360:Math.floor(Math.random()*360),
+    base:0,week:0,parent:parentId,gp:parentId,custom:true,places:[]};
+  INTERESTS.push(i); state.pp.set(i.id,parentId); rebuild();
+  if(window.estouraCreateInterest) window.estouraCreateInterest(i);
+  setLevel(i,1,true); toast(`Bolha "${name}" criada. Agora é chamar a galera!`);
+}
+// guarda uma bolha que já existe em parentId (null = principal), só pra você; undefined = onde ela já está
+function useBubble(it,parentId){
+  if(parentId===undefined) parentId=it.parent||null;
+  const mine=state.lv.has(it.id), here=(it.parent||null)===parentId, where=parentId?"em "+byId(parentId).name:"nas suas bolhas principais";
+  const at=it.parent?` (em ${byId(it.parent).name})`:"";
+  if(mine&&here) return toast(`"${it.name}" já está nas suas bolhas${at}`);
+  if(!placeMine(it,parentId)) return;
+  toast(here?`"${it.name}" já existia, estourei pra você${at}`:mine?`"${it.name}" agora está ${where}`:`"${it.name}" já existia: guardei ${where}`);
+}
+// lugar novo pra uma bolha na sua árvore (se ainda não era sua, passa a ser). Leva junto o que está dentro dela.
+function placeMine(it,parentId){
+  parentId=parentId||null;
+  if(parentId&&(parentId===it.id||isDescendant(parentId,it.id))){ toast("Não dá pra guardar uma bolha dentro dela mesma"); return false; }
+  state.pp.set(it.id,parentId); state.auto.delete(it.id);
+  if(!state.lv.has(it.id)){ setLevel(it,1,true); return true; }
+  reparent(); markUp(it.id); rebuild(); renderAll();
+  if(window.estouraSync) window.estouraSync();
+  return true;
+}
+// bolhas com nome parecido com o que está sendo digitado (a de nome igual vem primeiro)
+function suggest(q){
+  const s=slugify(q); if(!s) return [];
+  return INTERESTS.map(i=>({i,k:slugOf(i)})).filter(x=>x.k.includes(s))
+    .sort((a,b)=>(b.k===s)-(a.k===s)||b.k.startsWith(s)-a.k.startsWith(s)||count(b.i)-count(a.i)||a.i.name.localeCompare(b.i.name,"pt-BR"))
+    .slice(0,5).map(x=>x.i);
+}
+function suggHTML(q,parentId){
+  const name=String(q||"").replace(/\s+/g," ").trim(); if(!slugify(name)) return "";
+  const list=suggest(name), exact=list.some(i=>slugOf(i)===slugify(name));
+  return list.map(i=>{
+    const mine=state.lv.has(i.id), here=parentId===undefined||(i.parent||null)===parentId, n=count(i);
+    const where=i.parent?"em "+pathOf(i.parent).join(" › "):"bolha principal";
+    return `<button type="button" class="sg" role="option" data-sg="${esc(i.id)}" style="--h:${i.hue}"><i></i>
+      <span><b>${esc(i.name)}</b><span class="meta">${esc(where)}${n?` · ${n} ${n>1?"pessoas":"pessoa"}`:""}</span></span>
+      <em>${mine&&here?"Já é sua":mine?"Trazer pra cá":"Estourar"}</em></button>`;
+  }).join("") + (exact?"":`<button type="button" class="sg new" role="option" data-sg-new><i></i>
+      <span><b>Criar "${esc(name)}"</b><span class="meta">bolha nova${list.length?", diferente das de cima":""}</span></span></button>`);
+}
+// liga a lista de sugestões a um campo de texto; done() fecha o formulário depois de escolher
+function wireSuggest(inp,box,parentId,done){
+  const show=()=>{ box.innerHTML=suggHTML(inp.value,parentId()); box.hidden=!box.innerHTML; };
+  inp.addEventListener("input",show);
+  box.onclick=e=>{ const b=e.target.closest("[data-sg],[data-sg-new]"); if(!b) return;
+    if(b.dataset.sg!=null) useBubble(byId(b.dataset.sg),parentId()); else createBubble(inp.value,parentId());
+    inp.value=""; show(); done(); };
+  return show;
 }
 var newOpen=false;
-function setNewOpen(o){ newOpen=o; renderFocus(); if(o) document.getElementById("new-input").focus(); }
+const newInp=document.getElementById("new-input"), newSugg=document.getElementById("new-sugg");
+const showNewSugg=wireSuggest(newInp,newSugg,()=>undefined,()=>setNewOpen(false));
+function setNewOpen(o){ newOpen=o; if(!o){ newInp.value=""; showNewSugg(); } renderFocus(); if(o) newInp.focus(); }
 document.getElementById("new-toggle").onclick=()=>setNewOpen(!newOpen);
 document.getElementById("new-form").onsubmit=e=>{
-  e.preventDefault(); const inp=document.getElementById("new-input"); const name=inp.value.trim(); if(!name) return;
-  createBubble(name,null); inp.value=""; setNewOpen(false);
+  e.preventDefault(); const name=newInp.value.trim(); if(!name) return;
+  createBubble(name,undefined); setNewOpen(false);
 };
 function openNewSub(){
   const par=byId(state.focus);
   openSheet(`<h3 style="font-family:var(--display);font-size:22px;margin:0 0 4px">Nova sub-bolha em ${esc(par.name)}</h3>
-    <p class="sub" style="margin-bottom:6px">Quanto mais específica, mais forte o match com quem também estourar.</p>
-    <form class="form" id="sub-form"><label for="sub-name">Nome<input type="text" id="sub-name" maxlength="24" placeholder="${par.id==="viagens"?"Ex.: Sudeste Asiático":"Ex.: algo bem específico"}" required></label>
+    <p class="sub" style="margin-bottom:6px">Busque uma que já existe ou crie uma nova. Quanto mais específica, mais forte o match com quem também estourar.</p>
+    <form class="form" id="sub-form"><label for="sub-name">Nome<input type="text" id="sub-name" maxlength="24" autocomplete="off" placeholder="${par.id==="viagens"?"Ex.: Sudeste Asiático":"Ex.: algo bem específico"}" required aria-controls="sub-sugg"></label>
+    <div class="sugg" id="sub-sugg" role="listbox" aria-label="Bolhas parecidas" hidden></div>
     <div class="actions"><button class="btn" type="button" data-close>Cancelar</button><button class="btn primary" type="submit">Criar e estourar</button></div></form>`,{type:"sub"});
   const inp=document.getElementById("sub-name"); setTimeout(()=>inp.focus(),50);
+  wireSuggest(inp,document.getElementById("sub-sugg"),()=>par.id,closeLayer);
   document.getElementById("sub-form").onsubmit=e=>{ e.preventDefault(); const n=inp.value.trim(); if(!n) return; closeLayer(); createBubble(n,par.id); };
 }
 
@@ -910,7 +1003,7 @@ const sphere=()=>!!state.focus && items.length>SPHERE_MIN;
 /* ---------- visão espalhada ("explodida") ----------
    Mostra TODAS as bolhas, de todos os níveis, soltas na tela ao mesmo tempo, sem agrupar.
    As bolhas da mesma família ficam perto umas das outras (e têm a mesma cor).
-   Arrastar move a tela; pinça ou rodinha dão zoom; toque estoura; segurar e arrastar exclui. */
+   Arrastar move a tela; pinça ou rodinha dão zoom; toque estoura; segurar e arrastar remove das suas. */
 const spread={on:false,k:1,px:0,py:0,tk:1,tpx:0,tpy:0,auto:true,mouse:null,poke:null};
 const spreadR=it=>(it.type==="event" ? 20+evCount(it)*2 : 20+16*Math.sqrt(count(it)/peak(applyF(INTERESTS))))*BIG();
 function layoutSpread(){
@@ -997,7 +1090,7 @@ function stepSpread(){
 const ICON_GLOBE='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3.200 3 3.200 15 0 18M12 3c-3.200 3-3.200 15 0 18"/></svg>';
 const ICON_SPREAD='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6.500" cy="7" r="2.800"/><circle cx="17" cy="6" r="2"/><circle cx="18" cy="15.500" r="3.200"/><circle cx="8" cy="17.500" r="2.300"/><circle cx="12.500" cy="11.500" r="1.200"/></svg>';
 const HINT_GLOBE=document.getElementById("hint").textContent;
-const HINT_SPREAD="Todas as bolhas, sem agrupar. Arraste pra mover a tela e use a pinça ou a rodinha pra dar zoom. Toque numa bolha pra marcar; segure e arraste até \"Excluir\" pra apagar.";
+const HINT_SPREAD="Todas as bolhas, sem agrupar. Arraste pra mover a tela e use a pinça ou a rodinha pra dar zoom. Toque numa bolha pra marcar; segure e arraste até \"Remover\" pra tirar das suas.";
 function setSpread(on){
   if(anim || on===spread.on) return;
   if(on){ state.focus=null; initSpread(); spread.on=true; }
@@ -1188,6 +1281,10 @@ function drawCenter(){
   ctx.fillText(it.name,c.x,c.y-fs*.45);
   ctx.font=`600 12.5px Figtree, system-ui, sans-serif`; ctx.fillStyle=`hsl(${it.hue} 90% 80%)`;
   ctx.fillText(`${on} de ${ks.length} estouradas${L===2?" · ♥":""}`,c.x,c.y+fs*.5);
+  // outros lugares onde as pessoas guardam esta bolha (o mapa de todo mundo)
+  const alt=(it.places||[]).filter(x=>(x.p||null)!==(it.parent||null)&&(!x.p||byId(x.p))).slice(0,2).map(x=>x.p?byId(x.p).name:"bolhas principais");
+  if(alt.length){ ctx.fillStyle="#94a1c3"; ctx.font=`500 12px Figtree, system-ui, sans-serif`;
+    ctx.fillText(`também guardada em ${alt.join(" e ")}`,c.x,c.y+fs*.5+18); }
   ctx.fillStyle="#94a1c3"; ctx.font=`500 12px Figtree, system-ui, sans-serif`;
   ctx.fillText("toque fora da bolha pra voltar",c.x,Math.min(H-10,c.y+S+16));
 }
@@ -1254,10 +1351,11 @@ function leave(){
 }
 document.getElementById("focus-back").onclick=leave;
 document.getElementById("focus-add").onclick=openNewSub;
-document.getElementById("focus-del").onclick=()=>{ if(canManage()) askDelete(byId(state.focus)); else toast("Entre na sua conta para excluir bolhas"); };
-document.getElementById("focus-move").onclick=()=>{ if(canManage()) openMove(); else toast("Entre na sua conta para mover bolhas"); };
+document.getElementById("focus-del").onclick=()=>askDelete(byId(state.focus));
+document.getElementById("focus-move").onclick=openMove;
 document.getElementById("focus-out").onclick=()=>{ const it=byId(state.focus); setLevel(it,0); leave(); };
-document.getElementById("focus-seg").onclick=e=>{ const b=e.target.closest("[data-l]"); if(!b) return; const it=byId(state.focus), l=+b.dataset.l; setLevel(it,l===2&&state.lv.get(it.id)===2?1:l); }; // tocar de novo em "É minha vida" desmarca (volta pra Curto)
+document.getElementById("focus-seg").onclick=e=>{ const b=e.target.closest("[data-l]"); if(!b) return; const it=byId(state.focus), l=+b.dataset.l, cur=state.lv.get(it.id)||0;
+  setLevel(it, l!==cur ? l : l===2 ? 1 : 0); }; // tocar de novo no botão aceso desfaz: "É minha vida" volta pra Curto, "Curto" desmarca
 
 // contagens usadas no desenho, calculadas uma vez por quadro (e não por bolha)
 let KIDN=new Map(), HEARTN=new Map();
@@ -1309,15 +1407,31 @@ function frame(t){
 }
 
 /* ---------- interação ---------- */
+// marcar uma sub-bolha marca também as bolhas acima dela (as que ainda não estavam marcadas ficam como "automáticas")
+// (cada uma fica guardada onde estava na tela)
+function markUp(id){ ancestors(id).forEach(a=>{ if(!state.lv.has(a)){ state.lv.set(a,1); state.auto.add(a); state.pp.set(a,byId(a).parent||null); } }); }
 function setLevel(it,L,silent){
   if(!L){ const sel=descendants(it.id).filter(k=>state.lv.has(k.id)).length; // bolha pai só desmarca quando nenhuma sub-bolha está marcada
     if(sel){ toast(`Desmarque antes as ${sel} sub-bolha${sel>1?"s":""} marcada${sel>1?"s":""} de ${it.name}`); return; } }
-  if(L){ showHeart(it); const was=state.lv.get(it.id)||0; state.lv.set(it.id,L); ancestors(it.id).forEach(a=>{ if(!state.lv.has(a)) state.lv.set(a,1); }); burst(it,!was);
+  const gone=[], before=it.parent||null; let moved=false; // gone: bolhas-mãe que saem junto
+  if(L){ showHeart(it); const was=state.lv.get(it.id)||0;
+    if(!was && !state.pp.has(it.id)) state.pp.set(it.id,it.parent||null); // fica guardada onde está
+    state.lv.set(it.id,L); state.auto.delete(it.id); moved=reparent(); markUp(it.id); burst(it,!was);
     try{ navigator.vibrate && navigator.vibrate(L===2?[10,40,10]:12); }catch(e){} }
-  else { state.lv.delete(it.id); descendants(it.id).forEach(k=>state.lv.delete(k.id)); }
-  if(!silent){
+  else {
+    [it,...descendants(it.id)].forEach(k=>{ state.lv.delete(k.id); state.auto.delete(k.id); state.pp.delete(k.id); });
+    // a bolha-mãe que só estava marcada por causa dessa sub-bolha sai também (se nenhuma outra sub-bolha dela continua marcada)
+    for(const a of ancestors(it.id)){
+      if(!state.auto.has(a) || descendants(a).some(k=>state.lv.has(k.id))) break;
+      state.lv.delete(a); state.auto.delete(a); state.pp.delete(a); gone.push(byId(a).name);
+    }
+  }
+  // sem ser sua, a bolha volta pro lugar onde a maioria guarda
+  if(reparent()||moved) rebuild();
+  const back=!L && (it.parent||null)!==before ? ` (ela volta ${it.parent?"pra "+byId(it.parent).name:"pras bolhas principais"}, onde a maioria guarda)` : "";
+  if(!silent || gone.length || back){
     const n=everyone().filter(p=>p.lv.has(it.id)).length;
-    toast(L===1?`Estourou ${it.name}!${n?` +${n} ${n>1?"pessoas":"pessoa"} no seu radar`:""}`: L===2?`${it.name} é sua vida ♥ peso maior no match`:`Você saiu de ${it.name}`);
+    toast(L===1?`Estourou ${it.name}!${n?` +${n} ${n>1?"pessoas":"pessoa"} no seu radar`:""}`: L===2?`${it.name} é sua vida ♥ peso maior no match`:`Você saiu de ${it.name}${gone.length?` e de ${gone.join(" e ")}`:""}${back}`);
   }
   renderAll();
   if(window.estouraSync) window.estouraSync(); // salva no Supabase quando há login
@@ -1333,24 +1447,24 @@ function tap(it){
     if(!spread.on) return enter(it.id);
     setSpread(false); setTimeout(()=>enter(it.id),reduce?0:80); return;
   }
-  if(!spread.on && lastTap.id===it.id && t-lastTap.t<380){ // 2 toques (PC) ou toque longo (celular): entra na bolha
+  // 2 toques rápidos entram na bolha, mas só quando o 1º toque marcou ela; numa já marcada, o 2º toque é pra desmarcar
+  if(!spread.on && lastTap.id===it.id && lastTap.marked && t-lastTap.t<380){
     lastTap={id:null,t:0};
-    if(!L) setLevel(it,1,true);
     return enter(it.id);
   }
-  lastTap={id:it.id,t};
+  lastTap={id:it.id,t,marked:!L};
   if(!L) return setLevel(it,1); // 1 toque marca; "é minha vida" fica só dentro da bolha
   if((it.hu||0)<t){ showHeart(it); toast(`Toque de novo pra desmarcar ${it.name}`); return; } // 1º toque numa marcada só mostra o coração
+  lastTap={id:null,t:0};
   setLevel(it,0); // 2º toque (com o coração à mostra) desmarca
 }
 
-/* ---------- mover e excluir bolhas ----------
+/* ---------- mover e remover bolhas ----------
    Segurar uma bolha (~0,5 s) "pega" ela:
    - solta no mesmo lugar  -> entra na bolha (jeito de criar sub-bolhas);
-   - arrasta até "Excluir" -> exclui (com confirmação).
-   Quem pode fazer isso é decidido no banco (can_manage_interests): hoje, qualquer pessoa logada. */
+   - arrasta até "Remover" -> tira das suas bolhas (com confirmação).
+   Mover e remover mexem só na sua árvore: cada pessoa organiza as próprias bolhas. */
 const BODYFONT="Figtree, system-ui, sans-serif";
-const canManage=()=>!!(window.estouraAuthed && window.estouraMoveInterest);
 const trashZone=()=>({x:W/2,y:H-46,r:32});
 const overTrash=g=>{ const z=trashZone(); return Math.hypot(g.x-z.x,g.y-z.y)<z.r+20; };
 const drawAll=()=>pts.forEach(p=>{
@@ -1364,51 +1478,43 @@ function drawGrab(){
   ctx.fillStyle=hot?"rgba(255,90,90,.3)":"rgba(255,255,255,.06)"; ctx.strokeStyle=hot?"#ff7a7a":"rgba(255,158,196,.75)";
   ctx.beginPath(); ctx.arc(z.x,z.y,z.r+(hot?6:0),0,7); ctx.fill(); ctx.stroke(); ctx.setLineDash([]);
   ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillStyle=hot?"#ffd0d0":"#f1f5ff"; ctx.font=`700 12px ${BODYFONT}`;
-  ctx.fillText("Excluir",z.x,z.y);
+  ctx.fillText("Remover",z.x,z.y);
   const base=pts.find(p=>p.it===grab.it);
   drawBubble({it:grab.it,sx:grab.x,sy:grab.y,r:(base?base.r:30)*1.12,z:1});
 }
-const isOutros=i=>!i.parent&&i.name.toLowerCase()==="outros";
-function ensureOutros(){ // categoria "Outros": recebe as sub-bolhas de uma bolha principal excluída
-  let o=INTERESTS.find(isOutros); if(o) return {o,made:null};
-  o={id:"outros",name:"Outros",hue:215,base:0,week:0,parent:null}; INTERESTS.push(o);
-  return {o,made:window.estouraCreateInterest?window.estouraCreateInterest(o):null};
-}
+// bolha que você criou e que ninguém mais tem: ao sair dela, ela some do Estoura
+const orphan=it=>!!it.custom && it.base<=0;
 function askDelete(it){
-  const ks=kids(it.id), n=count(it), par=it.parent?byId(it.parent):null, to=par?par.name:(isOutros(it)?"bolhas principais":"Outros");
-  openSheet(`<h3 style="font-family:var(--display);font-size:22px;margin:0 0 4px">Excluir "${esc(it.name)}"?</h3>
-    <p class="sub" style="margin-bottom:6px">${ks.length?`As ${ks.length} sub-bolha${ks.length>1?"s":""} (${ks.slice(0,5).map(k=>esc(k.name)).join(", ")}${ks.length>5?` e mais ${ks.length-5}`:""}) não são excluídas: passam para "${esc(to)}". `:""}A bolha sai do perfil de ${n} ${n===1?"pessoa":"pessoas"} e os eventos ligados a ela somem. Não dá para desfazer.</p>
-    <div class="actions"><button class="btn" data-close>Cancelar</button><button class="btn primary" id="del-ok" style="background:#ff7a7a;color:#2a0d0d">Excluir</button></div>`,{type:"delete"});
-  document.getElementById("del-ok").onclick=()=>{ closeLayer(); doDelete(it); };
-}
-async function doDelete(it){
-  const ks=kids(it.id); let dest=null, made=null;
-  if(ks.length){ if(it.parent) dest=byId(it.parent); else if(!isOutros(it)){ const x=ensureOutros(); dest=x.o; made=x.made; } } // sub-bolhas sobem pro pai; sem pai, vão pra "Outros"
-  const destId=dest?dest.id:null, idx=INTERESTS.indexOf(it), lv=state.lv.get(it.id), oldFocus=state.focus;
-  ks.forEach(k=>{ k.parent=destId; });
-  if(dest && ks.some(k=>[k,...descendants(k.id)].some(x=>state.lv.has(x.id)))) [dest.id,...ancestors(dest.id)].forEach(a=>{ if(!state.lv.has(a)) state.lv.set(a,1); }); // quem curte algo ali passa a curtir o destino
-  INTERESTS.splice(idx,1); state.lv.delete(it.id);
-  if(state.focus===it.id) state.focus=it.parent||null; // estava dentro dela: sobe pra fora
-  rebuild(true); renderAll(); toast(ks.length?`"${it.name}" excluída; sub-bolhas foram para "${dest?dest.name:"as principais"}"`:`Bolha "${it.name}" excluída`);
-  if(window.estouraDeleteInterest){
-    let ok=true;
-    if(made) await made;
-    if(window.estouraMoveInterest) for(const k of ks){ if(!(await window.estouraMoveInterest(k,destId))){ ok=false; break; } }
-    if(ok) ok=await window.estouraDeleteInterest(it,[it.id]);
-    if(!ok){ ks.forEach(k=>{ k.parent=it.id; }); INTERESTS.splice(idx,0,it); if(lv) state.lv.set(it.id,lv); state.focus=oldFocus; rebuild(true); renderAll(); if(window.estouraSync) window.estouraSync(); } // desfaz se o banco recusou
+  if(!state.lv.has(it.id)){
+    if(!orphan(it)) return toast(`"${it.name}" não está nas suas bolhas. Ela continua pra quem curte.`);
+    openSheet(`<h3 style="font-family:var(--display);font-size:22px;margin:0 0 4px">Apagar "${esc(it.name)}"?</h3>
+      <p class="sub" style="margin-bottom:6px">Ninguém tem essa bolha, então ela sai do Estoura.</p>
+      <div class="actions"><button class="btn" data-close>Cancelar</button><button class="btn primary" id="del-ok" style="background:#ff7a7a;color:#2a0d0d">Apagar</button></div>`,{type:"delete"});
+    document.getElementById("del-ok").onclick=()=>{ closeLayer(); doRemove(it); };
+    return;
   }
+  const ks=kids(it.id).filter(k=>state.lv.has(k.id)), to=it.parent?byId(it.parent).name:"suas bolhas principais";
+  openSheet(`<h3 style="font-family:var(--display);font-size:22px;margin:0 0 4px">Remover "${esc(it.name)}" das suas bolhas?</h3>
+    <p class="sub" style="margin-bottom:6px">${ks.length?`Suas ${ks.length} sub-bolha${ks.length>1?"s":""} de dentro dela (${ks.slice(0,5).map(k=>esc(k.name)).join(", ")}${ks.length>5?` e mais ${ks.length-5}`:""}) continuam suas e passam para ${esc(to)}. `:""}${orphan(it)?"Ninguém mais tem essa bolha, então ela sai do Estoura.":"A bolha continua no Estoura pra quem curte."}</p>
+    <div class="actions"><button class="btn" data-close>Cancelar</button><button class="btn primary" id="del-ok" style="background:#ff7a7a;color:#2a0d0d">Remover</button></div>`,{type:"delete"});
+  document.getElementById("del-ok").onclick=()=>{ closeLayer(); doRemove(it); };
 }
-async function doMove(it,newParent){
-  const old=it.parent, par=newParent?byId(newParent):null;
-  it.parent=newParent;
-  // quem curte algo dentro da bolha movida passa a curtir também a bolha de destino e todas as acima dela
-  if(par && [it,...descendants(it.id)].some(x=>state.lv.has(x.id))) [par.id,...ancestors(par.id)].forEach(a=>{ if(!state.lv.has(a)) state.lv.set(a,1); });
-  rebuild(); renderAll();
-  toast(par?`"${it.name}" agora está dentro de ${par.name}`:`"${it.name}" voltou a ser uma bolha principal`);
-  if(window.estouraMoveInterest){
-    const ok=await window.estouraMoveInterest(it,newParent);
-    if(!ok){ it.parent=old; rebuild(); renderAll(); } else if(window.estouraSync) window.estouraSync();
+// tira a bolha das suas: as suas sub-bolhas de dentro dela sobem um nível (na sua árvore)
+function doRemove(it){
+  const up=it.parent||null, ks=kids(it.id).filter(k=>state.lv.has(k.id)), gone=orphan(it);
+  ks.forEach(k=>state.pp.set(k.id,up));
+  if(state.focus===it.id) state.focus=up; // estava dentro dela: sobe pra fora
+  if(state.lv.has(it.id)){ reparent(); setLevel(it,0,true); }
+  if(gone){ // ninguém mais tem: some daqui também (o banco apaga se foi você quem criou)
+    INTERESTS.splice(INTERESTS.indexOf(it),1); state.pp.delete(it.id);
+    if(window.estouraForget) window.estouraForget(it.id);
   }
+  reparent(); rebuild(true); renderAll();
+  toast(`"${it.name}" saiu das suas bolhas${ks.length?`; as sub-bolhas foram para ${up?byId(up).name:"as principais"}`:""}`);
+}
+function doMove(it,newParent){
+  if(!placeMine(it,newParent)) return;
+  toast(newParent?`"${it.name}" agora está dentro de ${byId(newParent).name} (nas suas bolhas)`:`"${it.name}" virou uma bolha principal (nas suas bolhas)`);
 }
 
 // Mover a bolha que está aberta, junto com tudo o que tem dentro, para outro lugar da árvore
@@ -1421,7 +1527,7 @@ function openMove(){
   const btn=(to,label,dep,cur)=>`<button class="btn" data-to="${esc(to)}" ${cur?"disabled":""} style="justify-content:flex-start;text-align:left;padding-left:${14+dep*18}px">${esc(label)}${cur?" (onde está agora)":""}</button>`;
   const n=descendants(it.id).length;
   openSheet(`<h3 style="font-family:var(--display);font-size:22px;margin:0 0 4px">Mover "${esc(it.name)}"</h3>
-    <p class="sub" style="margin-bottom:8px">${n?`Leva a bolha e as ${n} sub-bolha${n>1?"s":""} que estão dentro dela. `:""}Escolha onde guardar:</p>
+    <p class="sub" style="margin-bottom:8px">${n?`Leva a bolha e as ${n} sub-bolha${n>1?"s":""} que estão dentro dela. `:""}Muda só nas suas bolhas${state.lv.has(it.id)?"":" (e ela passa a ser sua)"}: os outros continuam vendo onde a maioria guarda. Escolha onde guardar:</p>
     <input type="text" id="mv-q" placeholder="Buscar bolha" autocomplete="off" style="width:100%;margin-bottom:8px">
     <div id="mv-list" style="display:grid;gap:6px">
       ${btn("","Bolha principal (fora de todas)",0,!it.parent)}
@@ -1453,7 +1559,7 @@ cv.addEventListener("pointerdown",e=>{
   lpDone=false; clearLP();
   if(!anim){ const h=hitAt(e), p0=localXY(e);
     if(h && !h.it.type && !heartHit(p0.x,p0.y)){
-      // parou um instante: a bolha começa a crescer (vai entrar). Segurou mais: pronta pra entrar. Segurou bem mais: modo excluir.
+      // parou um instante: a bolha começa a crescer (vai entrar). Segurou mais: pronta pra entrar. Segurou bem mais: modo remover.
       if(!spread.on){
         lpG=setTimeout(()=>{ if(drag) grow={it:h.it,t0:performance.now()}; },300);
         lpE=setTimeout(()=>{ if(!drag) return; lpDone=true; grow=null; try{ navigator.vibrate && navigator.vibrate(15); }catch(_){}
@@ -1461,9 +1567,9 @@ cv.addEventListener("pointerdown",e=>{
           enter(h.it.id); },1000); // segurou ~1 s: entra na bolha sem precisar soltar
       }
       lp=setTimeout(()=>{
-        if(!drag||!canManage()) return;
+        if(!drag) return;
         try{ navigator.vibrate && navigator.vibrate([20,40,20]); }catch(_){}
-        lpDone=false; grow=null; grab={it:h.it,x:p0.x,y:p0.y,x0:p0.x,y0:p0.y,moved:false}; // logado: segurou bastante, pega pra excluir
+        lpDone=false; grow=null; grab={it:h.it,x:p0.x,y:p0.y,x0:p0.x,y0:p0.y,moved:false}; // segurou bastante: pega pra remover
       },5000);
     } } });
 cv.addEventListener("contextmenu",e=>e.preventDefault());
@@ -1498,7 +1604,7 @@ cv.addEventListener("pointerup",e=>{
   if(pinch||pinchBusy){ pinch=null; pinchBusy=ptrs.size>0; drag=pinchBusy; if(!drag) cv.classList.remove("drag"); return; } // fim da pinça: sem toque fantasma
   drag=false; cv.classList.remove("drag"); clearLP();
   if(grab){ const g=grab; grab=null;
-    if(!g.moved) return; // segurou pra excluir e soltou no lugar: nada acontece
+    if(!g.moved) return; // segurou pra remover e soltou no lugar: nada acontece
     if(overTrash(g)) return askDelete(g.it);
     return; }
   if(lpDone){ lpDone=false; return; } // o toque longo já entrou na bolha
@@ -1740,38 +1846,41 @@ if (cfg.url && cfg.key) {
       })
       .subscribe();
   }
-  // Alinha as bolhas locais com o banco: entram as novas, saem as excluídas, mudam de lugar as movidas.
+  // Alinha as bolhas locais com o banco: entram as novas, saem as excluídas, mudam de lugar as que
+  // a maioria passou a guardar em outro lugar (as suas ficam onde você guardou).
   function syncInterests(rows){
-    const ids = new Set(rows.map(r => r.id)), out = { fresh: [], removed: 0, moved: 0 };
+    const ids = new Set(rows.map(r => r.id)), out = { fresh: [], removed: 0, moved: false };
     if (rows.length) for (let i = INTERESTS.length - 1; i >= 0; i--) { // só poda se o banco devolveu bolhas
       const id = INTERESTS[i].id;
-      if (ids.has(id)) continue;
-      INTERESTS.splice(i, 1); state.lv.delete(id); saved.delete(id); out.removed++;
+      if (ids.has(id) || creating.has(id)) continue; // bolha recém-criada ainda chegando no banco fica
+      INTERESTS.splice(i, 1); state.lv.delete(id); state.pp.delete(id); state.auto.delete(id); saved.delete(id); out.removed++;
+      state.pp.forEach((p, k) => { if (p === id) state.pp.set(k, null); });
     }
     rows.forEach(r => {
-      const it = byId(r.id);
-      if (!it) { const n = { id: r.id, name: r.name, hue: r.hue, base: r.people, week: r.week_count, parent: r.parent_id }; INTERESTS.push(n); out.fresh.push(n); }
-      else if (it.parent !== r.parent_id) { it.parent = r.parent_id; out.moved++; }
+      let it = byId(r.id);
+      if (!it) { it = { id: r.id, name: r.name, hue: r.hue, base: r.people, week: r.week_count, parent: null }; INTERESTS.push(it); out.fresh.push(it); }
+      it.gp = r.parent_id || null; it.custom = !!r.custom; it.places = r.places || [];
     });
+    out.moved = reparent();
     // se a bolha em que você estava foi excluída, volta pro início
     if (state.focus && !byId(state.focus)) state.focus = null;
     COMMUNITY = community(rows);
     rows.forEach(r => { const it = byId(r.id); it.base = r.people - (state.lv.has(r.id) ? 1 : 0); it.week = r.week_count; });
     return out;
   }
-  // mover e excluir bolhas: o banco decide quem pode (função can_manage_interests); hoje, qualquer pessoa logada
-  const manageError = e => (/permissao/i.test(e.message || "") ? "Você não tem permissão para isso" : null);
-  window.estouraMoveInterest = async (it, parent) => {
-    const { error } = await sb.rpc("move_interest", { p_id: it.id, p_parent: parent });
-    if (error) { toast(manageError(error) || (/propria bolha/i.test(error.message || "") ? "Não dá para guardar uma bolha dentro dela mesma" : "Não consegui mover a bolha")); return false; }
-    return true;
-  };
-  window.estouraDeleteInterest = async (it, ids) => {
-    const { error } = await sb.rpc("delete_interest", { p_id: it.id });
-    if (error) { toast(manageError(error) || "Não consegui excluir a bolha"); return false; }
-    (ids || [it.id]).forEach(id => saved.delete(id));
-    return true;
-  };
+  // a bolha criada já existia no banco (nome igual ou apelido de outra): passa a usar a de lá
+  function adopt(from, to){
+    const a = byId(from); if (!a || from === to) return;
+    const toWasMine = state.lv.has(to);
+    if (byId(to)) INTERESTS.splice(INTERESTS.indexOf(a), 1); else a.id = to;
+    INTERESTS.forEach(i => { if (i.gp === from) i.gp = to; });
+    if (state.lv.has(from)) { const l = state.lv.get(from); state.lv.delete(from); if ((state.lv.get(to) || 0) < l) state.lv.set(to, l); }
+    if (state.pp.has(from)) { const p = state.pp.get(from); state.pp.delete(from); if (!state.pp.has(to)) state.pp.set(to, p === to ? null : p); }
+    state.pp.forEach((p, k) => { if (p === from) state.pp.set(k, k === to ? null : to); });
+    if (state.auto.delete(from) && !toWasMine) state.auto.add(to);
+    if (state.focus === from) state.focus = to;
+    reparent(); rebuild(); renderAll();
+  }
 
   // bolhas novas (de qualquer pessoa), contagens e matches ao vivo
   let worldTimer = null;
@@ -1783,8 +1892,8 @@ if (cfg.url && cfg.key) {
     if (ch.fresh.length || ch.removed || ch.moved) {
       rebuild();
       if (ch.fresh.length) toast(ch.fresh.length === 1 ? `Nova bolha: ${ch.fresh[0].name}` : `${ch.fresh.length} bolhas novas`);
-      else if (ch.removed) toast("Uma bolha foi excluída");
-      else toast("Uma bolha foi movida");
+      else if (ch.removed) toast("Uma bolha saiu do Estoura");
+      else toast("O mapa de bolhas mudou: veja onde a maioria guarda cada uma");
     }
     renderAll();
     await Promise.all([loadMatches(), loadEvents()]);
@@ -1806,17 +1915,19 @@ if (cfg.url && cfg.key) {
 
   /* ---------- bolhas salvas na conta ---------- */
   let uid = null, loading = false, timer = null, queue = Promise.resolve(), pending = Promise.resolve();
-  const saved = new Map(); // o que já está no banco: interest_id -> nível
+  const saved = new Map(); // o que já está no banco: interest_id -> "nível|onde você guardou"
+  const creating = new Set(); // bolhas criadas agora que ainda estão indo pro banco
+  const row = id => `${state.lv.get(id)}|${state.pp.get(id) || ""}`;
 
   // tamanho da comunidade: o banco informa (coluna total); sem o SQL 0005, usa a maior bolha como aproximação
   const community = rows => (rows.length && rows[0].total != null ? rows[0].total : Math.max(1, ...rows.map(r => r.people)));
   async function loadMine(){
     loading = true;
-    const [st, mine] = await Promise.all([ sb.rpc("interest_stats"), sb.from("user_interests").select("interest_id, level") ]);
+    const [st, mine] = await Promise.all([ sb.rpc("interest_stats"), sb.from("user_interests").select("interest_id, level, parent_id") ]);
     loading = false;
     if (st.error || mine.error) { uid = null; toast("Não consegui carregar suas bolhas. Nada será salvo agora."); return; }
-    state.lv.clear(); saved.clear();
-    mine.data.forEach(r => { state.lv.set(r.interest_id, r.level); saved.set(r.interest_id, r.level); });
+    state.lv.clear(); state.auto.clear(); state.pp.clear(); saved.clear();
+    mine.data.forEach(r => { state.lv.set(r.interest_id, r.level); state.pp.set(r.interest_id, r.parent_id || null); saved.set(r.interest_id, row(r.interest_id)); });
     syncInterests(st.data); // bolhas novas, excluídas e movidas por outras pessoas + contagens do banco
     rebuild(); renderAll();
     loadMatches();
@@ -1844,14 +1955,14 @@ if (cfg.url && cfg.key) {
   async function flush(){
     await pending;
     const up = [], del = [];
-    state.lv.forEach((l, id) => { if (saved.get(id) !== l) up.push({ user_id: uid, interest_id: id, level: l }); });
+    state.lv.forEach((l, id) => { if (byId(id) && saved.get(id) !== row(id)) up.push({ user_id: uid, interest_id: id, level: l, parent_id: state.pp.get(id) || null }); });
     saved.forEach((_, id) => { if (!state.lv.has(id)) del.push(id); });
     if (!up.length && !del.length) return;
     let err = null;
     if (up.length) err = (await sb.from("user_interests").upsert(up)).error;
     if (!err && del.length) err = (await sb.from("user_interests").delete().eq("user_id", uid).in("interest_id", del)).error;
     if (err) { toast("Não consegui salvar. Confira sua conexão."); return; }
-    up.forEach(r => saved.set(r.interest_id, r.level));
+    up.forEach(r => saved.set(r.interest_id, `${r.level}|${r.parent_id || ""}`));
     del.forEach(id => saved.delete(id));
     loadMatches(); // seus matches mudam quando suas bolhas mudam
   }
@@ -1859,16 +1970,33 @@ if (cfg.url && cfg.key) {
   window.estouraSync = () => {
     if (!uid || loading) return;
     clearTimeout(timer);
-    timer = setTimeout(() => { queue = queue.then(flush); }, 300);
+    timer = setTimeout(() => { queue = queue.then(flush).catch(() => toast("Não consegui salvar. Confira sua conexão.")); }, 300);
   };
-  // bolha nova: grava a bolha (para todos) antes de gravar que você estourou
+  // bolha nova: grava a bolha (para todos) antes de gravar que você estourou.
+  // Se o banco já tem uma com esse nome (ou apelido), ele devolve o id dela e o app passa a usar a de lá.
   window.estouraCreateInterest = i => {
     if (!uid) return;
+    creating.add(i.id);
     pending = pending.then(async () => {
-      const { error } = await sb.from("interests").insert({ id: i.id, name: i.name, parent_id: i.parent, hue: i.hue, created_by: uid });
-      if (error) toast("Não consegui criar a bolha para todos.");
+      const { data, error } = await sb.rpc("create_interest", { p_id: i.id, p_name: i.name, p_parent: i.gp || null, p_hue: i.hue });
+      creating.delete(i.id);
+      if (error) { // não deu: a bolha sai daqui também, pra não ficar uma bolha que só existe nesta tela
+        toast("Não consegui criar a bolha. Confira sua conexão.");
+        const k = INTERESTS.indexOf(i); if (k >= 0) INTERESTS.splice(k, 1);
+        state.lv.delete(i.id); state.pp.delete(i.id); state.auto.delete(i.id);
+        state.pp.forEach((p, id) => { if (p === i.id) state.pp.set(id, null); });
+        if (state.focus === i.id) state.focus = null;
+        reparent(); rebuild(); renderAll(); return;
+      }
+      if (data && data !== i.id) adopt(i.id, data);
     });
     return pending;
+  };
+  // você saiu de uma bolha que criou e que ninguém mais tem: apaga do banco (depois de salvar a saída)
+  window.estouraForget = id => {
+    if (!uid) return;
+    clearTimeout(timer);
+    queue = queue.then(flush).then(() => sb.rpc("forget_interest", { p_id: id })).catch(() => {});
   };
 
   let wasLogged = false;
