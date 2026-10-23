@@ -151,8 +151,10 @@ await page.type("#search-input", "corrida de rua");
 ok(await E(() => { const b = document.querySelector('#search-sugg [data-sg-go="corrida/rua"]'); return !!b && /em Corrida/.test(b.textContent) && !document.querySelector("#search-sugg [data-sg-make],#search-sugg [data-sg-new]"); }), "busca acha 'Corrida de rua' (em Corrida) e não oferece criar");
 // o campo e os resultados ficam no topo (o teclado do celular não cobre nada)
 const lay = await E(() => { const r = id => document.getElementById(id).getBoundingClientRect(), h = document.querySelector("header").getBoundingClientRect();
-  return { headerBottom: h.bottom, dockTop: r("dock-search").top, inputBottom: r("search-input").bottom, suggTop: r("search-sugg").top, stageTop: document.querySelector(".stage").getBoundingClientRect().top, H: innerHeight, inputTop: r("search-input").top }; });
+  return { headerBottom: h.bottom, topbarBottom: document.getElementById("topbar").getBoundingClientRect().bottom, dockTop: r("dock-search").top, inputBottom: r("search-input").bottom, suggTop: r("search-sugg").top, stageTop: document.querySelector(".stage").getBoundingClientRect().top, H: innerHeight, inputTop: r("search-input").top }; });
 ok(lay.dockTop >= lay.headerBottom - 1 && lay.inputBottom < lay.H / 3 && lay.dockTop < lay.stageTop, "o campo de busca abre no topo, logo abaixo do cabeçalho (y=" + Math.round(lay.inputTop) + " de " + lay.H + ")");
+ok(lay.dockTop >= lay.topbarBottom - 1, "o campo fica abaixo da faixa Em alta (topbar)");
+ok(await E(() => document.getElementById("search-input").getBoundingClientRect().height <= 40), "campo enxuto (até 40px de altura)");
 ok(lay.suggTop >= lay.inputBottom - 4, "os resultados abrem abaixo do campo");
 // teclado do celular: o app encolhe junto com a área visível e o topo continua no lugar
 const kb = await E(() => { document.documentElement.style.setProperty("--vvh", "480px"); document.documentElement.classList.add("kb");

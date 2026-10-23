@@ -105,7 +105,8 @@ input[type=text],input[type=time],select{background:var(--surface);border:1px so
 input::placeholder{color:var(--muted)}
 .dock input{flex:1}
 /* sugestões enquanto digita o nome de uma bolha nova */
-#dock-top,#dock-search{position:relative;z-index:6;padding-block:6px 4px}
+#dock-top,#dock-search{position:relative;z-index:6;padding-block:6px 2px}
+#dock-top input,#dock-search input{padding:7px 12px;border-radius:10px} /* campo mais enxuto */
 .sugg{display:grid;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:5px;max-height:46vh;overflow-y:auto}
 #dock-top .sugg,#dock-search .sugg{position:absolute;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));top:calc(100% - 2px);z-index:5;box-shadow:0 10px 30px #0009;max-height:min(46vh,calc(var(--vvh,100dvh) - 170px))}
 .sheet .sugg{margin-top:8px}
@@ -341,6 +342,10 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
 
   <main>
     <section class="view" id="view-bolhas" aria-label="Bolhas">
+      <div id="topbar">
+        <p class="hint gut" id="hint" hidden>Arraste pra girar. Toque 1× pra marcar a bolha; 2 toques (ou segure no celular) pra entrar nela e escolher "É minha vida ♥". Pra tirar uma bolha das suas, segure e arraste até "Remover"; pra guardar uma bolha dentro de outra, use o botão Mover. Cada pessoa organiza as próprias bolhas. O globo vai trocando as bolhas que mostra; pra achar uma específica, use a busca (lupa), e pra criar uma nova, o botão +.</p>
+        <div class="trend gut" id="trend"></div>
+      </div>
       <div class="dock gut" id="dock-search" hidden>
         <form id="search-form">
           <input type="text" id="search-input" maxlength="24" placeholder="Buscar uma bolha que já existe" autocomplete="off" enterkeyhint="search" aria-controls="search-sugg">
@@ -352,10 +357,6 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
           <input type="text" id="new-input" maxlength="24" placeholder="Nome da nova bolha" autocomplete="off" enterkeyhint="done" aria-controls="new-sugg">
         </form>
         <div class="sugg" id="new-sugg" role="listbox" aria-label="Bolhas parecidas" hidden></div>
-      </div>
-      <div id="topbar">
-        <p class="hint gut" id="hint" hidden>Arraste pra girar. Toque 1× pra marcar a bolha; 2 toques (ou segure no celular) pra entrar nela e escolher "É minha vida ♥". Pra tirar uma bolha das suas, segure e arraste até "Remover"; pra guardar uma bolha dentro de outra, use o botão Mover. Cada pessoa organiza as próprias bolhas. O globo vai trocando as bolhas que mostra; pra achar uma específica, use a busca (lupa), e pra criar uma nova, o botão +.</p>
-        <div class="trend gut" id="trend"></div>
       </div>
       <div class="crumb gut" id="crumb" hidden>
         <button class="btn sm" id="focus-back">← Voltar</button>
