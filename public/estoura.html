@@ -1018,11 +1018,11 @@ const FILTERS=[
 let bubbleFilter="all";
 const applyF=list=>bubbleFilter==="all"?list:list.filter(it=>(bubbleFilter==="liked")===state.lv.has(it.id));
 const evF=()=>bubbleFilter==="all"?visibleEvents():[];
-function setFilter(k){
+function setFilter(k,quiet){
   bubbleFilter=k; const f=FILTERS.find(x=>x.k===k), b=document.getElementById("filter-toggle");
   b.innerHTML=f.ic; b.title=f.t; b.setAttribute("aria-label","Filtro: "+f.t); b.classList.toggle("on",k!=="all");
   if(spread.on) spread.auto=true;
-  rebuild(true); toast(f.t);
+  rebuild(true); if(!quiet) toast(f.t);
   try{ localStorage.setItem("estoura-filter",k); }catch(_){}
 }
 function rebuild(fresh){
@@ -1134,15 +1134,16 @@ function drawBubble({it,sx,sy,r,z}){
     ctx.beginPath(); ctx.arc(sx,sy,r*.9,Math.PI*.15,Math.PI*.75); ctx.stroke();
   }
   // tem sub-bolhas: anel de pontinhos
-  if(kids(it.id).length && r>10){ // pontinhos = tem sub-bolhas (em qualquer nível)
-    const n=kids(it.id).length, off=r+(L===2?10:6); ctx.fillStyle=L?`hsl(${h} 100% 92%)`:`hsla(${h} 95% 80% / .9)`;
+  const kn=KIDN.get(it.id)||0;
+  if(kn && r>10){ // pontinhos = tem sub-bolhas (em qualquer nível)
+    const n=kn, off=r+(L===2?10:6); ctx.fillStyle=L?`hsl(${h} 100% 92%)`:`hsla(${h} 95% 80% / .9)`;
     for(let k=0;k<n;k++){ const t=-Math.PI/2+(k-(n-1)/2)*.32; ctx.beginPath(); ctx.arc(sx+Math.cos(t)*off,sy+Math.sin(t)*off,1.8,0,7); ctx.fill(); }
   }
   ctx.fillStyle="rgba(255,255,255,.75)"; ctx.beginPath(); ctx.ellipse(sx-r*.4,sy-r*.45,r*.18,r*.1,-.7,0,7); ctx.fill();
   if(r>15 && showLabel){
     const fs=Math.max(9,Math.min(state.focus?14:15,r*.3)); ctx.font=`700 ${fs}px Figtree, system-ui, sans-serif`;
     const lines=split(it.name,r), extra=r>24?count(it).toLocaleString("pt-BR"):null;
-    const hc=descendants(it.id).filter(k=>state.lv.get(k.id)===2).length; // sub-bolhas com coração
+    const hc=HEARTN.get(it.id)||0; // sub-bolhas com coração
     if(L===2||hc){ // já deu coração: coraçãozinho preto centralizado acima do nome, do tamanho da fonte; com a quantidade das sub-bolhas ao lado
       const top=sy-(lines.length-1)*fs*.55-(extra?fs*.35:0)-fs*1.1, hs=fs*.34;
       let hx=sx, tw=0; if(hc){ ctx.font=`700 ${fs*.68}px Figtree, system-ui, sans-serif`; tw=ctx.measureText(hc).width+hs*1.25+fs*.08; hx=sx-tw/2; }
@@ -1249,8 +1250,15 @@ document.getElementById("focus-move").onclick=()=>{ if(canManage()) openMove(); 
 document.getElementById("focus-out").onclick=()=>{ const it=byId(state.focus); setLevel(it,0); leave(); };
 document.getElementById("focus-seg").onclick=e=>{ const b=e.target.closest("[data-l]"); if(!b) return; const it=byId(state.focus), l=+b.dataset.l; setLevel(it,l===2&&state.lv.get(it.id)===2?1:l); }; // tocar de novo em "É minha vida" desmarca (volta pra Curto)
 
+// contagens usadas no desenho, calculadas uma vez por quadro (e não por bolha)
+let KIDN=new Map(), HEARTN=new Map();
+function countsForFrame(){
+  KIDN=new Map(); HEARTN=new Map();
+  INTERESTS.forEach(i=>{ if(i.parent) KIDN.set(i.parent,(KIDN.get(i.parent)||0)+1); });
+  state.lv.forEach((l,id)=>{ if(l===2) ancestors(id).forEach(a=>HEARTN.set(a,(HEARTN.get(a)||0)+1)); });
+}
 function frame(t){
-  now=t||0;
+  now=t||0; countsForFrame();
   if(W){
     ctx.clearRect(0,0,W,H);
     if(anim){
@@ -1315,7 +1323,9 @@ function tap(it){
     return enter(it.id);
   }
   lastTap={id:it.id,t};
-  setLevel(it,L?0:1); // 1 toque marca / desmarca; "é minha vida" fica só dentro da bolha
+  if(!L) return setLevel(it,1); // 1 toque marca; "é minha vida" fica só dentro da bolha
+  if((it.hu||0)<t){ showHeart(it); toast(`Toque de novo pra desmarcar ${it.name}`); return; } // 1º toque numa marcada só mostra o coração
+  setLevel(it,0); // 2º toque (com o coração à mostra) desmarca
 }
 
 /* ---------- mover e excluir bolhas ----------
@@ -1414,7 +1424,6 @@ cv.addEventListener("pointerdown",e=>{
   drag=true; target=null; hoverPause=false; spread.mouse=null; cv.classList.add("drag"); start=last={x:e.clientX,y:e.clientY};
   lpDone=false; clearLP();
   if(!anim){ const h=hitAt(e), p0=localXY(e);
-    if(h) showHeart(h.it);
     if(h && !h.it.type && !heartHit(p0.x,p0.y)){
       // parou um instante: a bolha começa a crescer (vai entrar). Segurou mais: pronta pra entrar. Segurou bem mais: modo excluir.
       if(!spread.on){
@@ -1526,6 +1535,7 @@ document.getElementById("filter-toggle").onclick=()=>setFilter(FILTERS[(FILTERS.
 document.getElementById("view-toggle").onclick=()=>setSpread(!spread.on);
 resize(); rebuild(); renderAll(); welcome(); requestAnimationFrame(frame);
 try{ if(localStorage.getItem("estoura-view")==="spread") setSpread(true); }catch(_){} // lembra a última visão
+try{ const f=localStorage.getItem("estoura-filter"); if(f && f!=="all" && FILTERS.some(x=>x.k===f)) setFilter(f,true); }catch(_){} // lembra o último filtro
 </script>
 
 <script type="module">
