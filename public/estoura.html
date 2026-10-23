@@ -504,7 +504,31 @@ function reparent(){
 
 const CITIES = {"São Paulo":[-23.55,-46.63],"Campinas":[-22.90,-47.06],"Santos":[-23.96,-46.33],"Rio de Janeiro":[-22.91,-43.17],
   "Curitiba":[-25.43,-49.27],"Florianópolis":[-27.59,-48.55],"Belo Horizonte":[-19.92,-43.94],"Porto Alegre":[-30.03,-51.23],
-  "Brasília":[-15.79,-47.88],"Salvador":[-12.97,-38.50],"Recife":[-8.05,-34.88]};
+  "Brasília":[-15.79,-47.88],"Salvador":[-12.97,-38.50],"Recife":[-8.05,-34.88],
+  "Fortaleza":[-3.73,-38.53],"Manaus":[-3.12,-60.02],"Belém":[-1.46,-48.50],"Goiânia":[-16.68,-49.25],"Vitória":[-20.32,-40.34],
+  "São Luís":[-2.53,-44.30],"Natal":[-5.79,-35.21],"João Pessoa":[-7.12,-34.86],"Maceió":[-9.67,-35.74],"Aracaju":[-10.91,-37.07],
+  "Teresina":[-5.09,-42.80],"Cuiabá":[-15.60,-56.10],"Campo Grande":[-20.46,-54.62],"Porto Velho":[-8.76,-63.90],"Rio Branco":[-9.97,-67.81],
+  "Macapá":[0.03,-51.07],"Boa Vista":[2.82,-60.67],"Palmas":[-10.18,-48.33],
+  "Guarulhos":[-23.46,-46.53],"Osasco":[-23.53,-46.79],"Santo André":[-23.66,-46.53],"São Bernardo do Campo":[-23.69,-46.56],
+  "Sorocaba":[-23.50,-47.46],"Jundiaí":[-23.19,-46.88],"Ribeirão Preto":[-21.18,-47.81],"São José dos Campos":[-23.22,-45.90],
+  "São José do Rio Preto":[-20.82,-49.38],"Bauru":[-22.31,-49.06],"Piracicaba":[-22.73,-47.65],"Ubatuba":[-23.43,-45.08],
+  "Guarujá":[-23.99,-46.26],"Niterói":[-22.88,-43.10],"Petrópolis":[-22.51,-43.18],"Juiz de Fora":[-21.76,-43.35],
+  "Uberlândia":[-18.92,-48.28],"Londrina":[-23.31,-51.16],"Maringá":[-23.42,-51.94],"Joinville":[-26.30,-48.85],
+  "Blumenau":[-26.92,-49.07],"Balneário Camboriú":[-26.99,-48.63],"Caxias do Sul":[-29.17,-51.18],"Pelotas":[-31.77,-52.34],
+  "Foz do Iguaçu":[-25.55,-54.59],"Ponta Grossa":[-25.09,-50.16],"Feira de Santana":[-12.27,-38.97],"Campina Grande":[-7.23,-35.88],
+  "Caruaru":[-8.28,-35.97],"Petrolina":[-9.39,-40.50],"Anápolis":[-16.33,-48.95],"Imperatriz":[-5.52,-47.48]};
+
+// o texto da cidade do perfil é livre: ignora acento, caixa e o que vem depois de vírgula, hífen ou barra ("Santos - SP")
+const cityKey = t => String(t||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().split(/[,\/\-(]/)[0].replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim();
+const CITY_KEYS = Object.keys(CITIES).map(n=>[cityKey(n),n]);
+function cityName(t){
+  const k=cityKey(t); if(!k) return null;
+  const hit=CITY_KEYS.find(([c])=>c===k); if(hit) return hit[1];
+  // "moro em santos": a maior cidade conhecida que aparece como palavra no texto
+  const inside=CITY_KEYS.filter(([c])=>(" "+k+" ").includes(" "+c+" ")).sort((a,b)=>b[0].length-a[0].length)[0];
+  return inside?inside[1]:null;
+}
+const coordsOf = t => { const n=cityName(t); return n?CITIES[n]:null; };
 
 // pessoas reais vêm do Supabase (REAL, abaixo); não há perfis de exemplo
 const PEOPLE = [];
@@ -607,10 +631,13 @@ let COMMUNITY = 1; // quantas pessoas existem no Estoura (vem do banco)
 const count = i => i.base + (state.lv.has(i.id)?1:0);
 // bolha rara pesa mais: quanto menor a fatia da comunidade que estourou, maior o peso
 const weight = id => Math.log((COMMUNITY+2)/(count(byId(id))+1)) + 0.1;
-const myC = () => CITIES[state.city];
+const myC = () => coordsOf(state.city); // null enquanto a cidade do perfil estiver vazia ou não for reconhecida
+const coordOf = p => p.c || coordsOf(p.city);
+const distTo = c => { const o=myC(); return o&&c?km(o,c):null; };
+const distTxt = c => { const d=distTo(c); return d!=null?" · "+fmtDist(d):""; };
 function km(a,b){const t=x=>x*Math.PI/180,dA=t(b[0]-a[0]),dO=t(b[1]-a[1]);const h=Math.sin(dA/2)**2+Math.cos(t(a[0]))*Math.cos(t(b[0]))*Math.sin(dO/2)**2;return 12742*Math.asin(Math.sqrt(h));}
 const fmtDist = d => d<5?"menos de 5 km": d<100?`~${Math.round(d/5)*5} km`:`~${Math.round(d/10)*10} km`;
-const inRadius = d => state.radius===0 || d<=state.radius;
+const inRadius = d => d==null || state.radius===0 || d<=state.radius;
 
 function match(p){
   const mine=state.lv; if(!mine.size) return {pct:0,shared:[]};
@@ -623,7 +650,7 @@ function match(p){
   return {pct:Math.round(100*s/u),shared,why};
 }
 function ranked(){
-  return everyone().map(p=>({p,...match(p),d:p.c?km(myC(),p.c):null})).filter(x=>x.shared.length).sort((a,b)=>b.pct-a.pct);
+  return everyone().map(p=>({p,...match(p),d:distTo(coordOf(p))})).filter(x=>x.shared.length).sort((a,b)=>b.pct-a.pct);
 }
 const hueOf = p => { const i=byId([...p.lv.keys()][0]); return i?i.hue:215; };
 const initials = n => n.split(" ").map(s=>s[0]).slice(0,2).join("");
@@ -641,7 +668,7 @@ const evWhen = e => e.days===0?"hoje":e.days===1?"amanhã":`em ${e.days} dias`;
 const evLong = e => evDate(e).toLocaleDateString("pt-BR",{weekday:"short",day:"numeric",month:"short"});
 const evShortDay = e => evDate(e).toLocaleDateString("pt-BR",{weekday:"short",day:"numeric"}).replace(".","").replace(",","");
 const evCount = e => e.going.length + (state.going.has(e.id)?1:0);
-const visibleEvents = () => EVENTS.filter(e=>e.days>=0 && inRadius(km(myC(),e.c)));
+const visibleEvents = () => EVENTS.filter(e=>e.days>=0 && inRadius(distTo(e.c)));
 
 function suggestGroups(){
   const mine=[...state.lv.keys()], combos=[], out=[], seen=new Set();
@@ -851,7 +878,10 @@ function renderFocus(){
 const MATCH_PREVIEW=3; // quantas pessoas a tela de Matches mostra antes do "Ver mais"
 function renderMatches(){
   document.getElementById("filters").innerHTML=`
-    <label for="city">Você está em <select id="city">${Object.keys(CITIES).map(c=>`<option${c===state.city?" selected":""}>${c}</option>`).join("")}</select></label>
+    ${window.estouraAuthed
+      ? `<label>Você está em <b>${esc(cityName(state.city)||state.city||"—")}</b> <button class="btn" type="button" data-editcity="1">${state.city?"Mudar":"Definir"} no perfil</button>
+          ${myC()?"":`<span class="note" style="margin:0;flex-basis:100%">${state.city?"Não reconheci essa cidade, então o raio não filtra ninguém. Confira a grafia no perfil.":"Coloque sua cidade no perfil pra o raio funcionar."}</span>`}</label>`
+      : `<label for="city">Você está em <select id="city">${Object.keys(CITIES).map(c=>`<option${c===state.city?" selected":""}>${c}</option>`).join("")}</select></label>`}
     <div class="seg" role="group" aria-label="Raio de distância">${[[10,"10 km"],[50,"50 km"],[300,"300 km"],[0,"Brasil todo"]].map(([v,l])=>`<button data-r="${v}" aria-pressed="${state.radius===v}">${l}</button>`).join("")}</div>`;
   const all=ranked(), r=all.filter(x=>x.d==null||inRadius(x.d)), out=all.length-r.length;
   const inv=CONNS.filter(c=>c.status==="pending"&&!c.mine).length;
@@ -876,7 +906,7 @@ function renderMatches(){
       : `<div class="empty">${!state.lv.size?"Estoure algumas bolhas pra ver seus matches.":out?"Ninguém nesse raio ainda. Aumente a distância.":"Ainda ninguém estourou as mesmas bolhas que você. Convide amigos pra entrar no Estoura!"}</div>`);
 }
 document.getElementById("filters").addEventListener("change",e=>{ if(e.target.id==="city"){ state.city=e.target.value; rebuild(); renderAll(); } });
-document.getElementById("filters").addEventListener("click",e=>{ const b=e.target.closest("[data-r]"); if(b){ state.radius=+b.dataset.r; rebuild(); renderAll(); } });
+document.getElementById("filters").addEventListener("click",e=>{ if(e.target.closest("[data-editcity]")){ if(window.estouraEditProfile) window.estouraEditProfile(); return; } const b=e.target.closest("[data-r]"); if(b){ state.radius=+b.dataset.r; rebuild(); renderAll(); } });
 document.getElementById("match-list").onclick=e=>{
   if(e.target.closest("[data-more]")){ state.moreMatches=!state.moreMatches; renderMatches(); return; }
   const a=e.target.closest("[data-inv]"); if(a){ if(window.estouraRespond) window.estouraRespond(a.dataset.inv,a.dataset.act==="accept"); return; }
@@ -920,13 +950,13 @@ function renderEvents(){
   const rel=vis.filter(e=>relevant(e.interest)).length;
   const eb=document.getElementById("event-badge"); eb.hidden=!rel; eb.textContent=rel;
   const hidden=EVENTS.filter(e=>e.days>=0).length-vis.length;
-  document.getElementById("ev-note").textContent = `${vis.length} perto de ${state.city}${hidden?` · ${hidden} fora do raio`:""}`;
+  document.getElementById("ev-note").textContent = `${vis.length} ${myC()?"perto de "+(cityName(state.city)||state.city):"no total"}${hidden?` · ${hidden} fora do raio`:""}`;
   document.getElementById("event-list").innerHTML = vis.length ? vis.map(e=>{ const i=byId(e.interest), me=state.going.has(e.id);
     return `<div class="group ev" style="--h:${i.hue}">
       <button class="link" data-event="${e.id}">
         <span class="row"><span>${chip(e.interest)} ${unreadOf(e.id)?`<span class="newmsg">${unreadOf(e.id)} ${unreadOf(e.id)>1?"novas":"nova"}</span> `:""}${relevant(e.interest)?'<span class="ok">combina com você</span>':""}${exTag(e)}</span><span class="when">${evWhen(e)}</span></span>
         <span class="gt" style="margin-top:8px">${esc(e.title)}</span>
-        <span class="meta">${esc(evLong(e))} · ${e.time} · ${esc(e.place)} · ${fmtDist(km(myC(),e.c))}</span>
+        <span class="meta">${esc(evLong(e))} · ${e.time} · ${esc(e.place)}${distTxt(e.c)}</span>
       </button>
       <div class="row"><div class="stack">${me?'<span class="av me">EU</span>':""}${e.going.map(avatar).join("")}<span class="meta" style="margin-left:14px">${evCount(e)} ${evCount(e)>1?"vão":"vai"}</span></div>
         <button class="btn sm ${me?"":"primary"}" data-go="${e.id}">${me?"Abrir chat":"Eu vou"}</button></div>
@@ -974,7 +1004,7 @@ function openSheet(html,meta){
 const LOCK=`<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>`;
 
 function openProfile(p){
-  const {pct,shared,why=[]}=match(p), d=p.c?km(myC(),p.c):null, conn=state.conn[p.id];
+  const {pct,shared,why=[]}=match(p), d=distTo(coordOf(p)), conn=state.conn[p.id];
   const top=why.slice(0,5), max=Math.max(1,...top.map(w=>w.pts));
   const others=[...p.lv.keys()].filter(i=>!shared.includes(i));
   openSheet(`
@@ -1022,7 +1052,7 @@ function openEvent(e){
     <div class="row"><span>${chip(e.interest)}</span><span class="when">${evWhen(e)}</span></div>
     <h3 style="font-family:var(--display);font-size:24px;margin:10px 0 4px">${esc(e.title)}</h3>
     <div class="meta">${esc(evLong(e))} · ${e.time}</div>
-    <div class="meta">${esc(e.place)} · ${fmtDist(km(myC(),e.c))}</div>
+    <div class="meta">${esc(e.place)}${distTxt(e.c)}</div>
     <div class="sec"><div class="tag">Quem vai (${evCount(e)})</div>
       <div class="chips">${me?'<span class="chip" style="--h:330">Você</span>':""}${e.going.map(p=>`<span class="chip" style="--h:${hueOf(p)}">${esc(p.name.split(" ")[0])}</span>`).join("")}</div></div>
     <p class="note" style="margin-top:14px">A bolha deste evento some do globo depois de ${esc(evLong(e))}.</p>
@@ -1059,6 +1089,7 @@ function openCreateEvent(){
     </form>`,{type:"create"});
   document.getElementById("ev-form").onsubmit=ev=>{
     ev.preventDefault();
+    if(!myC()) return toast("Coloque sua cidade no perfil pra criar o rolê");
     const t=document.getElementById("ev-title").value.trim()||"Rolê sem nome";
     const e={type:"event",id:"u"+Date.now(),title:t,short:t.length>18?t.slice(0,17)+"…":t,interest:document.getElementById("ev-int").value,
       days:+document.getElementById("ev-day").value,time:document.getElementById("ev-time").value||"15:00",
@@ -2077,6 +2108,7 @@ if (cfg.url && cfg.key) {
       const city = document.getElementById("pf-city").value.trim() || null;
       const { error } = await sb.from("profiles").update({ city, socials }).eq("id", u.id);
       toast(error ? "Não consegui salvar o perfil" : "Perfil salvo");
+      if (!error) { state.city = city || ""; rebuild(); renderAll(); }
     };
     // recarrega a página para não deixar as bolhas da conta na memória
     document.getElementById("signout").onclick = async () => { if (window.estouraPush) await window.estouraPush.unsubscribe(); await sb.auth.signOut(); location.reload(); };
@@ -2367,6 +2399,9 @@ if (cfg.url && cfg.key) {
     }
     loading = false;
     if (st.error || mine.error) { uid = null; toast("Não consegui carregar suas bolhas. Nada será salvo agora."); return; }
+    // "Você está em" e o raio seguem a cidade do perfil (vazia = sem filtro de distância)
+    const pr = await sb.from("profiles").select("city").eq("id", uid).maybeSingle();
+    state.city = (pr.data && pr.data.city) || "";
     state.lv.clear(); state.auto.clear(); state.pp.clear(); saved.clear();
     mine.data.forEach(r => { state.lv.set(r.interest_id, r.level); state.pp.set(r.interest_id, r.parent_id || null); if (r.auto) state.auto.add(r.interest_id); saved.set(r.interest_id, row(r.interest_id)); });
     syncInterests(st.data); // bolhas novas, excluídas e movidas por outras pessoas + contagens do banco
@@ -2450,6 +2485,7 @@ if (cfg.url && cfg.key) {
       btn.innerHTML = (photo(u) ? `<img src="${esc(photo(u))}" alt="" referrerpolicy="no-referrer">` : "") + esc(first(u));
       btn.setAttribute("aria-label", "Minha conta");
       btn.onclick = () => openAccount(u);
+      window.estouraEditProfile = () => openAccount(u);
       if (event === "SIGNED_IN" && !wasLogged) toast(`Olá, ${first(u)}!`);
       window.estouraAuthed = true;
       if (uid !== u.id) {
