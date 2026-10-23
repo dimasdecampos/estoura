@@ -13,6 +13,7 @@ const SUITES = [
   ["push", "Banco: notificações push"],
   ["ui", "App: bolhas, sugestões, mover/remover, rodízio do globo"],
   ["matches", "App: Matches, não lidas, alertas, notificação, dicas"],
+  ["people", "App: visão de pessoas (só admin): bolhas, abrir pessoa, rede"],
   ["sw", "App: service worker recebe push"],
   ["pwa", "PWA: o Chrome acha instalável; aviso de instalação no 1º acesso"],
   ["login", "App logado com banco de verdade: salvar, recarregar, mensagens"],
