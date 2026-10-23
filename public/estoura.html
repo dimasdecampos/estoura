@@ -63,12 +63,15 @@ button.pill:hover{border-color:#3a4f7a}
 .vt{position:absolute;top:8px;right:12px;z-index:3;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:var(--surface-2);border:1px solid var(--line);color:var(--ink);box-shadow:0 6px 20px #0006;transition:transform .15s,border-color .15s,background .15s}
 .vt.f2{top:62px}
 .vt.f3{top:116px}
-.vt.f4{top:170px}
-/* visão de pessoas (só admin): o globo dá lugar a um canvas de pessoas */
-#view-bolhas.pm #topbar,#view-bolhas.pm .dock,#view-bolhas.pm #crumb,#view-bolhas.pm #globe,#view-bolhas.pm .vt:not(#people-toggle){display:none!important}
-#view-bolhas.pm #people-toggle{top:8px}
+/* Matches: menu Lista | Bolhas | Rede. Em Bolhas e Rede, a lista dá lugar a um canvas de pessoas */
+.mmode{display:flex;margin:14px 0 2px}
+.mmode button{flex:1}
+#view-matches.pm{display:flex;flex-direction:column;overflow:hidden;padding-bottom:0}
+#view-matches.pm>h2,#view-matches.pm>.sub,#view-matches.pm #tip-bar,#view-matches.pm #match-list{display:none}
+#view-matches.pm .filters{margin:10px 0 0}
+.pstage{position:relative;flex:1;min-height:0}
 #people{cursor:default}
-.pbar{position:absolute;top:8px;left:max(16px,env(safe-area-inset-left,0px));right:70px;z-index:3;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;pointer-events:none}
+.pbar{position:absolute;top:8px;left:0;right:0;z-index:3;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;pointer-events:none}
 .pbar>*{pointer-events:auto}
 .pbar .note{margin:0;font-size:12.5px;flex-basis:100%}
 .pbar .pwho{font-size:14px;min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -321,9 +324,8 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
   .hr{gap:10px}
   .pill{font-size:13.5px;padding:8px 14px}
   .pill.auth img{width:22px;height:22px}
-  .vt{top:16px} .vt.f2{top:70px} .vt.f3{top:124px} .vt.f4{top:178px}
-  #view-bolhas.pm #people-toggle{top:16px}
-  #view-bolhas.pm .pbar{top:16px}
+  .vt{top:16px} .vt.f2{top:70px} .vt.f3{top:124px}
+  .mmode{max-width:420px;margin-top:22px}
   main{grid-area:main}
   nav{grid-area:nav;grid-auto-flow:row;grid-template-columns:1fr;align-content:start;gap:4px;border-top:0;border-right:1px solid var(--line);padding-block:14px}
   nav button{grid-template-columns:auto 1fr auto;justify-items:start;align-items:center;gap:12px;font-size:15px;padding:13px 14px;border-radius:14px;text-align:left}
@@ -398,9 +400,6 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
         <button class="vt" id="filter-toggle" type="button" aria-label="Filtro: ver tudo" title="Filtro: ver tudo"></button>
         <button class="vt f2" id="search-toggle" type="button" aria-label="Buscar bolha" title="Buscar bolha"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.500"/><path d="M16 16l4.500 4.500"/></svg></button>
         <button class="vt f3" id="new-toggle" type="button" aria-label="Criar bolha" title="Criar bolha"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
-        <canvas id="people" hidden aria-label="Pessoas que combinam com você"></canvas>
-        <div class="pbar" id="people-bar" hidden></div>
-        <button class="vt f4" id="people-toggle" type="button" hidden aria-pressed="false" aria-label="Ver pessoas" title="Ver pessoas"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="9" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="16.5" cy="8" r="2.6"/><path d="M15.5 13.2c2.6-.4 4.6 1.2 5.1 4.3"/></svg></button>
       </div>
       <div class="dock gut" id="dock-focus" hidden>
         <div class="seg" id="focus-seg" role="group" aria-label="Quanto você curte esta bolha">
@@ -411,11 +410,18 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
     </section>
 
     <section class="view gut" id="view-matches" hidden aria-label="Matches">
+      <div class="seg mmode" id="match-mode" role="group" aria-label="Como ver seus matches" hidden>
+        <button data-mm="lista" aria-pressed="true">Lista</button><button data-mm="bolhas" aria-pressed="false">Bolhas</button><button data-mm="rede" aria-pressed="false">Rede</button>
+      </div>
       <h2>Quem estourou o mesmo que você</h2>
       <p class="sub">Interesses raros e sub-bolhas pesam mais. Quem marcou "eu amo!" no mesmo que você ganha bônus (♥).</p>
       <div id="tip-bar"></div>
       <div class="filters" id="filters"></div>
       <div class="list" id="match-list"></div>
+      <div class="pstage" id="people-stage" hidden>
+        <canvas id="people" aria-label="Pessoas que combinam com você"></canvas>
+        <div class="pbar" id="people-bar"></div>
+      </div>
     </section>
 
     <section class="view gut" id="view-chat" hidden aria-label="Conversas">
@@ -891,8 +897,8 @@ function setView(v){
   document.querySelectorAll("nav button").forEach(b=>{ if(b.dataset.view===v) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current"); });
   if(v==="bolhas") resize();
 }
-document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{ setView(b.dataset.view); if(b.dataset.view==="bolhas"){ if(pm&&pm.on) setPeople(false); goHome(); } });
-document.getElementById("logo").onclick=()=>{ setView("bolhas"); if(pm&&pm.on) setPeople(false); goHome(); };
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{ setView(b.dataset.view); if(b.dataset.view==="bolhas") goHome(); });
+document.getElementById("logo").onclick=()=>{ setView("bolhas"); goHome(); };
 
 function renderAll(){ renderHeader(); renderTrend(); renderFocus(); renderMatches(); renderChats(); renderEvents(); renderGroups(); renderTips(); refreshBadges(); tryLink(); if(pm&&pm.on) peopleSync(); }
 function renderHeader(){ document.querySelector("#pop-count b").textContent = state.lv.size; }
@@ -1803,7 +1809,7 @@ function countsForFrame(){
 }
 function frame(t){
   now=t||0; countsForFrame();
-  if(W && !(pm&&pm.on)){ // na visão de pessoas o globo fica parado
+  if(W){
     ctx.clearRect(0,0,W,H);
     if(anim){
       anim.t=Math.min(1,anim.t+0.045); const e=ease(anim.t), S=shellR(), c=shellC();
@@ -2119,8 +2125,8 @@ if(window.visualViewport){
 document.addEventListener("keydown",e=>{ if(e.key==="Escape" && layer.firstElementChild){ if(state.focus && !sheet && !current) return; closeLayer(); } });
 // girar a tela / redimensionar a janela: refaz o canvas
 addEventListener("orientationchange",()=>setTimeout(resize,250));
-/* ================= PESSOAS (só admin, em teste) =================
-   Botão de pessoas no globo. Mostra as mesmas pessoas da aba Matches (até 24, dentro do raio).
+/* ================= PESSOAS (aba Matches, pra quem está logado) =================
+   Menu no topo dos Matches: Lista | Bolhas | Rede. Mostra as mesmas pessoas da lista (até 24, dentro do raio).
    - Bolhas: cada bolha é uma pessoa; quanto mais combina, maior e mais perto de você.
      Tocar abre a bolha dela com tudo o que ela curtiu: acesas = vocês dois curtem; apagadas = só ela (toque pra estourar).
    - Rede: você no centro, as bolhas em comum no anel do meio e as pessoas por fora. As linhas mostram o que liga vocês;
@@ -2129,21 +2135,23 @@ var pm={on:false,mode:"bolhas",open:null,closing:false,z:0,nodes:new Map(),inner
 const pv=document.getElementById("people"), px=pv.getContext("2d");
 const PM_MAX=24, NET_MAX=18, GOLD=2.39996;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-const pmView=()=>document.getElementById("view-bolhas");
+const pmView=()=>document.getElementById("view-matches");
 function peopleAccess(ok){
-  document.getElementById("people-toggle").hidden=!ok;
-  if(!ok && pm.on) setPeople(false);
+  document.getElementById("match-mode").hidden=!ok;
+  if(!ok) return setMatchMode("lista",true);
+  let last="lista"; try{ last=localStorage.getItem("estoura-match-mode")||"lista"; }catch(_){} // lembra o último jeito de ver
+  setMatchMode(["lista","bolhas","rede"].includes(last)?last:"lista",true);
 }
-function setPeople(on){
-  if(on===pm.on) return;
-  pm.on=on; pmView().classList.toggle("pm",on); pv.hidden=!on; document.getElementById("people-bar").hidden=!on;
-  const b=document.getElementById("people-toggle"), t=on?"Voltar pro globo de bolhas":"Ver pessoas";
-  b.setAttribute("aria-pressed",String(on)); b.title=t; b.setAttribute("aria-label",t);
+function setMatchMode(m,quiet){
+  const on=m!=="lista", was=pm.on;
+  document.querySelectorAll("#match-mode [data-mm]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.mm===m)));
+  if(!quiet) try{ localStorage.setItem("estoura-match-mode",m); }catch(_){}
+  pm.mode=on?m:pm.mode; pm.on=on; pm.sel=null; pm.hover=null; pm.open=null; pm.closing=false; pm.z=0;
+  pmView().classList.toggle("pm",on); document.getElementById("people-stage").hidden=!on;
   cancelAnimationFrame(pm.raf);
-  if(on){ goHome(); pm.open=null; pm.closing=false; pm.z=0; pm.sel=null; pm.hover=null; pm.nodes.clear(); pm.ints.clear(); pmResize(); peopleSync(); pm.raf=requestAnimationFrame(pmFrame); }
-  else resize();
+  if(on){ if(!was){ pm.nodes.clear(); pm.ints.clear(); } pmResize(); peopleSync(); pm.raf=requestAnimationFrame(pmFrame); }
 }
-document.getElementById("people-toggle").onclick=()=>setPeople(!pm.on);
+document.getElementById("match-mode").onclick=e=>{ const b=e.target.closest("[data-mm]"); if(b) setMatchMode(b.dataset.mm); };
 
 function photoOf(url){
   if(!url) return null;
@@ -2231,14 +2239,12 @@ function pmBar(){
       else if(nd) note=`${esc(nd.p.name)} · ${nd.pct}% · ${nd.shared.length} em comum. Toque de novo pra abrir o perfil.`;
       else if(n) note+=". Toque numa bolha ou pessoa pra ver as linhas dela.";
     } else if(n) note+=". Toque numa pessoa pra ver o que ela curte.";
-    el.innerHTML=`<div class="seg" role="group" aria-label="Como ver as pessoas"><button data-pm="bolhas" aria-pressed="${pm.mode==="bolhas"}">Bolhas</button><button data-pm="rede" aria-pressed="${pm.mode==="rede"}">Rede</button></div><span class="ex" title="Só admin vê esta tela">admin</span>
-      <span class="note">${note}</span>`;
+    el.innerHTML=`<span class="note">${note}</span>`;
   }
-  const top=Math.max(48,el.offsetHeight+16);
+  const top=Math.max(28,el.offsetHeight+16);
   if(top!==pm.top){ pm.top=top; pmLayout(); }
 }
 document.getElementById("people-bar").onclick=e=>{
-  const m=e.target.closest("[data-pm]"); if(m){ pm.mode=m.dataset.pm; pm.sel=null; pm.hover=null; pm.open=null; pm.closing=false; pm.z=0; pmBar(); return; }
   const a=e.target.closest("[data-pact]"); if(!a) return;
   if(a.dataset.pact==="back") pmClose(); else if(pm.open) openProfile(pm.open.p);
 };
@@ -2307,17 +2313,28 @@ function pmStep(){
     if(pm.closing&&pm.z<.02){ pm.open=null; pm.closing=false; pm.z=0; pmBar(); }
   }
 }
-// rosto da pessoa numa bolha: foto (ou iniciais) com brilho e anel na cor dela
-function pmFace(x,y,r,photo,txt,h,ring){
+// a pessoa como uma bolha igual às do globo: transparente, borda na cor dela, reflexo, e a foto no fundo (sem foto: as iniciais)
+// o: {label, extra (linha de baixo), photoA (força da foto), ring (borda mais grossa)}
+function pmFace(x,y,r,photo,txt,h,o={}){
   if(r<1) return;
-  const im=photoOf(photo);
-  px.save(); px.beginPath(); px.arc(x,y,r,0,7);
-  if(im){ px.clip(); px.drawImage(im,x-r,y-r,r*2,r*2); }
-  else { const gr=px.createRadialGradient(x-r*.35,y-r*.4,r*.1,x,y,r); gr.addColorStop(0,`hsl(${h} 95% 82%)`); gr.addColorStop(1,`hsl(${h} 70% 52%)`); px.fillStyle=gr; px.fill();
-    px.fillStyle="#10172a"; px.font=`700 ${Math.max(10,r*.62)}px Figtree, system-ui, sans-serif`; px.textAlign="center"; px.textBaseline="middle"; px.fillText(txt,x,y+1); }
-  px.restore();
-  px.lineWidth=ring||2; px.strokeStyle=`hsl(${h} 95% 78%)`; px.beginPath(); px.arc(x,y,r,0,7); px.stroke();
-  px.fillStyle="rgba(255,255,255,.45)"; px.beginPath(); px.ellipse(x-r*.42,y-r*.48,r*.17,r*.09,-.7,0,7); px.fill();
+  const c=px, A=c.globalAlpha, im=photoOf(photo);
+  c.save(); c.beginPath(); c.arc(x,y,r,0,7); c.clip();
+  if(im){ const w=im.naturalWidth, hh=im.naturalHeight, m=Math.min(w,hh); c.globalAlpha=A*(o.photoA??.62); c.drawImage(im,(w-m)/2,(hh-m)/2,m,m,x-r,y-r,r*2,r*2); c.globalAlpha=A; }
+  else if(!o.label){ c.fillStyle=`hsla(${h} 90% 82% / .55)`; c.font=`800 ${Math.max(9,r*.62)}px Figtree, system-ui, sans-serif`; c.textAlign="center"; c.textBaseline="middle"; c.fillText(txt,x,y+1); }
+  const g=c.createRadialGradient(x,y,r*.2,x,y,r); // película da bolha por cima da foto: mais forte na borda
+  g.addColorStop(0,`hsla(${h} 90% 70% / .04)`); g.addColorStop(.75,`hsla(${h} 90% 70% / .2)`); g.addColorStop(1,`hsla(${h} 95% 75% / .55)`);
+  c.fillStyle=g; c.fillRect(x-r,y-r,r*2,r*2);
+  c.restore();
+  c.lineWidth=o.ring||1.4; c.strokeStyle=`hsla(${h} 95% 78% / .85)`; c.beginPath(); c.arc(x,y,r,0,7); c.stroke();
+  c.strokeStyle=`hsla(${(h+70)%360} 95% 78% / .55)`; c.lineWidth=1.6; c.beginPath(); c.arc(x,y,r*.9,Math.PI*.15,Math.PI*.75); c.stroke();
+  c.fillStyle="rgba(255,255,255,.75)"; c.beginPath(); c.ellipse(x-r*.4,y-r*.45,r*.18,r*.1,-.7,0,7); c.fill();
+  if(o.label && r>15){ // nome (e o %) dentro da bolha, com sombra pra ler por cima da foto
+    const fs=clamp(r*.3,10,16), ex=o.extra&&r>22;
+    c.shadowColor="rgba(5,9,18,.9)"; c.shadowBlur=5;
+    pmText(o.label,x,y-(ex?fs*.4:0),fs,"#f1f5ff",800);
+    if(ex) pmText(o.extra,x,y+fs*.75,fs*.78,"#f1f5ff",600);
+    c.shadowBlur=0;
+  }
 }
 function pmText(t,x,y,fs,color,w){ px.font=`${w||600} ${fs}px Figtree, system-ui, sans-serif`; px.textAlign="center"; px.textBaseline="middle"; px.fillStyle=color; px.fillText(t,x,y); }
 function pmFrame(t){
@@ -2326,10 +2343,10 @@ function pmFrame(t){
   pm.now=t||0; pmStep();
   const g=pmGeo(), c=px, list=[...pm.nodes.values()];
   c.clearRect(0,0,g.W,g.H);
-  const halo=c.createRadialGradient(g.cx,g.cy,g.S*.05,g.cx,g.cy,g.S*.75); halo.addColorStop(0,"rgba(255,158,196,.07)"); halo.addColorStop(1,"rgba(255,158,196,0)");
+  const halo=c.createRadialGradient(g.cx,g.cy,g.S*.05,g.cx,g.cy,Math.min(g.W,g.H)*.5); // some antes da borda (sem "caixa" visível) halo.addColorStop(0,"rgba(255,158,196,.07)"); halo.addColorStop(1,"rgba(255,158,196,0)");
   c.fillStyle=halo; c.fillRect(0,0,g.W,g.H);
   if(!list.length){
-    pmFace(g.cx,g.cy,pm.rMe||40,myPhoto(),"Você",330,2.5);
+    pmFace(g.cx,g.cy,pm.rMe||40,myPhoto(),"Você",330,{label:"Você",ring:2});
     pmText(state.lv.size?"Ainda ninguém combina com você nesse raio":"Estoure algumas bolhas pra achar sua turma",g.cx,g.cy+(pm.rMe||40)+24,13,"#94a1c3",500);
     return;
   }
@@ -2340,14 +2357,11 @@ function pmDrawBubbles(g,list){
   c.globalAlpha=1-z;
   list.forEach(n=>{ const h=hueOf(n.p); c.strokeStyle=`hsla(${h} 90% 75% / ${.06+.22*n.rel})`; c.lineWidth=1+n.rel*1.5;
     c.beginPath(); c.moveTo(g.cx,g.cy); c.lineTo(n.x,n.y); c.stroke(); });
-  pmFace(g.cx,g.cy,pm.rMe,myPhoto(),"Você",330,2.5);
+  pmFace(g.cx,g.cy,pm.rMe,myPhoto(),"Você",330,{label:"Você",ring:2});
   list.forEach(n=>{ if(n===pm.open) return;
     const y=n.y+Math.sin(pm.now/900+n.seed)*2*wob, h=hueOf(n.p), hov=pm.hover&&pm.hover.id===n.id;
-    pmFace(n.x,y,n.r*(hov?1.08:1),n.p.photo,initials(n.p.name),h);
-    if(n.r>15){ pmText(n.p.name.split(" ")[0],n.x,y+n.r+10,12,"#ecf1ff",700); }
-    const bw=Math.max(24,n.r*.9), bx=n.x+n.r*.62, by=y-n.r*.72; // selo com o %
-    c.fillStyle="#0b1322"; c.strokeStyle=`hsl(${h} 95% 78%)`; c.lineWidth=1.2; c.beginPath(); c.roundRect(bx-bw/2,by-8,bw,16,8); c.fill(); c.stroke();
-    pmText(n.pct+"%",bx,by+.5,10.5,"#ecf1ff",700);
+    pmFace(n.x,y,n.r*(hov?1.08:1),n.p.photo,initials(n.p.name),h,{label:n.p.name.split(" ")[0],extra:n.pct+"%",ring:hov?2:1.4});
+    if(n.r<=15) pmText(n.p.name.split(" ")[0]+" · "+n.pct+"%",n.x,y+n.r+10,11,"#ecf1ff",700); // bolha pequena: nome embaixo
   });
   c.globalAlpha=1;
   if(pm.open) pmDrawOpen(g);
@@ -2356,7 +2370,10 @@ function pmDrawOpen(g){
   const c=px, n=pm.open, s=pmShell(), h=hueOf(n.p), a=ease(pm.z);
   const gr=c.createRadialGradient(s.x-s.r*.3,s.y-s.r*.35,s.r*.1,s.x,s.y,s.r);
   gr.addColorStop(0,`hsla(${h} 90% 70% / .04)`); gr.addColorStop(.85,`hsla(${h} 90% 65% / .1)`); gr.addColorStop(1,`hsla(${h} 95% 75% / .32)`);
+  const im=photoOf(n.p.photo); // a foto da pessoa bem clarinha no fundo da bolha dela
+  if(im){ const w=im.naturalWidth, hh=im.naturalHeight, m=Math.min(w,hh); c.save(); c.beginPath(); c.arc(s.x,s.y,s.r,0,7); c.clip(); c.globalAlpha=.16; c.drawImage(im,(w-m)/2,(hh-m)/2,m,m,s.x-s.r,s.y-s.r,s.r*2,s.r*2); c.restore(); }
   c.fillStyle=gr; c.beginPath(); c.arc(s.x,s.y,s.r,0,7); c.fill(); c.strokeStyle=`hsla(${h} 95% 80% / .7)`; c.lineWidth=1.8; c.stroke();
+  c.fillStyle="rgba(255,255,255,.35)"; c.beginPath(); c.ellipse(s.x-s.r*.45,s.y-s.r*.55,s.r*.16,s.r*.06,-.6,0,7); c.fill();
   c.globalAlpha=a;
   pm.inner.forEach(b=>{
     const it=byId(b.id); if(!it) return;
@@ -2378,7 +2395,7 @@ function pmDrawOpen(g){
     }
   });
   c.globalAlpha=1;
-  pmFace(s.x,s.y-s.r,clamp(s.r*.13,16,28),n.p.photo,initials(n.p.name),h,2.5); // o rosto da pessoa em cima da bolha dela
+  pmFace(s.x,s.y-s.r,clamp(s.r*.13,16,28),n.p.photo,initials(n.p.name),h,{photoA:1,ring:2}); // o rosto da pessoa em cima da bolha dela
 }
 function pmDrawNet(g,list){
   let act=pm.sel||pm.hover; const c=px, me={x:g.cx,y:g.cy};
@@ -2410,11 +2427,11 @@ function pmDrawNet(g,list){
     c.font=`600 11px Figtree, system-ui, sans-serif`; c.textBaseline="middle"; c.textAlign=Math.abs(Math.cos(it.a))<.3?"center":Math.cos(it.a)>0?"left":"right";
     c.fillStyle=`hsl(${i.hue} 90% 84%)`; c.fillText(i.name+(it.c>1?" · "+it.c:""),lx,ly+(Math.abs(Math.cos(it.a))<.3?Math.sign(Math.sin(it.a))*4:0));
     c.globalAlpha=1; });
-  pmFace(me.x,me.y,pm.rMe*.8,myPhoto(),"Você",330,2.5);
+  pmFace(me.x,me.y,pm.rMe*.8,myPhoto(),"Você",330,{label:"Você",ring:2});
   // pessoas
   list.forEach(n=>{ const lit=!act||(act.kind==="p"?act.id===n.id:n.shared.includes(act.id)), h=hueOf(n.p), sel=act&&act.kind==="p"&&act.id===n.id;
     c.globalAlpha=lit?1:.25;
-    pmFace(n.x,n.y,n.r*(sel?1.15:1),n.p.photo,initials(n.p.name),h,sel?3:2);
+    pmFace(n.x,n.y,n.r*(sel?1.15:1),n.p.photo,initials(n.p.name),h,{photoA:.85,ring:sel?2.5:1.4});
     const ox=Math.cos(n.na), oy=Math.sin(n.na), ty=n.y+(oy>-.3?n.r+10:-n.r-10);
     pmText(n.p.name.split(" ")[0]+" · "+n.pct+"%",n.x+ox*4,ty,11.5,"#ecf1ff",700);
     c.globalAlpha=1; });
@@ -2861,7 +2878,6 @@ if (cfg.url && cfg.key) {
     myRole = ["admin", "super_admin"].includes(r) ? r : "user";
     const isAdm = myRole !== "user";
     document.querySelector('nav [data-view="admin"]').hidden = !isAdm;
-    peopleAccess(isAdm); // visão de pessoas (em teste) também só para admin
     if (!isAdm && !document.getElementById("view-admin").hidden) setView("bolhas");
   }
   function renderAdmin(){
@@ -2913,7 +2929,7 @@ if (cfg.url && cfg.key) {
       btn.onclick = () => openAccount(u);
       window.estouraEditProfile = () => openAccount(u);
       if (event === "SIGNED_IN" && !wasLogged) toast(`Olá, ${first(u)}!`);
-      window.estouraAuthed = true;
+      window.estouraAuthed = true; peopleAccess(true); // Bolhas e Rede nos Matches: pra quem está logado
       if (uid !== u.id) {
         uid = u.id;
         // quem já tem conta não precisa da tela de boas-vindas (e "começar do zero" não pode apagar o banco)
@@ -2927,7 +2943,7 @@ if (cfg.url && cfg.key) {
       btn.onclick = signIn;
       uid = null;
       setRole("user");
-      window.estouraAuthed = false;
+      window.estouraAuthed = false; peopleAccess(false);
     }
     wasLogged = !!u;
   }

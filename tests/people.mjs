@@ -1,4 +1,4 @@
-// Visão de pessoas (só admin): bolhas de pessoas, abrir uma pessoa, estourar uma bolha dela, rede. Sem Supabase.
+// Matches em Bolhas e Rede (pra quem está logado): bolhas de pessoas com foto, abrir uma pessoa, estourar uma bolha dela, rede. Sem Supabase.
 import puppeteer from "puppeteer-core";
 import http from "node:http";
 import fs from "node:fs";
@@ -31,7 +31,7 @@ for (const [w, h, tag] of [[420, 860, "celular"], [1280, 820, "desktop"]]) {
   await page.goto(origin + "/", { waitUntil: "load" });
   await wait(500);
 
-  ok(await E(() => document.getElementById("people-toggle").hidden), `${tag}: sem ser admin, o botão de pessoas não aparece`);
+  ok(await E(() => document.getElementById("match-mode").hidden), `${tag}: sem login, o menu Lista/Bolhas/Rede não aparece nos Matches`);
   await E(() => {
     ["surf", "viagens", "viagens/mochilao", "cafe", "trilhas"].forEach(id => setLevel(byId(id), 1, true));
     setLevel(byId("surf"), 2, true);
@@ -43,15 +43,19 @@ for (const [w, h, tag] of [[420, 860, "celular"], [1280, 820, "desktop"]]) {
       ["Elisa", [["surf", 1], ["trilhas", 1], ["cafe", 1], ["viagens", 1], ["astronomia", 1]]],
       ["Fábio", [["viagens/mochilao", 1], ["viagens", 1]]],
     ];
-    gente.forEach(([n, lv], i) => REAL.push({ id: "r_" + i, uid: "u" + i, name: n + " Teste", city: "Santos", real: true, shy: true, lv: new Map(lv), conn: null }));
+    // foto de teste (desenho) pra metade das pessoas; a outra metade fica com as iniciais
+    const foto = c => "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" fill="${c}"/><circle cx="48" cy="38" r="18" fill="#fde"/><rect x="18" y="62" width="60" height="40" rx="20" fill="#fde"/></svg>`);
+    gente.forEach(([n, lv], i) => REAL.push({ id: "r_" + i, uid: "u" + i, name: n + " Teste", city: "Santos", real: true, shy: true, photo: i % 2 ? null : foto(["#c47", "#47c", "#4a7"][i / 2]), lv: new Map(lv), conn: null }));
     renderAll();
-    peopleAccess(true);
+    peopleAccess(true); // logou
+    setView("matches");
   });
-  ok(await E(() => !document.getElementById("people-toggle").hidden), `${tag}: admin vê o botão de pessoas`);
+  ok(await E(() => !document.getElementById("match-mode").hidden), `${tag}: logado, o menu Lista/Bolhas/Rede aparece no topo dos Matches`);
+  ok(await E(() => !pm.on && document.querySelectorAll("#match-list .card").length > 0), `${tag}: começa na Lista de sempre`);
 
-  await page.click("#people-toggle");
+  await page.click('#match-mode [data-mm="bolhas"]');
   await wait(1800); // deixa as bolhas se acomodarem
-  ok(await E(() => pm.on && !document.getElementById("people").hidden && getComputedStyle(document.getElementById("globe")).display === "none"), `${tag}: o botão troca o globo pela visão de pessoas`);
+  ok(await E(() => pm.on && !document.getElementById("people-stage").hidden && getComputedStyle(document.getElementById("match-list")).display === "none" && document.getElementById("people").getBoundingClientRect().height > 300), `${tag}: Bolhas troca a lista pela visão de pessoas`);
   ok(await E(() => pm.nodes.size === 6), `${tag}: uma bolha por pessoa que combina (6)`);
   ok(await E(() => { const n = [...pm.nodes.values()].sort((a, b) => b.pct - a.pct), hi = n[0], lo = n[n.length - 1], d = x => Math.hypot(x.btx - pmGeo().cx, x.bty - pmGeo().cy);
     return hi.pct > lo.pct && hi.br > lo.br && d(hi) < d(lo); }), `${tag}: quem combina mais tem bolha maior e mais perto de você`);
@@ -80,7 +84,7 @@ for (const [w, h, tag] of [[420, 860, "celular"], [1280, 820, "desktop"]]) {
   ok(await E(() => !pm.open), `${tag}: tocar fora fecha a pessoa`);
 
   // rede
-  await page.click('#people-bar [data-pm="rede"]');
+  await page.click('#match-mode [data-mm="rede"]');
   await wait(1200);
   ok(await E(() => pm.mode === "rede" && pm.ints.size >= 4 && pm.ints.has("viagens") && pm.ints.has("surf")), `${tag}: rede mostra as bolhas em comum no meio`);
   ok(await E(() => !pm.ints.has("leitura") && !pm.ints.has("skate")), `${tag}: bolhas que só a outra pessoa tem não entram na rede`);
@@ -98,11 +102,13 @@ for (const [w, h, tag] of [[420, 860, "celular"], [1280, 820, "desktop"]]) {
   ok(await E(() => !!document.querySelector(".sheet") && /Bruno Teste/.test(document.querySelector(".sheet").textContent)), `${tag}: 2º toque abre o perfil`);
   await E(() => closeLayer());
 
-  // logo volta pro globo; perder o admin esconde tudo
-  await page.click("#logo");
-  ok(await E(() => !pm.on && getComputedStyle(document.getElementById("globe")).display !== "none"), `${tag}: o logo volta pro globo`);
-  await E(() => { setPeople(true); peopleAccess(false); });
-  ok(await E(() => !pm.on && document.getElementById("people-toggle").hidden), `${tag}: deixando de ser admin, a visão fecha e o botão some`);
+  // lembra a escolha; Lista volta; sair da conta esconde o menu
+  ok(await E(() => localStorage.getItem("estoura-match-mode") === "rede"), `${tag}: lembra que você estava na Rede`);
+  await page.click('#match-mode [data-mm="lista"]');
+  ok(await E(() => !pm.on && getComputedStyle(document.getElementById("match-list")).display !== "none" && document.getElementById("people-stage").hidden), `${tag}: Lista volta pra lista de sempre`);
+  await E(() => { setMatchMode("bolhas"); peopleAccess(false); });
+  ok(await E(() => !pm.on && document.getElementById("match-mode").hidden), `${tag}: saindo da conta, a visão fecha e o menu some`);
+  await E(() => localStorage.removeItem("estoura-match-mode"));
 }
 
 ok(errors.length === 0, "sem erros no console" + (errors.length ? ": " + errors.join(" | ") : ""));
