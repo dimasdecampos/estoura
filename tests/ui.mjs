@@ -195,6 +195,16 @@ ok(await E(() => state.auto.has("escalada") && state.lv.has("escalada")), "Escal
 await E(() => doMove(byId("escalada/boulder"), null));
 ok(await E(() => !state.lv.has("escalada") && byId("escalada/boulder").parent === null && state.lv.has("escalada/boulder")), "Boulder virou principal; Escalada (automática, sem sub-bolha marcada) saiu");
 
+// logo e aba Bolhas levam pro início, mesmo com uma bolha aberta
+await E(() => { doEnter("corrida"); });
+await wait(300);
+ok(await E(() => state.focus === "corrida"), "entrou na bolha Corrida");
+await page.click("nav [data-view=bolhas]"); await wait(300);
+ok(await E(() => state.focus === null && !document.getElementById("view-bolhas").hidden), "aba Bolhas volta pro início (sai da bolha aberta)");
+await E(() => { doEnter("corrida"); setView("matches"); }); await wait(300);
+await page.click("#logo"); await wait(300);
+ok(await E(() => state.focus === null && !document.getElementById("view-bolhas").hidden), "clicar na logo volta pro início, de qualquer tela");
+
 ok(errors.length === 0,"sem erros no console: " + JSON.stringify(errors));
 console.log(fails ? `\n${fails} FALHA(S)` : "\nTUDO OK");
 await browser.close(); srv.close();

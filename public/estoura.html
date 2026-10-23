@@ -31,7 +31,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .gut{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 
 header{position:relative;z-index:7;background:var(--bg);padding-block:12px 6px;display:flex;align-items:center;justify-content:space-between;gap:12px}
-.logo{font-family:var(--display);font-weight:800;font-size:26px;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
+.logo{background:none;border:0;padding:0;color:inherit;cursor:pointer;font-family:var(--display);font-weight:800;font-size:26px;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
 .logo svg{width:32px;height:32px;color:var(--accent);flex:none}
 .wlogo{width:56px;height:56px;color:var(--accent);display:block;margin-bottom:10px}
 .pill{font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:5px 10px;white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -343,7 +343,7 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
 </defs></svg>
 <div class="app">
   <header class="gut">
-    <div class="logo"><svg viewBox="0 0 160 160" aria-hidden="true"><use href="#mark"/></svg>estoura</div>
+    <button class="logo" id="logo" type="button" aria-label="Ir para o início"><svg viewBox="0 0 160 160" aria-hidden="true"><use href="#mark"/></svg>estoura</button>
     <div class="hr">
       <button class="pill auth" id="auth-btn" hidden>Entrar</button>
       <button class="pill" id="pop-count" aria-label="Minhas bolhas"><b>0</b> estouradas ›</button>
@@ -870,7 +870,8 @@ function setView(v){
   document.querySelectorAll("nav button").forEach(b=>{ if(b.dataset.view===v) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current"); });
   if(v==="bolhas") resize();
 }
-document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>setView(b.dataset.view));
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{ setView(b.dataset.view); if(b.dataset.view==="bolhas") goHome(); });
+document.getElementById("logo").onclick=()=>{ setView("bolhas"); goHome(); };
 
 function renderAll(){ renderHeader(); renderTrend(); renderFocus(); renderMatches(); renderChats(); renderEvents(); renderGroups(); renderTips(); refreshBadges(); tryLink(); }
 function renderHeader(){ document.querySelector("#pop-count b").textContent = state.lv.size; }
@@ -1754,6 +1755,12 @@ function leave(){
   rebuild(); items.forEach(it=>it.dr=targetR(it));
   renderFocus(); renderTrend();
   if(!reduce) anim={dir:"out",t:0,id,h:byId(id).hue};
+}
+// início: sai de qualquer bolha aberta e volta pro globo
+function goHome(){
+  if(!state.focus) return;
+  state.focus=null; anim=null; rebuild(); items.forEach(it=>it.dr=targetR(it));
+  renderFocus(); renderTrend();
 }
 document.getElementById("focus-back").onclick=leave;
 document.getElementById("focus-add").onclick=openNewSub;
