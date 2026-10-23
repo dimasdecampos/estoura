@@ -1144,7 +1144,7 @@ function drawBubble({it,sx,sy,r,z}){
   const kn=KIDN.get(it.id)||0;
   if(kn && r>10){ // pontinhos = tem sub-bolhas (em qualquer nível)
     const n=Math.min(kn,9), off=r*.76, st=Math.min(.36,2.2/Math.max(1,n-1)), dr=Math.max(2.4,r*.05); // dentro da bolha, embaixo do nome
-    ctx.fillStyle=L?"rgba(16,23,42,.8)":`hsla(${h} 95% 85% / .95)`;
+    ctx.fillStyle="rgba(255,255,255,.7)";
     for(let k=0;k<n;k++){ const t=Math.PI/2+(k-(n-1)/2)*st; ctx.beginPath(); ctx.arc(sx+Math.cos(t)*off,sy+Math.sin(t)*off,dr,0,7); ctx.fill(); }
   }
   ctx.fillStyle="rgba(255,255,255,.75)"; ctx.beginPath(); ctx.ellipse(sx-r*.4,sy-r*.45,r*.18,r*.1,-.7,0,7); ctx.fill();
