@@ -316,6 +316,7 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
         <button class="btn sm" id="focus-back">← Voltar</button>
         <span class="path">Todas as bolhas › <b id="focus-title"></b></span>
         <button class="btn sm" id="focus-move" style="margin-left:auto;flex:none">Mover</button>
+        <button class="btn sm" id="focus-del" style="flex:none;color:#ff9a9a">Excluir</button>
         <button class="btn sm" id="focus-add" style="flex:none">+ Sub-bolha</button>
       </div>
       <div class="stage">
@@ -1246,6 +1247,7 @@ function leave(){
 }
 document.getElementById("focus-back").onclick=leave;
 document.getElementById("focus-add").onclick=openNewSub;
+document.getElementById("focus-del").onclick=()=>{ if(canManage()) askDelete(byId(state.focus)); else toast("Entre na sua conta para excluir bolhas"); };
 document.getElementById("focus-move").onclick=()=>{ if(canManage()) openMove(); else toast("Entre na sua conta para mover bolhas"); };
 document.getElementById("focus-out").onclick=()=>{ const it=byId(state.focus); setLevel(it,0); leave(); };
 document.getElementById("focus-seg").onclick=e=>{ const b=e.target.closest("[data-l]"); if(!b) return; const it=byId(state.focus), l=+b.dataset.l; setLevel(it,l===2&&state.lv.get(it.id)===2?1:l); }; // tocar de novo em "É minha vida" desmarca (volta pra Curto)
@@ -1352,22 +1354,34 @@ function drawGrab(){
   const base=pts.find(p=>p.it===grab.it);
   drawBubble({it:grab.it,sx:grab.x,sy:grab.y,r:(base?base.r:30)*1.12,z:1});
 }
+const isOutros=i=>!i.parent&&i.name.toLowerCase()==="outros";
+function ensureOutros(){ // categoria "Outros": recebe as sub-bolhas de uma bolha principal excluída
+  let o=INTERESTS.find(isOutros); if(o) return {o,made:null};
+  o={id:"outros",name:"Outros",hue:215,base:0,week:0,parent:null}; INTERESTS.push(o);
+  return {o,made:window.estouraCreateInterest?window.estouraCreateInterest(o):null};
+}
 function askDelete(it){
-  const subs=descendants(it.id), n=count(it), nomes=subs.slice(0,5).map(s=>esc(s.name)).join(", ")+(subs.length>5?` e mais ${subs.length-5}`:"");
+  const ks=kids(it.id), n=count(it), par=it.parent?byId(it.parent):null, to=par?par.name:(isOutros(it)?"bolhas principais":"Outros");
   openSheet(`<h3 style="font-family:var(--display);font-size:22px;margin:0 0 4px">Excluir "${esc(it.name)}"?</h3>
-    <p class="sub" style="margin-bottom:6px">${subs.length?`Isso também exclui ${subs.length} sub-bolha${subs.length>1?"s":""} (${nomes}). `:""}A bolha sai do perfil de ${n} ${n===1?"pessoa":"pessoas"} e os eventos ligados a ela somem. Não dá para desfazer pelo app.</p>
+    <p class="sub" style="margin-bottom:6px">${ks.length?`As ${ks.length} sub-bolha${ks.length>1?"s":""} (${ks.slice(0,5).map(k=>esc(k.name)).join(", ")}${ks.length>5?` e mais ${ks.length-5}`:""}) não são excluídas: passam para "${esc(to)}". `:""}A bolha sai do perfil de ${n} ${n===1?"pessoa":"pessoas"} e os eventos ligados a ela somem. Não dá para desfazer.</p>
     <div class="actions"><button class="btn" data-close>Cancelar</button><button class="btn primary" id="del-ok" style="background:#ff7a7a;color:#2a0d0d">Excluir</button></div>`,{type:"delete"});
   document.getElementById("del-ok").onclick=()=>{ closeLayer(); doDelete(it); };
 }
 async function doDelete(it){
-  const ids=[it.id,...descendants(it.id).map(k=>k.id)], gone=new Set(ids);
-  const backup=INTERESTS.filter(i=>gone.has(i.id)), levels=ids.filter(id=>state.lv.has(id)).map(id=>[id,state.lv.get(id)]);
-  for(let i=INTERESTS.length-1;i>=0;i--) if(gone.has(INTERESTS[i].id)) INTERESTS.splice(i,1);
-  ids.forEach(id=>state.lv.delete(id)); if(gone.has(state.focus)) state.focus=it.parent||null; // estava dentro dela: sobe pra fora
-  rebuild(); renderAll(); toast(`Bolha "${it.name}" excluída`);
+  const ks=kids(it.id); let dest=null, made=null;
+  if(ks.length){ if(it.parent) dest=byId(it.parent); else if(!isOutros(it)){ const x=ensureOutros(); dest=x.o; made=x.made; } } // sub-bolhas sobem pro pai; sem pai, vão pra "Outros"
+  const destId=dest?dest.id:null, idx=INTERESTS.indexOf(it), lv=state.lv.get(it.id), oldFocus=state.focus;
+  ks.forEach(k=>{ k.parent=destId; });
+  if(dest && ks.some(k=>[k,...descendants(k.id)].some(x=>state.lv.has(x.id)))) [dest.id,...ancestors(dest.id)].forEach(a=>{ if(!state.lv.has(a)) state.lv.set(a,1); }); // quem curte algo ali passa a curtir o destino
+  INTERESTS.splice(idx,1); state.lv.delete(it.id);
+  if(state.focus===it.id) state.focus=it.parent||null; // estava dentro dela: sobe pra fora
+  rebuild(true); renderAll(); toast(ks.length?`"${it.name}" excluída; sub-bolhas foram para "${dest?dest.name:"as principais"}"`:`Bolha "${it.name}" excluída`);
   if(window.estouraDeleteInterest){
-    const ok=await window.estouraDeleteInterest(it,ids);
-    if(!ok){ backup.forEach(b=>INTERESTS.push(b)); levels.forEach(([id,l])=>state.lv.set(id,l)); rebuild(); renderAll(); } // desfaz se o banco recusou
+    let ok=true;
+    if(made) await made;
+    if(window.estouraMoveInterest) for(const k of ks){ if(!(await window.estouraMoveInterest(k,destId))){ ok=false; break; } }
+    if(ok) ok=await window.estouraDeleteInterest(it,[it.id]);
+    if(!ok){ ks.forEach(k=>{ k.parent=it.id; }); INTERESTS.splice(idx,0,it); if(lv) state.lv.set(it.id,lv); state.focus=oldFocus; rebuild(true); renderAll(); if(window.estouraSync) window.estouraSync(); } // desfaz se o banco recusou
   }
 }
 async function doMove(it,newParent){
@@ -1840,6 +1854,7 @@ if (cfg.url && cfg.key) {
       const { error } = await sb.from("interests").insert({ id: i.id, name: i.name, parent_id: i.parent, hue: i.hue, created_by: uid });
       if (error) toast("Não consegui criar a bolha para todos.");
     });
+    return pending;
   };
 
   let wasLogged = false;
