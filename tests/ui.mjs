@@ -31,6 +31,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 await E(() => createBubble("Minha A", null));
 const A = await E(() => INTERESTS.find(i => i.name === "Minha A").id);
 ok(await E(id => state.lv.get(id) === 1, A), "criar A já curte A");
+ok(await E(() => document.getElementById("nudge").hidden), "modo demonstração (sem login disponível): não mostra aviso de login");
 await E(id => doEnter(id), A);
 await E(id => createBubble("Minha B", id), A);
 const B = await E(() => INTERESTS.find(i => i.name === "Minha B").id);
@@ -138,10 +139,42 @@ await page.screenshot({ path: path.join(OUT, "globo-rodizio.png") });
 const hiddenId = await E(() => (INTERESTS.find(i => !i.parent && !items.includes(i) && !state.lv.has(i.id) && i.id !== "escalada") || {}).id);
 await E(id => useBubble(byId(id), undefined), hiddenId);
 ok(await E(id => items.includes(byId(id)) && state.lv.has(id), hiddenId), "bolha estourada pela busca entra no globo (" + hiddenId + ")");
-// espalhada mostra todas
-await E(() => setSpread(true));
-ok(await E(() => items.filter(i => !i.type).length === INTERESTS.length), "visão espalhada mostra todas as bolhas");
-await E(() => setSpread(false));
+// botões laterais: sem "ver todas espalhadas"; Buscar e Criar são separados
+ok(await E(() => !document.getElementById("view-toggle") && !!document.getElementById("search-toggle") && !!document.getElementById("new-toggle")), "sem botão de visão espalhada; Buscar e Criar são dois botões");
+ok(await E(() => { const r = id => document.getElementById(id).getBoundingClientRect(), x = [r("filter-toggle"), r("search-toggle"), r("new-toggle")]; return x[0].bottom <= x[1].top && x[1].bottom <= x[2].top; }), "os 3 botões (filtro, buscar, criar) ficam empilhados sem se sobrepor");
+await page.screenshot({ path: path.join(OUT, "botoes.png") });
+await E(() => { state.focus = null; rebuild(true); renderFocus(); });
+// buscar uma bolha de dentro de outra
+await page.click("#search-toggle");
+ok(await E(() => !document.getElementById("dock-search").hidden && document.getElementById("dock-top").hidden), "Buscar abre só o campo de busca");
+await page.type("#search-input", "corrida de rua");
+ok(await E(() => { const b = document.querySelector('#search-sugg [data-sg-go="corrida/rua"]'); return !!b && /em Corrida/.test(b.textContent) && !document.querySelector("#search-sugg [data-sg-make],#search-sugg [data-sg-new]"); }), "busca acha 'Corrida de rua' (em Corrida) e não oferece criar");
+await page.screenshot({ path: path.join(OUT, "busca.png") });
+await page.click('#search-sugg [data-sg-go="corrida/rua"]');
+await wait(1300);
+ok(await E(() => state.focus === "corrida" && byId("corrida/rua").hl > performance.now() && !state.lv.has("corrida/rua") && document.getElementById("dock-search").hidden), "tocar no resultado abre a bolha-mãe (Corrida), destaca a achada e não curte nada");
+ok(/Corrida de rua está em Corrida/.test(await toast()), "aviso diz onde a bolha está: " + await toast());
+await E(() => { state.focus = null; rebuild(true); renderFocus(); });
+// buscar uma bolha principal que não está no globo
+const farId = await E(() => (INTERESTS.find(i => !i.parent && !items.includes(i) && !state.lv.has(i.id)) || {}).id);
+const farName = await E(id => byId(id).name, farId);
+await page.click("#search-toggle");
+await page.type("#search-input", farName);
+await page.click(`#search-sugg [data-sg-go="${farId}"]`);
+await wait(300);
+ok(await E(id => items.includes(byId(id)) && state.focus === null && !state.lv.has(id), farId), "bolha principal fora do globo entra nele (" + farName + ") sem ser curtida");
+// nada encontrado: oferece criar, e leva o nome pro campo de criar
+await page.click("#search-toggle");
+await page.type("#search-input", "zzzxyz");
+ok(await E(() => !!document.querySelector("#search-sugg [data-sg-make]") && /Nenhuma bolha/.test(document.getElementById("search-sugg").textContent)), "sem resultado: avisa e oferece criar");
+await page.click("#search-sugg [data-sg-make]");
+ok(await E(() => !document.getElementById("dock-top").hidden && document.getElementById("dock-search").hidden && document.getElementById("new-input").value === "zzzxyz"), "'Criar' leva o nome pro campo de criar bolha");
+// só um campo aberto por vez
+await page.click("#search-toggle");
+ok(await E(() => !document.getElementById("dock-search").hidden && document.getElementById("dock-top").hidden), "abrir a busca fecha o criar");
+await page.click("#new-toggle");
+ok(await E(() => document.getElementById("dock-search").hidden && !document.getElementById("dock-top").hidden), "abrir o criar fecha a busca");
+await E(() => { setNewOpen(false); });
 
 // 12) bolha-mãe automática que ficou sem sub-bolha marcada sai (ex.: sub-bolha foi pra outro lugar)
 await E(() => { setLevel(byId("escalada/boulder"), 1, true); });

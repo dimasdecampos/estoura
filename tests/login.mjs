@@ -15,7 +15,7 @@ create function realtime.send(jsonb, text, text, boolean) returns void language 
 create publication supabase_realtime;`);
 for (const f of ["migrations/0001_init.sql", "seed.sql", "migrations/0002_connections_chat.sql", "migrations/0003_pulse.sql",
   "migrations/0004_events.sql", "migrations/0005_real_numbers.sql", "migrations/0006_manage_interests.sql",
-  "migrations/0007_unlimited_depth.sql", "migrations/0008_categorias_populares.sql", "migrations/0009_bolhas_pessoais.sql", "migrations/0010_bolha_mae_automatica.sql", "migrations/0011_notificacoes.sql"])
+  "migrations/0007_unlimited_depth.sql", "migrations/0008_categorias_populares.sql", "migrations/0009_bolhas_pessoais.sql", "migrations/0010_bolha_mae_automatica.sql", "migrations/0011_notificacoes.sql", "migrations/0012_bolhas_publicas.sql"])
   await db.exec(fs.readFileSync(path.join(ROOT, "supabase", f), "utf8"));
 const A = "00000000-0000-0000-0000-00000000000a", B = "00000000-0000-0000-0000-00000000000b", C = "00000000-0000-0000-0000-00000000000c";
 const CONN = "11111111-1111-1111-1111-111111111111";
@@ -215,6 +215,9 @@ ok(await E(() => state.unread.get("c:11111111-1111-1111-1111-111111111111") === 
 ok(await E(() => document.title) === "(2) Estoura", "título (2) Estoura");
 await E(() => setView("matches"));
 ok(await E(() => /2 novas/.test(document.getElementById("match-list").textContent) && /Bruno/.test(document.querySelector("#match-list .card .name").textContent)), "card de Bruno mostra '2 novas'");
+// aba Chat com os dados do banco: aparece, mostra a última mensagem e o selo
+ok(await E(() => !document.querySelector('nav [data-view="chat"]').hidden && document.getElementById("chat-badge").textContent === "2"), "aba Chat aparece (1 conversa ativa) com selo '2'");
+ok(await E(() => { const c = document.querySelector("#chat-list .card"); return !!c && /Bruno/.test(c.textContent) && /Domingo tá bom/.test(c.textContent) && /2/.test(c.querySelector(".newmsg").textContent); }), "lista do Chat: Bruno com a última mensagem 'Domingo tá bom' e selo");
 // abre a conversa: carrega o histórico e zera
 await E(() => openRealChat(REAL.find(p => p.name.startsWith("Bruno"))));
 await wait(700);
@@ -234,6 +237,7 @@ const msgId = String((await q(`select id from messages where body='Bora sim!'`))
 ok(pushCalls.some(c => c.kind === "c" && c.id === msgId && /^Bearer .+\..+\..+/.test(c.auth)), "ao enviar, o app pede o aviso ao servidor (kind c, id da mensagem, com o login): " + JSON.stringify(pushCalls.map(c => [c.kind, c.id])));
 ok((await q(`select * from push_targets('c', $1)`, [msgId])).length === 0 || true, "ok");
 await E(() => closeLayer());
+ok(await E(() => /Você: Bora sim!/.test(document.querySelector("#chat-list .card").textContent) && !document.querySelector("#chat-list .newmsg")), "depois de enviar, a lista do Chat mostra 'Você: Bora sim!' sem selo");
 // convidar a Carla
 await E(() => { setView("matches"); });
 await wait(300);

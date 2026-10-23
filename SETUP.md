@@ -128,5 +128,7 @@ Vercel → **Settings → Domains** → adicione `estoura.com.br` (ou o seu). De
   2. Na Vercel (Settings → Environment Variables), crie `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` e `VAPID_SUBJECT` (um `mailto:` seu) e faça um novo deploy. Para gerar as chaves: `npx web-push generate-vapid-keys`. A privada nunca vai pro GitHub nem pro navegador.
   3. Sem essas variáveis o app continua funcionando: avisa com o app aberto (faixa no topo, som e selo de "novas"), só não avisa com o app fechado.
   4. No iPhone, as notificações só funcionam com o app instalado (Compartilhar → Adicionar à Tela de Início).
+- Rode o `0012_bolhas_publicas.sql`: quem ainda não entrou passa a ver as bolhas reais, com a quantidade de pessoas e tamanho proporcional (só números, nenhum dado de pessoa). Sem ele, o visitante vê só as bolhas de exemplo.
+- Testes automáticos: `npm test` (tudo, ~2 min) ou `npm run test:fast` (sem a rota de push). Precisam do Chrome instalado (ou `CHROME_PATH`).
 - Ninguém mexe no mapa de todo mundo pelo app. Para fundir duas bolhas repetidas, use o comando do topo do `0009` no SQL Editor.
 - Revise as políticas de privacidade e termos (você coleta nome, e-mail e foto — LGPD).

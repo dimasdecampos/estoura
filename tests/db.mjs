@@ -157,5 +157,21 @@ ok(au[A + ":viagens"] === false, "0010: Viagens com ♥ não vira automática");
 ok(au[A + ":mx"] === false, "0010: bolha criada pela pessoa não vira automática");
 ok(au[A + ":trilhas/camping"] === false, "0010: a sub-bolha em si não é automática");
 
+// 0012: bolhas públicas (sem login)
+await run(file("migrations/0011_notificacoes.sql"));
+await run(file("migrations/0012_bolhas_publicas.sql"));
+await run(file("migrations/0012_bolhas_publicas.sql"));
+ok((await q(`select has_function_privilege('anon', 'public.public_interest_stats()', 'execute') as p`))[0].p === true, "visitante (sem login) pode chamar public_interest_stats()");
+ok((await q(`select has_function_privilege('anon', 'public.interest_stats()', 'execute') as p`))[0].p === false, "visitante não chama interest_stats() direto");
+ok((await q(`select has_function_privilege('anon', 'public.my_matches()', 'execute') as p`))[0].p === false, "visitante não vê matches");
+await as(null);
+const pub = await q(`select * from public_interest_stats()`);
+ok(pub.length > 100 && pub.every(r => !("user_id" in r)) && Object.keys(pub[0]).join() === "id,name,parent_id,hue,week_count,people,total,custom,places", "visitante recebe só números por bolha (" + pub.length + " bolhas, colunas: " + Object.keys(pub[0]).join() + ")");
+await run(`delete from user_interests; insert into user_interests (user_id, interest_id, level, parent_id) values ('${A}', 'cinema', 1, null), ('${B}', 'cinema', 1, null), ('${B}', 'yoga', 1, null)`);
+const pub2 = Object.fromEntries((await q(`select id, people from public_interest_stats()`)).map(r => [r.id, r.people]));
+ok(pub2.cinema === 2 && pub2.yoga === 1 && pub2.futebol === 0, "visitante vê a quantidade de pessoas por bolha (cinema 2, yoga 1, futebol 0)");
+await as(A); await run(`select public.create_interest('uorf', 'Bolha Orfa Visitante', null, 1)`); await as(null);
+ok(!(await q(`select id from public_interest_stats()`)).some(r => r.id === "uorf"), "bolha criada por alguém e que ninguém mais tem não aparece pro visitante");
+
 console.log(fails ? `\n${fails} FALHA(S)` : "\nTUDO OK");
 process.exit(fails ? 1 : 0);

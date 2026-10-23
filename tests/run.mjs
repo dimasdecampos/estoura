@@ -8,6 +8,7 @@ import path from "node:path";
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const SUITES = [
+  ["visitor", "App: tela de visitante (quantidade de pessoas, tamanho proporcional)"],
   ["db", "Banco: migrações, bolhas pessoais, votos, fusão"],
   ["push", "Banco: notificações push"],
   ["ui", "App: bolhas, sugestões, mover/remover, rodízio do globo"],

@@ -54,7 +54,36 @@ await E(() => { REAL[6].conn = { id: "cid6", status: "accepted", mine: true, oth
 c = await cards();
 ok(c[0].startsWith("Gabi") && c.length === 3, "quem mandou mensagem sobe pro topo: " + c.join(", "));
 ok(await E(() => document.querySelector("#match-list .card .newmsg").textContent.trim()) === "2 novas", "selo '2 novas' no card");
-ok(await E(() => { const b = document.getElementById("match-badge"); return !b.hidden && b.textContent === "2" && b.classList.contains("alert-on"); }), "aba Matches mostra '2' pulsando");
+ok(await E(() => { const b = document.getElementById("match-badge"); return !b.hidden && b.textContent === "7" && !b.classList.contains("alert-on"); }), "aba Matches mostra quantas pessoas combinam (7), sem pulsar");
+// aba Chat: só aparece com conversa
+ok(await E(() => document.querySelector('nav [data-view="chat"]').hidden), "sem conversas ativas, a aba Chat não aparece");
+await E(() => { CONNS.push(REAL[6].conn); renderAll(); });
+ok(await E(() => !document.querySelector('nav [data-view="chat"]').hidden), "com 1 conversa ativa, a aba Chat aparece");
+ok(await E(() => { const b = document.getElementById("chat-badge"); return !b.hidden && b.textContent === "2" && b.classList.contains("alert-on"); }), "aba Chat mostra '2' pulsando");
+await E(() => setView("chat"));
+ok(await E(() => document.querySelectorAll("#chat-list .card").length === 1 && /Gabi/.test(document.querySelector("#chat-list .card").textContent) && /Diga oi/.test(document.querySelector("#chat-list .card").textContent)), "lista de conversas: Gabi, sem mensagens ainda ('Diga oi')");
+await E(() => { for (const k of [5, 4]) { REAL[k].conn = { id: "cid" + k, status: "accepted", mine: true, otherId: "u" + k, name: REAL[k].name, socials: {} }; CONNS.push(REAL[k].conn); }
+  state.last.set("c:cid6", { text: "Bora?", me: false, at: 1000 }); state.last.set("c:cid5", { text: "Fechado!", me: true, at: 3000 }); state.last.set("c:cid4", { text: "Amanhã às 8", me: false, at: 2000 }); renderAll(); });
+const ordem = await E(() => [...document.querySelectorAll("#chat-list .card")].map(c => c.querySelector(".name").textContent.split(" ")[0]));
+ok(ordem.join() === "Fábio,Elisa,Gabi", "conversas ordenadas pela última mensagem: " + ordem.join());
+ok(await E(() => /Você: Fechado!/.test(document.querySelector("#chat-list .card .meta").textContent)), "prévia mostra 'Você: ' nas mensagens que você enviou");
+ok(await E(() => { const c = [...document.querySelectorAll("#chat-list .card")].find(x => /Gabi/.test(x.textContent)); return !!c.querySelector(".newmsg") && c.querySelector(".newmsg").textContent === "2"; }), "conversa com mensagem nova tem selo");
+await E(() => { EVENTS.push({ type: "event", real: true, uuid: "ev1", id: "e_ev1", title: "Surf no domingo", short: "Surf dom", interest: "surf", days: 2, going: [], iGo: true, time: "08:00", place: "Praia", c: [-23.9, -46.3] }); state.going.add("e_ev1"); renderAll(); });
+ok(await E(() => document.querySelectorAll("#chat-list .card").length === 4 && /Surf no domingo/.test(document.getElementById("chat-list").textContent) && /evento/.test(document.getElementById("chat-list").textContent)), "chat de evento que você vai também aparece na lista");
+await page.screenshot({ path: path.join(OUT, "aba-chat.png") });
+await E(() => [...document.querySelectorAll("#chat-list .card")].find(x => /Fábio/.test(x.textContent)).click());
+ok(await E(() => !!document.querySelector(".chat") && current && current.key === "c:cid5"), "tocar numa conversa abre o chat");
+await E(() => closeLayer());
+// pessoa conectada que não tem mais bolha em comum ainda tem conversa
+await E(() => { REAL.length = 0; renderAll(); });
+ok(await E(() => document.querySelectorAll("#chat-list .card").length === 4), "conversa continua na lista mesmo sem bolha em comum");
+await E(() => { openRealChat(chatItems().find(x => x.kind === "c").p); });
+ok(await E(() => !!document.querySelector(".chat") && !/match NaN/.test(document.body.textContent) && !/Em comum: \./.test(document.body.textContent)), "chat com quem não tem bolha em comum abre sem erro");
+await E(() => closeLayer());
+// quando as conversas acabam, a aba some e a tela volta
+await E(() => { CONNS.length = 0; state.going.delete("e_ev1"); renderAll(); });
+ok(await E(() => document.querySelector('nav [data-view="chat"]').hidden && document.getElementById("view-chat").hidden), "sem conversas, a aba some e você volta pra tela inicial");
+await E(() => { REAL.push(...[0,1,2,3,4,5,6].map(k => ({ id: "r_" + k, uid: "u" + k, name: ["Ana","Bruno","Carla","Diego","Elisa","Fábio","Gabi"][k] + " Teste", city: "Santos", real: true, shy: true, lv: new Map([["surf", 1]]), conn: null }))); CONNS.push(Object.assign(REAL[6].conn = { id: "cid6", status: "accepted", mine: true, otherId: "u6", name: "Gabi Teste", socials: {} })); state.last.clear(); setView("matches"); renderAll(); });
 ok(await E(() => document.title) === "(2) Estoura", "título da página: " + await E(() => document.title));
 await E(() => { REAL[5].conn = { id: "cid5", status: "accepted", mine: true, otherId: "u5", name: REAL[5].name, socials: {} }; REAL[4].conn = { id: "cid4", status: "accepted", mine: true, otherId: "u4", name: REAL[4].name, socials: {} };
   state.unread.set("c:cid5", 1); state.unread.set("c:cid4", 1); renderAll(); });

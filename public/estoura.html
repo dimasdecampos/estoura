@@ -105,9 +105,9 @@ input[type=text],input[type=time],select{background:var(--surface);border:1px so
 input::placeholder{color:var(--muted)}
 .dock input{flex:1}
 /* sugestões enquanto digita o nome de uma bolha nova */
-#dock-top{position:relative}
+#dock-top,#dock-search{position:relative}
 .sugg{display:grid;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:5px;max-height:46vh;overflow-y:auto}
-#dock-top .sugg{position:absolute;left:16px;right:16px;bottom:calc(100% - 4px);z-index:5;box-shadow:0 10px 30px #0009}
+#dock-top .sugg,#dock-search .sugg{position:absolute;left:16px;right:16px;bottom:calc(100% - 4px);z-index:5;box-shadow:0 10px 30px #0009}
 .sheet .sugg{margin-top:8px}
 .sg{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;text-align:left;background:none;border:0;border-radius:10px;padding:8px 10px;color:var(--ink)}
 .sg:hover,.sg:focus-visible{background:var(--surface-2)}
@@ -159,7 +159,7 @@ h2{font-family:var(--display);font-weight:800;font-size:24px;letter-spacing:-.01
 .link{background:none;border:0;padding:0;text-align:left;width:100%}
 .link>.gt,.link>.meta{display:block}
 
-nav{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);background:var(--bg);padding-bottom:4px}
+nav{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;border-top:1px solid var(--line);background:var(--bg);padding-bottom:4px}
 nav button{background:none;border:0;padding:11px 2px 9px;display:grid;justify-items:center;gap:3px;color:var(--muted);font-size:12px;font-weight:600;position:relative}
 nav button[aria-current="page"]{color:var(--ink)}
 nav button[aria-current="page"] svg{stroke:var(--accent)}
@@ -216,6 +216,10 @@ nav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8}
 .badge.alert-on{animation:ping 1.8s ease-out infinite}
 @keyframes ping{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 70%,transparent)}80%,100%{box-shadow:0 0 0 8px transparent}}
 @media (prefers-reduced-motion:reduce){.badge.alert-on{animation:none}}
+/* aviso pra quem curte sem estar logado */
+.nudge{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top,0px));transform:translateX(-50%);width:min(460px,calc(100% - 24px));display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--accent);border-radius:16px;padding:10px 12px;font-size:13px;line-height:1.35;z-index:58;box-shadow:0 12px 34px #000b}
+.nudge>span{flex:1;min-width:0}
+.nudge .x{background:none;border:0;color:var(--muted);font-size:18px;line-height:1;padding:4px 6px}
 /* dicas: ativar notificações, instalar o app */
 .tip{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;font-size:13px;line-height:1.35;margin-bottom:10px}
 .tip>span{flex:1;min-width:0}
@@ -292,7 +296,7 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
   .app{max-width:1280px;grid-template-columns:240px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);grid-template-areas:"head head" "nav main"}
   header{grid-area:head;padding-block:18px 10px}
   main{grid-area:main}
-  nav{grid-area:nav;grid-template-columns:1fr;align-content:start;gap:4px;border-top:0;border-right:1px solid var(--line);padding-block:14px}
+  nav{grid-area:nav;grid-auto-flow:row;grid-template-columns:1fr;align-content:start;gap:4px;border-top:0;border-right:1px solid var(--line);padding-block:14px}
   nav button{grid-template-columns:auto 1fr auto;justify-items:start;align-items:center;gap:12px;font-size:15px;padding:13px 14px;border-radius:14px;text-align:left}
   nav button:hover{background:var(--surface);color:var(--ink)}
   nav button[aria-current="page"]{background:var(--surface-2)}
@@ -335,7 +339,7 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
   <main>
     <section class="view" id="view-bolhas" aria-label="Bolhas">
       <div id="topbar">
-        <p class="hint gut" id="hint" hidden>Arraste pra girar. Toque 1× pra marcar a bolha; 2 toques (ou segure no celular) pra entrar nela e escolher "É minha vida ♥". Pra tirar uma bolha das suas, segure e arraste até "Remover"; pra guardar uma bolha dentro de outra, use o botão Mover. Cada pessoa organiza as próprias bolhas. O globo vai trocando as bolhas que mostra; pra ver todas, use a visão espalhada.</p>
+        <p class="hint gut" id="hint" hidden>Arraste pra girar. Toque 1× pra marcar a bolha; 2 toques (ou segure no celular) pra entrar nela e escolher "É minha vida ♥". Pra tirar uma bolha das suas, segure e arraste até "Remover"; pra guardar uma bolha dentro de outra, use o botão Mover. Cada pessoa organiza as próprias bolhas. O globo vai trocando as bolhas que mostra; pra achar uma específica, use a busca (lupa), e pra criar uma nova, o botão +.</p>
         <div class="trend gut" id="trend"></div>
       </div>
       <div class="crumb gut" id="crumb" hidden>
@@ -347,14 +351,20 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
       </div>
       <div class="stage">
         <canvas id="globe" aria-label="Globo de bolhas de interesses"></canvas>
-        <button class="vt f2" id="filter-toggle" type="button" aria-label="Filtro: ver tudo" title="Filtro: ver tudo"></button>
+        <button class="vt" id="filter-toggle" type="button" aria-label="Filtro: ver tudo" title="Filtro: ver tudo"></button>
+        <button class="vt f2" id="search-toggle" type="button" aria-label="Buscar bolha" title="Buscar bolha"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.500"/><path d="M16 16l4.500 4.500"/></svg></button>
         <button class="vt f3" id="new-toggle" type="button" aria-label="Criar bolha" title="Criar bolha"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
-        <button class="vt" id="view-toggle" type="button" aria-pressed="false" aria-label="Ver todas as bolhas espalhadas" title="Ver todas as bolhas espalhadas"></button>
+      </div>
+      <div class="dock gut" id="dock-search" hidden>
+        <div class="sugg" id="search-sugg" role="listbox" aria-label="Bolhas encontradas" hidden></div>
+        <form id="search-form">
+          <input type="text" id="search-input" maxlength="24" placeholder="Buscar uma bolha que já existe" autocomplete="off" enterkeyhint="search" aria-controls="search-sugg">
+        </form>
       </div>
       <div class="dock gut" id="dock-top" hidden>
         <div class="sugg" id="new-sugg" role="listbox" aria-label="Bolhas parecidas" hidden></div>
         <form id="new-form">
-          <input type="text" id="new-input" maxlength="24" placeholder="Busque ou crie uma bolha" autocomplete="off" enterkeyhint="done" aria-controls="new-sugg">
+          <input type="text" id="new-input" maxlength="24" placeholder="Nome da nova bolha" autocomplete="off" enterkeyhint="done" aria-controls="new-sugg">
         </form>
       </div>
       <div class="dock gut" id="dock-focus" hidden>
@@ -371,6 +381,12 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
       <div id="tip-bar"></div>
       <div class="filters" id="filters"></div>
       <div class="list" id="match-list"></div>
+    </section>
+
+    <section class="view gut" id="view-chat" hidden aria-label="Conversas">
+      <h2>Conversas</h2>
+      <p class="sub">Quem você aceitou conversar e os chats dos eventos que você vai.</p>
+      <div class="list" id="chat-list"></div>
     </section>
 
     <section class="view gut" id="view-eventos" hidden aria-label="Eventos">
@@ -392,6 +408,8 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
       <svg viewBox="0 0 24 24"><circle cx="9" cy="10" r="6"/><circle cx="17" cy="16" r="4"/><circle cx="17.5" cy="5.5" r="2"/></svg>Bolhas</button>
     <button data-view="matches">
       <svg viewBox="0 0 24 24"><circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/></svg>Matches<span class="badge" id="match-badge" hidden></span></button>
+    <button data-view="chat" hidden>
+      <svg viewBox="0 0 24 24"><path d="M4 5h16v11H11l-5 4v-4H4z"/><path d="M8 9.500h8M8 12.500h5"/></svg>Chat<span class="badge" id="chat-badge" hidden></span></button>
     <button data-view="eventos">
       <svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Eventos<span class="badge" id="event-badge" hidden></span></button>
     <button data-view="grupos">
@@ -401,6 +419,7 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
 
 <div class="toast" id="toast" role="status" aria-live="polite" data-off></div>
 <button class="alert" id="alert" type="button" role="alert" data-off></button>
+<div class="nudge" id="nudge" role="status" hidden><span>💾 Entre pra <b>salvar suas bolhas</b> e encontrar matches de verdade.</span><button class="btn sm primary" id="nudge-go" type="button">Entrar</button><button class="x" id="nudge-x" type="button" aria-label="Fechar">×</button></div>
 <div id="layer"></div>
 
 <script src="/config.js"></script>
@@ -591,7 +610,7 @@ function match(p){
 function ranked(){
   return everyone().map(p=>({p,...match(p),d:p.c?km(myC(),p.c):null})).filter(x=>x.shared.length).sort((a,b)=>b.pct-a.pct);
 }
-const hueOf = p => byId([...p.lv.keys()][0]).hue;
+const hueOf = p => { const i=byId([...p.lv.keys()][0]); return i?i.hue:215; };
 const initials = n => n.split(" ").map(s=>s[0]).slice(0,2).join("");
 const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const both2 = (p,id) => p && state.lv.get(id)===2 && p.lv.get(id)===2;
@@ -600,8 +619,8 @@ function chip(id,{dim,p}={}){ const i=byId(id); const h=both2(p,id);
 const avatar = p => `<span class="av" style="--h:${hueOf(p)}">${p.photo?`<img src="${esc(p.photo)}" alt="" referrerpolicy="no-referrer" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`:initials(p.name)}</span>`;
 const relevant = id => state.lv.has(id) || ancestors(id).some(a=>state.lv.has(a));
 
-// em alta = bolhas que mais ganharam gente nos últimos 7 dias (pelo menos 2 pessoas novas)
-function trending(){ return INTERESTS.filter(i=>!i.parent && i.week>=2).map(i=>({i,r:i.week})).sort((a,b)=>b.r-a.r).slice(0,3); }
+// em alta = bolhas que mais ganharam gente nos últimos 7 dias (pelo menos 2 pessoas novas); só pra quem está logado
+function trending(){ if(!authed()) return []; /* quem não entrou não vê as em alta */ return INTERESTS.filter(i=>!i.parent && i.week>=2).map(i=>({i,r:i.week})).sort((a,b)=>b.r-a.r).slice(0,3); }
 const evDate = e => { const d=new Date(); d.setDate(d.getDate()+e.days); const [h,m]=e.time.split(":"); d.setHours(+h,+m,0,0); return d; };
 const evWhen = e => e.days===0?"hoje":e.days===1?"amanhã":`em ${e.days} dias`;
 const evLong = e => evDate(e).toLocaleDateString("pt-BR",{weekday:"short",day:"numeric",month:"short"});
@@ -679,11 +698,22 @@ function openLink(url){
 }
 function tryLink(){
   const key=state.link; if(!key) return;
-  if(key.startsWith("c:")){ const p=REAL.find(x=>x.conn&&"c:"+x.conn.id===key); if(!p) return; state.link=null; closeLayer(); setView("matches"); openRealChat(p); }
-  else if(key.startsWith("e_")){ const e=EVENTS.find(x=>x.id===key); if(!e) return; state.link=null; closeLayer(); setView("eventos"); openEventChat(e); }
+  if(key.startsWith("c:")){ const p=REAL.find(x=>x.conn&&"c:"+x.conn.id===key); if(!p) return; state.link=null; closeLayer(); setView(chatHome()); openRealChat(p); }
+  else if(key.startsWith("e_")){ const e=EVENTS.find(x=>x.id===key); if(!e) return; state.link=null; closeLayer(); setView(chatHome()); openEventChat(e); }
 }
 if(navigator.serviceWorker) navigator.serviceWorker.addEventListener("message",e=>{ if(e.data&&e.data.type==="open") openLink(e.data.url); });
 addEventListener("load",()=>{ if(/[?&](chat|tab)=/.test(location.search)){ openLink(location.href); try{ history.replaceState(null,"",location.pathname); }catch(e){} } });
+
+// quem curte sem estar logado: avisa que nada é salvo e que sem conta não há matches (1ª curtida e de novo a cada 6)
+let newLikes=0, nudgeT;
+function nudgeLogin(){
+  if(authed()) return;
+  const b=document.getElementById("auth-btn"); if(!b||b.hidden) return; // login não está disponível (modo de demonstração)
+  newLikes++; if(newLikes%6!==1) return;
+  const el=document.getElementById("nudge"); el.hidden=false; clearTimeout(nudgeT); nudgeT=setTimeout(()=>{ el.hidden=true; },14000);
+}
+document.getElementById("nudge-x").onclick=()=>{ document.getElementById("nudge").hidden=true; };
+document.getElementById("nudge-go").onclick=()=>{ document.getElementById("nudge").hidden=true; if(window.estouraSignIn) window.estouraSignIn(); };
 
 // ativar notificações e instalar o app
 const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
@@ -753,7 +783,7 @@ function setView(v){
 }
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>setView(b.dataset.view));
 
-function renderAll(){ renderHeader(); renderTrend(); renderFocus(); renderMatches(); renderEvents(); renderGroups(); renderTips(); refreshBadges(); tryLink(); }
+function renderAll(){ renderHeader(); renderTrend(); renderFocus(); renderMatches(); renderChats(); renderEvents(); renderGroups(); renderTips(); refreshBadges(); tryLink(); }
 function renderHeader(){ document.querySelector("#pop-count b").textContent = state.lv.size; }
 
 function renderTrend(){
@@ -767,6 +797,7 @@ document.getElementById("trend").onclick=e=>{ const b=e.target.closest("[data-tr
 function renderFocus(){
   const f=state.focus;
   document.getElementById("topbar").hidden=!!f; document.getElementById("dock-top").hidden=!!f||!newOpen; document.getElementById("new-toggle").hidden=!!f;
+  document.getElementById("dock-search").hidden=!!f||!searchOpen; document.getElementById("search-toggle").hidden=!!f;
   document.getElementById("crumb").hidden=!f; document.getElementById("dock-focus").hidden=!f;
   if(f){
     const pn=pathOf(f); // Todas as bolhas › A › B › <b>C</b>
@@ -782,8 +813,8 @@ function renderMatches(){
     <div class="seg" role="group" aria-label="Raio de distância">${[[10,"10 km"],[50,"50 km"],[300,"300 km"],[0,"Brasil todo"]].map(([v,l])=>`<button data-r="${v}" aria-pressed="${state.radius===v}">${l}</button>`).join("")}</div>`;
   const all=ranked(), r=all.filter(x=>x.d==null||inRadius(x.d)), out=all.length-r.length;
   const inv=CONNS.filter(c=>c.status==="pending"&&!c.mine).length;
-  // o selo da aba mostra o que é novo (convites e mensagens); sem novidade, quantas pessoas combinam
-  const nv=inv+unreadKind("c:"), mb=document.getElementById("match-badge"); mb.hidden=!(nv||r.length); mb.textContent=nv||r.length; mb.classList.toggle("alert-on",!!nv);
+  // o selo da aba mostra os convites novos; sem convite, quantas pessoas combinam
+  const nv=inv, mb=document.getElementById("match-badge"); mb.hidden=!(nv||r.length); mb.textContent=nv||r.length; mb.classList.toggle("alert-on",!!nv);
   // mostra só 3 de cada vez (quem mandou mensagem nova sempre aparece primeiro); "Ver mais" abre o resto
   const chatKey=x=>x.p.conn?"c:"+x.p.conn.id:"", news=r.filter(x=>unreadOf(chatKey(x))>0);
   const ordered=state.moreMatches?r:[...news,...r.filter(x=>!news.includes(x))];
@@ -809,10 +840,43 @@ document.getElementById("match-list").onclick=e=>{
   const a=e.target.closest("[data-inv]"); if(a){ if(window.estouraRespond) window.estouraRespond(a.dataset.inv,a.dataset.act==="accept"); return; }
   const b=e.target.closest("[data-person]"); if(b) openProfile(everyone().find(p=>p.id===b.dataset.person)); };
 
+/* ---------- aba Chat: só aparece quando há conversas ---------- */
+state.last=new Map(); // chave da conversa -> última mensagem {text, me, at}
+// quem aceitou conversar com você mas não combina em nenhuma bolha agora ainda tem conversa
+const personOf=c=>({id:"r_"+c.otherId,uid:c.otherId,name:c.name,photo:c.photo,city:c.city,real:true,shy:true,lv:new Map(),conn:c});
+function chatItems(){
+  const out=[];
+  CONNS.filter(c=>c.status==="accepted").forEach(c=>{
+    const p=REAL.find(x=>x.conn&&x.conn.id===c.id)||personOf(c);
+    out.push({key:"c:"+c.id,title:c.name,p,kind:"c",open:()=>openRealChat(p)});
+  });
+  EVENTS.filter(e=>e.real&&state.going.has(e.id)).forEach(e=>out.push({key:e.id,title:e.title,e,kind:"e",open:()=>openEventChat(e)}));
+  return out.sort((a,b)=>((state.last.get(b.key)||{}).at||0)-((state.last.get(a.key)||{}).at||0)||a.title.localeCompare(b.title,"pt-BR"));
+}
+const chatHome=()=>chatItems().length?"chat":"matches";
+function renderChats(){
+  const items=chatItems(), tab=document.querySelector('nav [data-view="chat"]'); if(!tab) return;
+  tab.hidden=!items.length;
+  const nu=unreadKind("c:")+unreadKind("e_"), b=document.getElementById("chat-badge");
+  b.hidden=!nu; b.textContent=nu; b.classList.toggle("alert-on",!!nu);
+  if(!items.length && !document.getElementById("view-chat").hidden) setView("bolhas"); // a aba sumiu: não fica numa tela vazia
+  document.getElementById("chat-list").innerHTML=items.map(it=>{
+    const l=state.last.get(it.key), n=unreadOf(it.key);
+    const av=it.kind==="c"?avatar(it.p):`<span class="av" style="--h:${(byId(it.e.interest)||{hue:215}).hue}">📅</span>`;
+    return `<button class="card" data-chat="${esc(it.key)}">${av}
+      <span class="who" style="min-width:0"><span class="name">${esc(it.title)}</span>${it.kind==="e"?' <span class="ok">evento</span>':""}
+        <span class="meta" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap${n?";color:var(--ink);font-weight:600":""}">${l?(l.me?"Você: ":"")+esc(l.text):"Diga oi 👋"}</span></span>
+      <span>${n?`<span class="newmsg">${n}</span>`:""}</span></button>`; }).join("");
+}
+document.getElementById("chat-list").onclick=e=>{
+  const b=e.target.closest("[data-chat]"); if(!b) return;
+  const it=chatItems().find(x=>x.key===b.dataset.chat); if(it) it.open();
+};
+
 function renderEvents(){
   const vis=visibleEvents().sort((a,b)=>(relevant(b.interest)-relevant(a.interest))||a.days-b.days);
   const rel=vis.filter(e=>relevant(e.interest)).length;
-  const nvE=unreadKind("e_"), eb=document.getElementById("event-badge"); eb.hidden=!(nvE||rel); eb.textContent=nvE||rel; eb.classList.toggle("alert-on",!!nvE);
+  const eb=document.getElementById("event-badge"); eb.hidden=!rel; eb.textContent=rel;
   const hidden=EVENTS.filter(e=>e.days>=0).length-vis.length;
   document.getElementById("ev-note").textContent = `${vis.length} perto de ${state.city}${hidden?` · ${hidden} fora do raio`:""}`;
   document.getElementById("event-list").innerHTML = vis.length ? vis.map(e=>{ const i=byId(e.interest), me=state.going.has(e.id);
@@ -967,10 +1031,10 @@ function openCreateEvent(){
 let current=null;
 function openChat(c){
   current=c; sheet=null; clearUnread(c.key);
-  if(!state.chats[c.key]) state.chats[c.key]=[{sys:(c.intro?c.intro+" ":"")+`Em comum: ${c.shared.map(i=>byId(i).name).join(", ")}.`}];
+  if(!state.chats[c.key]) state.chats[c.key]=[{sys:(c.intro?c.intro+" ":"")+(c.shared.length?`Em comum: ${c.shared.map(i=>byId(i).name).join(", ")}.`:"Vocês estão conectados.")}];
   const n=c.members.length;
-  const sub = n>1||c.key.startsWith("e")||c.key.startsWith("u") ? (n?"você, "+c.members.map(m=>m.name.split(" ")[0]).join(", "):"só você por enquanto") : [c.members[0].city,`match ${match(c.members[0]).pct}%`].filter(Boolean).join(" · ");
-  const ice=c.shared.map(i=>ICE[i]||`O que te levou a ${byId(i).name.toLowerCase()}?`);
+  const sub = n>1||c.key.startsWith("e")||c.key.startsWith("u") ? (n?"você, "+c.members.map(m=>m.name.split(" ")[0]).join(", "):"só você por enquanto") : [c.members[0].city,c.shared.length?`match ${match(c.members[0]).pct}%`:""].filter(Boolean).join(" · ");
+  const ice=c.shared.length?c.shared.map(i=>ICE[i]||`O que te levou a ${byId(i).name.toLowerCase()}?`):["Oi! Tudo bem?","O que te trouxe pro Estoura?"];
   layer.innerHTML=`<div class="chat" role="dialog" aria-modal="true" aria-label="Conversa: ${esc(c.title)}">
     <div class="ch gut"><button class="back" id="back" aria-label="Voltar">←</button>
       ${n>1?`<div class="stack">${c.members.slice(0,3).map(avatar).join("")}</div>`:n?avatar(c.members[0]):""}
@@ -1058,11 +1122,11 @@ function placeMine(it,parentId){
   return true;
 }
 // bolhas com nome parecido com o que está sendo digitado (a de nome igual vem primeiro)
-function suggest(q){
+function suggest(q,max=5){
   const s=slugify(q); if(!s) return [];
   return INTERESTS.map(i=>({i,k:slugOf(i)})).filter(x=>x.k.includes(s))
     .sort((a,b)=>(b.k===s)-(a.k===s)||b.k.startsWith(s)-a.k.startsWith(s)||count(b.i)-count(a.i)||a.i.name.localeCompare(b.i.name,"pt-BR"))
-    .slice(0,5).map(x=>x.i);
+    .slice(0,max).map(x=>x.i);
 }
 function suggHTML(q,parentId){
   const name=String(q||"").replace(/\s+/g," ").trim(); if(!slugify(name)) return "";
@@ -1085,10 +1149,42 @@ function wireSuggest(inp,box,parentId,done){
     inp.value=""; show(); done(); };
   return show;
 }
-var newOpen=false;
+var newOpen=false, searchOpen=false;
 const newInp=document.getElementById("new-input"), newSugg=document.getElementById("new-sugg");
 const showNewSugg=wireSuggest(newInp,newSugg,()=>undefined,()=>setNewOpen(false));
-function setNewOpen(o){ newOpen=o; if(!o){ newInp.value=""; showNewSugg(); } renderFocus(); if(o) newInp.focus(); }
+function setNewOpen(o){ if(o&&searchOpen) setSearchOpen(false); newOpen=o; if(!o){ newInp.value=""; showNewSugg(); } renderFocus(); if(o) newInp.focus(); }
+
+/* buscar: acha uma bolha que já existe e leva você até ela (não curte nem cria nada) */
+const srchInp=document.getElementById("search-input"), srchBox=document.getElementById("search-sugg");
+function searchHTML(q){
+  const name=String(q||"").replace(/\s+/g," ").trim(); if(!slugify(name)) return "";
+  const list=suggest(name,8);
+  if(!list.length) return `<div class="sg" style="grid-template-columns:1fr;cursor:default"><span><b>Nenhuma bolha com "${esc(name)}"</b><span class="meta">Ainda não existe uma com esse nome.</span></span></div>
+    <button type="button" class="sg new" data-sg-make><i></i><span><b>Criar "${esc(name)}"</b><span class="meta">criar uma bolha nova</span></span></button>`;
+  return list.map(i=>{ const n=count(i), where=i.parent?"em "+pathOf(i.parent).join(" › "):"bolha principal";
+    return `<button type="button" class="sg" role="option" data-sg-go="${esc(i.id)}" style="--h:${i.hue}"><i></i>
+      <span><b>${esc(i.name)}</b><span class="meta">${esc(where)}${n?` · ${n} ${n>1?"pessoas":"pessoa"}`:""}</span></span><em>${state.lv.has(i.id)?"♥ sua":"Ver"}</em></button>`; }).join("");
+}
+const showSearch=()=>{ srchBox.innerHTML=searchHTML(srchInp.value); srchBox.hidden=!srchBox.innerHTML; };
+function setSearchOpen(o){ if(o&&newOpen) setNewOpen(false); searchOpen=o; if(!o){ srchInp.value=""; showSearch(); } renderFocus(); if(o) srchInp.focus(); }
+// leva até a bolha: as principais giram o globo até elas; as de dentro de outra abrem a bolha-mãe
+function goToBubble(id){
+  const it=byId(id); if(!it) return;
+  setSearchOpen(false);
+  if(bubbleFilter!=="all") setFilter("all",true); // o filtro poderia esconder a bolha
+  it.hl=performance.now()+8000; // fica em destaque (e no globo) por um tempo
+  const par=it.parent?byId(it.parent):null;
+  if(par){ toast(`${it.name} está em ${pathOf(par.id).join(" › ")}`); state.focus=null; enter(par.id); return; }
+  if(!items.includes(it)) rebuild();
+  spinTo(id,true); toast(`${it.name}: toque nela pra estourar`);
+}
+srchInp.addEventListener("input",showSearch);
+srchBox.onclick=e=>{
+  const g=e.target.closest("[data-sg-go]"); if(g) return goToBubble(g.dataset.sgGo);
+  if(e.target.closest("[data-sg-make]")){ const n=srchInp.value.trim().slice(0,24); setSearchOpen(false); setNewOpen(true); newInp.value=n; showNewSugg(); }
+};
+document.getElementById("search-form").onsubmit=e=>{ e.preventDefault(); const f=srchBox.querySelector("[data-sg-go]"); if(f) goToBubble(f.dataset.sgGo); };
+document.getElementById("search-toggle").onclick=()=>setSearchOpen(!searchOpen);
 document.getElementById("new-toggle").onclick=()=>setNewOpen(!newOpen);
 document.getElementById("new-form").onsubmit=e=>{
   e.preventDefault(); const name=newInp.value.trim(); if(!name) return;
@@ -1246,21 +1342,11 @@ function stepSpread(){
       let dx=(b.tx+b.ox)-(a.tx+a.ox), dy=(b.ty+b.oy)-(a.ty+a.oy); const d=Math.hypot(dx,dy)||.01, min=a.r+b.r+3;
       if(d<min){ const push=(min-d)*.5; dx/=d; dy/=d; a.ox-=dx*push; a.oy-=dy*push; b.ox+=dx*push; b.oy+=dy*push; a.vx-=dx*push*.2; a.vy-=dy*push*.2; b.vx+=dx*push*.2; b.vy+=dy*push*.2; } } }
 }
-const ICON_GLOBE='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3.200 3 3.200 15 0 18M12 3c-3.200 3-3.200 15 0 18"/></svg>';
-const ICON_SPREAD='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6.500" cy="7" r="2.800"/><circle cx="17" cy="6" r="2"/><circle cx="18" cy="15.500" r="3.200"/><circle cx="8" cy="17.500" r="2.300"/><circle cx="12.500" cy="11.500" r="1.200"/></svg>';
-const HINT_GLOBE=document.getElementById("hint").textContent;
-const HINT_SPREAD="Todas as bolhas, sem agrupar. Arraste pra mover a tela e use a pinça ou a rodinha pra dar zoom. Toque numa bolha pra marcar; segure e arraste até \"Remover\" pra tirar das suas.";
 function setSpread(on){
   if(anim || on===spread.on) return;
   if(on){ state.focus=null; initSpread(); spread.on=true; }
   else { spread.on=false; items.forEach(it=>{ it.sp=null; }); rebuild(true); }
-  const b=document.getElementById("view-toggle");
-  b.setAttribute("aria-pressed",String(on));
-  b.innerHTML=on?ICON_GLOBE:ICON_SPREAD; // o ícone mostra pra onde você vai
-  const t=on?"Voltar pro globo":"Ver todas as bolhas espalhadas"; b.title=t; b.setAttribute("aria-label",t);
-  document.getElementById("hint").textContent=on?HINT_SPREAD:HINT_GLOBE;
   renderFocus(); renderTrend();
-  try{ localStorage.setItem("estoura-view",on?"spread":"globe"); }catch(_){}
 }
 
 const HEART='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.400-7-10a4 4 0 0 1 7-2.600A4 4 0 0 1 19 10c0 5.600-7 10-7 10z"';
@@ -1287,7 +1373,7 @@ function setFilter(k,quiet){
    e, de tempos em tempos, uma sai e outra entra no lugar dela. A visão espalhada mostra todas. */
 const MAXG=()=>W&&W<640?16:22;
 let shown=new Set(); // bolhas sorteadas que estão no globo agora
-const pinned=it=>state.lv.has(it.id)||TREND.has(it.id);
+const pinned=it=>state.lv.has(it.id)||TREND.has(it.id)||(it.hl||0)>performance.now();
 function pickWeighted(list){
   const w=list.map(i=>1+Math.sqrt(count(i))); let r=Math.random()*w.reduce((a,b)=>a+b,0);
   for(let k=0;k<list.length;k++){ r-=w[k]; if(r<=0) return list[k]; }
@@ -1426,7 +1512,7 @@ function drawBubble({it,sx,sy,r,z}){
     ctx.globalAlpha=1; return;
   }
   const L=state.lv.get(it.id)||0;
-  if(TREND.has(it.id) && !state.focus){
+  if((TREND.has(it.id) && !state.focus) || (it.hl||0)>performance.now()){
     const pulse=(Math.sin(now/380+h)+1)/2;
     ctx.strokeStyle=`hsla(${h} 100% 80% / ${.15+.4*pulse})`; ctx.lineWidth=2+3*pulse;
     ctx.beginPath(); ctx.arc(sx,sy,r*(1.1+.12*pulse),0,7); ctx.stroke();
@@ -1640,6 +1726,7 @@ function setLevel(it,L,silent){
   const gone=[], before=it.parent||null; let moved=false; // gone: bolhas-mãe que saem junto
   if(L){ showHeart(it); const was=state.lv.get(it.id)||0;
     if(!was && !state.pp.has(it.id)) state.pp.set(it.id,it.parent||null); // fica guardada onde está
+    if(!was) nudgeLogin();
     state.lv.set(it.id,L); state.auto.delete(it.id); moved=reparent(); markUp(it.id); burst(it,!was);
     try{ navigator.vibrate && navigator.vibrate(L===2?[10,40,10]:12); }catch(e){} }
   else {
@@ -1889,12 +1976,10 @@ if(window.visualViewport){
 document.addEventListener("keydown",e=>{ if(e.key==="Escape" && layer.firstElementChild){ if(state.focus && !sheet && !current) return; closeLayer(); } });
 // girar a tela / redimensionar a janela: refaz o canvas
 addEventListener("orientationchange",()=>setTimeout(resize,250));
-document.getElementById("view-toggle").innerHTML=ICON_SPREAD;
 document.getElementById("filter-toggle").innerHTML=FILTERS[0].ic;
 document.getElementById("filter-toggle").onclick=()=>setFilter(FILTERS[(FILTERS.findIndex(x=>x.k===bubbleFilter)+1)%FILTERS.length].k);
-document.getElementById("view-toggle").onclick=()=>setSpread(!spread.on);
 resize(); rebuild(); renderAll(); welcome(); requestAnimationFrame(frame);
-try{ if(localStorage.getItem("estoura-view")==="spread") setSpread(true); }catch(_){} // lembra a última visão
+try{ localStorage.removeItem("estoura-view"); }catch(_){} // a visão espalhada não existe mais
 try{ const f=localStorage.getItem("estoura-filter"); if(f && f!=="all" && FILTERS.some(x=>x.k===f)) setFilter(f,true); }catch(_){} // lembra o último filtro
 </script>
 
@@ -1911,6 +1996,7 @@ if (cfg.url && cfg.key) {
 
   const first = u => ((u.user_metadata && (u.user_metadata.full_name || u.user_metadata.name)) || u.email || "Você").split(" ")[0];
   const photo = u => u.user_metadata && (u.user_metadata.avatar_url || u.user_metadata.picture);
+  window.estouraSignIn = () => signIn();
   const signIn = () => sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: location.origin + "/", queryParams: { prompt: "select_account" } } });
 
   // redes que a pessoa pode colocar no perfil (os links são montados por socialLink, no script principal)
@@ -1987,11 +2073,16 @@ if (cfg.url && cfg.key) {
   async function loadUnread(){
     if (!uid) return;
     const [a, b] = await Promise.all([
-      sb.from("messages").select("id, connection_id").neq("sender_id", uid).order("id", { ascending: false }).limit(300),
-      sb.from("event_messages").select("id, event_id").neq("sender_id", uid).order("id", { ascending: false }).limit(300),
+      sb.from("messages").select("id, connection_id, sender_id, body, created_at").order("id", { ascending: false }).limit(300),
+      sb.from("event_messages").select("id, event_id, sender_id, body, created_at").order("id", { ascending: false }).limit(300),
     ]);
     if (a.error && b.error) return;
-    const rows = [...(a.data || []).map(r => ({ key: chatKey(r.connection_id), id: r.id })), ...(b.data || []).map(r => ({ key: "e_" + r.event_id, id: r.id }))];
+    const all = [...(a.data || []).map(r => ({ key: chatKey(r.connection_id), id: r.id, me: r.sender_id === uid, text: r.body, at: Date.parse(r.created_at) || 0 })),
+      ...(b.data || []).map(r => ({ key: "e_" + r.event_id, id: r.id, me: r.sender_id === uid, text: r.body, at: Date.parse(r.created_at) || 0 }))];
+    const last = new Map(); // a mais recente de cada conversa (para a aba Chat)
+    all.forEach(r => { const o = last.get(r.key); if (!o || r.at > o.at) last.set(r.key, { text: r.text, me: r.me, at: r.at }); });
+    state.last = last;
+    const rows = all.filter(r => !r.me);
     let map = readMap();
     if (map === null) { // primeira vez neste aparelho: o que já existe conta como lido
       try { localStorage.setItem("estoura-read", "{}"); } catch (e) {}
@@ -2035,6 +2126,7 @@ if (cfg.url && cfg.key) {
   };
 
   function pushMsg(key, m){
+    if (!(m.id != null && state.chats[key] && state.chats[key].some(x => x.id === m.id))) { state.last.set(key, { text: m.text, me: !!m.me, at: Date.now() }); renderChats(); }
     if (m.id != null && (m.me || watching(key))) markRead(key, m.id);
     const list = state.chats[key]; if (!list) return;
     if (list.some(x => x.id === m.id)) return; // a mesma mensagem chega pela resposta do envio e pelo tempo real
@@ -2051,7 +2143,11 @@ if (cfg.url && cfg.key) {
     if (error) return toast("Não consegui carregar a conversa");
     const intro = state.chats[c.key].filter(m => m.sys);
     state.chats[c.key] = [...intro, ...data.map(m => ({ id: m.id, me: m.sender_id === uid, p: authorOf(c, m.sender_id), text: m.body }))];
-    if (data.length) markRead(c.key, data[data.length - 1].id);
+    if (data.length) {
+      markRead(c.key, data[data.length - 1].id);
+      const l = data[data.length - 1]; state.last.set(c.key, { text: l.body, me: l.sender_id === uid, at: state.last.has(c.key) ? state.last.get(c.key).at : Date.now() });
+      renderChats();
+    }
     if (current === c) renderMsgs();
   };
   window.estouraSend = async (c, text) => {
@@ -2328,6 +2424,14 @@ if (cfg.url && cfg.key) {
   sb.auth.onAuthStateChange((event, session) => render(event, session));
   const { data } = await sb.auth.getSession();
   render("INITIAL", data.session);
+  // quem ainda não entrou vê as mesmas bolhas, com quantas pessoas tem em cada e tamanho proporcional (só números, nada de pessoas)
+  async function loadPublic(){
+    if (uid) return;
+    const { data: rows, error } = await sb.rpc("public_interest_stats");
+    if (error || uid || !rows || !rows.length) return; // sem o SQL 0012, segue com as bolhas de exemplo
+    syncInterests(rows); rebuild(true); renderAll();
+  }
+  if (!data.session) loadPublic();
 }
 </script>
 
