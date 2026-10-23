@@ -38,6 +38,10 @@ ok(await E(() => !!document.getElementById("ev-edit")), "evento seu mostra o bot
 await page.click("#ev-edit");
 ok(await E(() => document.querySelector(".sheet h3").textContent === "Editar evento" && !!document.getElementById("ev-date")), "abre o formulário de edição com a data");
 
+// janela com campos abre no topo (o teclado do celular não cobre) e acompanha a área visível
+await E(() => { document.documentElement.style.setProperty("--vvh", "430px"); document.documentElement.classList.add("kb"); });
+ok(await E(() => { const r = document.querySelector(".sheet").getBoundingClientRect(); return !!document.querySelector(".scrim.top") && r.top < 10 && r.bottom <= 432; }), "janela com campos abre no topo e cabe acima do teclado");
+await E(() => { document.documentElement.style.removeProperty("--vvh"); document.documentElement.classList.remove("kb"); });
 await E(() => {
   const d = new Date(); d.setDate(d.getDate() + 5);
   document.getElementById("ev-title").value = "Surf e churrasco";

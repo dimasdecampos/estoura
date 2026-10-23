@@ -182,6 +182,7 @@ nav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8}
 .sheet{background:var(--surface);border:1px solid var(--line);border-bottom:0;border-radius:22px 22px 0 0;width:100%;max-width:720px;max-height:88%;overflow-y:auto;
   padding-block:10px calc(18px + env(safe-area-inset-bottom,0px));animation:up .22s ease-out}
 @keyframes up{from{transform:translateY(30px);opacity:.4}}
+@keyframes down{from{transform:translateY(-30px);opacity:.4}}
 .grab{width:38px;height:4px;border-radius:4px;background:var(--line);margin:0 auto 12px}
 .ph{display:flex;gap:14px;align-items:center}
 .ph .av{width:64px;height:64px;font-size:20px}
@@ -243,7 +244,7 @@ html.kb .installbar{display:none}
 .tip>span{flex:1;min-width:0}
 .tip .x{background:none;border:0;color:var(--muted);font-size:18px;line-height:1;padding:4px 6px}
 .more{width:100%;text-align:center;border:1px dashed var(--line);background:none;color:var(--muted)}
-@media (prefers-reduced-motion:reduce){.sheet{animation:none}}
+@media (prefers-reduced-motion:reduce){.sheet,.scrim.top .sheet{animation:none}}
 
 /* ================= RESPONSIVO: celular, tablet e desktop ================= */
 :root{padding:0;--vvh:100dvh}
@@ -285,6 +286,10 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
 @media (max-width:759px){
   .chat{height:var(--vvh);bottom:auto}
   .app{height:var(--vvh)}
+  /* janelas com campo de texto (Mover, criar, evento...) abrem no topo e cabem na área que sobra com o teclado aberto */
+  .scrim.top{align-items:flex-start;bottom:auto;height:var(--vvh,100dvh);padding-top:env(safe-area-inset-top,0px)}
+  .scrim.top .sheet{border:1px solid var(--line);border-top:0;border-radius:0 0 22px 22px;max-height:calc(100% - 6px);padding-block:14px 14px;animation:down .22s ease-out}
+  .scrim.top .grab{display:none}
   html.kb nav{display:none}
   input[type=text],input[type=time],select{font-size:16px} /* abaixo de 16px o iPhone dá zoom ao tocar no campo */
 }
@@ -1048,7 +1053,7 @@ let sheet=null;
 function closeLayer(){ layer.innerHTML=""; sheet=null; current=null; }
 function openSheet(html,meta){
   sheet=meta;
-  layer.innerHTML=`<div class="scrim" id="scrim"><div class="sheet gut" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div></div>`;
+  layer.innerHTML=`<div class="scrim${/<input|<select|<textarea/.test(html)?" top":""}" id="scrim"><div class="sheet gut" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div></div>`;
   // No celular, o "clique" que o navegador dispara depois do toque cai na janela recém-aberta
   // e a fechava na hora. Ignoramos cliques nos primeiros instantes.
   const born=Date.now();
