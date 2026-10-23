@@ -19,7 +19,8 @@ export async function GET(request: Request) {
   const key =
     env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"] ?? env["SUPABASE_PUBLISHABLE_KEY"] ??
     env["NEXT_PUBLIC_SUPABASE_ANON_KEY"] ?? env["SUPABASE_ANON_KEY"];
-  const cfg = url && key ? { url, key } : {};
+  const vapid = env["VAPID_PUBLIC_KEY"]; // chave pública das notificações push (a privada fica só no servidor)
+  const cfg = url && key ? { url, key, ...(vapid ? { vapid } : {}) } : {};
   return new Response(`window.ESTOURA_CONFIG=${JSON.stringify(cfg)};`, {
     headers: { "content-type": "application/javascript; charset=utf-8", "cache-control": "no-store" },
   });

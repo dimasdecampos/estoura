@@ -122,5 +122,11 @@ Vercel → **Settings → Domains** → adicione `estoura.com.br` (ou o seu). De
   - o mapa de todo mundo mostra cada bolha onde a maioria guardou;
   - nomes repetidos (com acento ou maiúscula diferente) viram uma bolha só.
   **Rode o 0009 antes de publicar o `estoura.html` novo**: sem ele o app não consegue carregar as bolhas da conta.
+- Rode o `0010_bolha_mae_automatica.sql`: ele salva quais bolhas-mãe foram marcadas só por causa de uma sub-bolha, pra elas saírem junto quando a última sub-bolha sai, mesmo depois de recarregar a página. O app funciona sem ele, só não lembra isso.
+- **Notificações** (mensagens e convites avisam mesmo com o app fechado):
+  1. Rode o `0011_notificacoes.sql` no SQL Editor.
+  2. Na Vercel (Settings → Environment Variables), crie `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` e `VAPID_SUBJECT` (um `mailto:` seu) e faça um novo deploy. Para gerar as chaves: `npx web-push generate-vapid-keys`. A privada nunca vai pro GitHub nem pro navegador.
+  3. Sem essas variáveis o app continua funcionando: avisa com o app aberto (faixa no topo, som e selo de "novas"), só não avisa com o app fechado.
+  4. No iPhone, as notificações só funcionam com o app instalado (Compartilhar → Adicionar à Tela de Início).
 - Ninguém mexe no mapa de todo mundo pelo app. Para fundir duas bolhas repetidas, use o comando do topo do `0009` no SQL Editor.
 - Revise as políticas de privacidade e termos (você coleta nome, e-mail e foto — LGPD).

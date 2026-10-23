@@ -207,6 +207,20 @@ nav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8}
 
 .toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);font-weight:600;font-size:13.5px;padding:9px 14px;border-radius:12px;z-index:40;max-width:calc(100% - 32px);text-align:center;transition:opacity .2s}
 .toast[data-off]{opacity:0;pointer-events:none}
+/* alerta de mensagem nova (faixa no topo, toque pra abrir) */
+.alert{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top,0px));transform:translateX(-50%);width:min(440px,calc(100% - 24px));display:grid;gap:2px;text-align:left;background:var(--surface-2);color:var(--ink);border:1px solid var(--accent);border-radius:16px;padding:11px 14px;z-index:60;box-shadow:0 12px 34px #000b;transition:transform .25s,opacity .25s}
+.alert[data-off]{opacity:0;transform:translate(-50%,-140%);pointer-events:none}
+.alert b{font-size:14px}
+.alert span{font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.newmsg{background:var(--accent);color:#2a0d1b;font-size:11px;font-weight:700;border-radius:999px;padding:2px 8px;white-space:nowrap}
+.badge.alert-on{animation:ping 1.8s ease-out infinite}
+@keyframes ping{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 70%,transparent)}80%,100%{box-shadow:0 0 0 8px transparent}}
+@media (prefers-reduced-motion:reduce){.badge.alert-on{animation:none}}
+/* dicas: ativar notificações, instalar o app */
+.tip{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;font-size:13px;line-height:1.35;margin-bottom:10px}
+.tip>span{flex:1;min-width:0}
+.tip .x{background:none;border:0;color:var(--muted);font-size:18px;line-height:1;padding:4px 6px}
+.more{width:100%;text-align:center;border:1px dashed var(--line);background:none;color:var(--muted)}
 @media (prefers-reduced-motion:reduce){.sheet{animation:none}}
 
 /* ================= RESPONSIVO: celular, tablet e desktop ================= */
@@ -321,7 +335,7 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
   <main>
     <section class="view" id="view-bolhas" aria-label="Bolhas">
       <div id="topbar">
-        <p class="hint gut" id="hint" hidden>Arraste pra girar. Toque 1× pra marcar a bolha; 2 toques (ou segure no celular) pra entrar nela e escolher "É minha vida ♥". Pra tirar uma bolha das suas, segure e arraste até "Remover"; pra guardar uma bolha dentro de outra, use o botão Mover. Cada pessoa organiza as próprias bolhas.</p>
+        <p class="hint gut" id="hint" hidden>Arraste pra girar. Toque 1× pra marcar a bolha; 2 toques (ou segure no celular) pra entrar nela e escolher "É minha vida ♥". Pra tirar uma bolha das suas, segure e arraste até "Remover"; pra guardar uma bolha dentro de outra, use o botão Mover. Cada pessoa organiza as próprias bolhas. O globo vai trocando as bolhas que mostra; pra ver todas, use a visão espalhada.</p>
         <div class="trend gut" id="trend"></div>
       </div>
       <div class="crumb gut" id="crumb" hidden>
@@ -354,6 +368,7 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
     <section class="view gut" id="view-matches" hidden aria-label="Matches">
       <h2>Quem estourou o mesmo que você</h2>
       <p class="sub">Interesses raros e sub-bolhas pesam mais. Quem marcou "é minha vida" no mesmo que você ganha bônus (♥).</p>
+      <div id="tip-bar"></div>
       <div class="filters" id="filters"></div>
       <div class="list" id="match-list"></div>
     </section>
@@ -385,6 +400,7 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite" data-off></div>
+<button class="alert" id="alert" type="button" role="alert" data-off></button>
 <div id="layer"></div>
 
 <script src="/config.js"></script>
@@ -611,6 +627,125 @@ function suggestGroups(){
 /* ================= UI ================= */
 let tt; function toast(t){ const el=document.getElementById("toast"); el.textContent=t; delete el.dataset.off; clearTimeout(tt); tt=setTimeout(()=>el.dataset.off="",2400); }
 
+/* ---------- avisos: mensagens novas, notificações e app instalado ---------- */
+state.unread=new Map(); // chave da conversa ("c:<conexão>" ou "e_<evento>") -> mensagens novas
+const unreadOf=key=>state.unread.get(key)||0;
+const unreadKind=prefix=>[...state.unread].filter(([k])=>k.startsWith(prefix)).reduce((a,[,n])=>a+n,0);
+const pendingInvites=()=>CONNS.filter(c=>c.status==="pending"&&!c.mine).length;
+const novidades=()=>unreadKind("")+pendingInvites();
+// o que a pessoa já leu: id da última mensagem lida de cada conversa (guardado neste aparelho)
+const readMap=()=>{ try{ return JSON.parse(localStorage.getItem("estoura-read")||"null"); }catch(e){ return null; } };
+function markRead(key,id){ try{ const m=readMap()||{}; if(id!=null&&(m[key]||0)<id){ m[key]=id; localStorage.setItem("estoura-read",JSON.stringify(m)); } }catch(e){} }
+function refreshBadges(){
+  const n=novidades(); document.title=n?`(${n}) Estoura`:"Estoura";
+  try{ if(navigator.setAppBadge){ if(n) navigator.setAppBadge(n); else navigator.clearAppBadge(); } }catch(e){}
+}
+function bumpUnread(key){ state.unread.set(key,unreadOf(key)+1); renderAll(); }
+function clearUnread(key){ if(state.unread.delete(key)) renderAll(); }
+const watching=key=>!!current&&current.key===key&&document.visibilityState==="visible"&&document.hasFocus(); // a conversa está aberta e na tela
+
+// som curto + vibração (o som só toca depois do primeiro toque na página, regra do navegador)
+let audioCtx=null;
+const unlockAudio=()=>{ try{ audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==="suspended") audioCtx.resume(); }catch(e){} };
+addEventListener("pointerdown",unlockAudio,{once:true});
+function beep(){
+  try{ if(!audioCtx||audioCtx.state!=="running") return; const t=audioCtx.currentTime;
+    [[880,0],[1175,.13]].forEach(([f,d])=>{ const o=audioCtx.createOscillator(), g=audioCtx.createGain(); o.type="sine"; o.frequency.value=f;
+      g.gain.setValueAtTime(0,t+d); g.gain.linearRampToValueAtTime(.1,t+d+.02); g.gain.exponentialRampToValueAtTime(.001,t+d+.2);
+      o.connect(g); g.connect(audioCtx.destination); o.start(t+d); o.stop(t+d+.22); }); }catch(e){}
+}
+let alertT;
+function showAlert(n){
+  const el=document.getElementById("alert"); el.innerHTML=`<b>${esc(n.title)}</b><span>${esc(n.body)}</span>`; el.dataset.url=n.url||"";
+  delete el.dataset.off; clearTimeout(alertT); alertT=setTimeout(()=>el.dataset.off="",6500);
+  beep(); try{ navigator.vibrate&&navigator.vibrate([60,40,60]); }catch(e){}
+}
+document.getElementById("alert").onclick=e=>{ const el=e.currentTarget; el.dataset.off=""; if(el.dataset.url) openLink(el.dataset.url); };
+// notificação do sistema (fora do app). Usa a mesma etiqueta (tag) do aviso do servidor, então não aparece duas vezes
+async function systemNotify(n){
+  if(!("Notification" in window)||Notification.permission!=="granted"||notifOff()||!navigator.serviceWorker) return;
+  try{ const reg=await navigator.serviceWorker.ready;
+    await reg.showNotification(n.title,{body:n.body,tag:n.tag,icon:"/icons/icon-192.png",badge:"/icons/icon-192.png",data:{url:n.url||"/"}}); }catch(e){}
+}
+// n: {title, body, tag, url}. Com o app na tela: faixa no topo. Fora dela: notificação do sistema.
+function incoming(n){ if(document.visibilityState==="visible"&&document.hasFocus()) showAlert(n); else systemNotify(n); }
+
+// abrir direto uma conversa ou aba (toque no alerta, na notificação ou em um atalho do app)
+function openLink(url){
+  let u; try{ u=new URL(url,location.origin); }catch(e){ return; }
+  const tab=u.searchParams.get("tab"), chat=u.searchParams.get("chat");
+  if(tab&&document.getElementById("view-"+tab)) setView(tab);
+  if(chat){ state.link=chat; clearTimeout(state.linkT); state.linkT=setTimeout(()=>{ state.link=null; },20000); tryLink(); }
+}
+function tryLink(){
+  const key=state.link; if(!key) return;
+  if(key.startsWith("c:")){ const p=REAL.find(x=>x.conn&&"c:"+x.conn.id===key); if(!p) return; state.link=null; closeLayer(); setView("matches"); openRealChat(p); }
+  else if(key.startsWith("e_")){ const e=EVENTS.find(x=>x.id===key); if(!e) return; state.link=null; closeLayer(); setView("eventos"); openEventChat(e); }
+}
+if(navigator.serviceWorker) navigator.serviceWorker.addEventListener("message",e=>{ if(e.data&&e.data.type==="open") openLink(e.data.url); });
+addEventListener("load",()=>{ if(/[?&](chat|tab)=/.test(location.search)){ openLink(location.href); try{ history.replaceState(null,"",location.pathname); }catch(e){} } });
+
+// ativar notificações e instalar o app
+const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+const standalone=()=>matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+const notifSupported=()=>"Notification" in window&&"serviceWorker" in navigator&&"PushManager" in window;
+const canAskNotif=()=>notifSupported()&&(!isIOS||standalone()); // no iPhone só funciona com o app instalado na tela inicial
+const notifState=()=>"Notification" in window?Notification.permission:"unsupported"; // default | granted | denied
+const notifOff=()=>{ try{ return localStorage.getItem("estoura-notif-off")==="1"; }catch(e){ return false; } };
+const setNotifOff=v=>{ try{ if(v) localStorage.setItem("estoura-notif-off","1"); else localStorage.removeItem("estoura-notif-off"); }catch(e){} };
+const tipsDone=()=>{ try{ return JSON.parse(localStorage.getItem("estoura-tips")||"{}"); }catch(e){ return {}; } };
+const tipDone=k=>!!tipsDone()[k];
+function dismissTip(k){ try{ const t=tipsDone(); t[k]=1; localStorage.setItem("estoura-tips",JSON.stringify(t)); }catch(e){} renderTips(); }
+async function enableNotifications(){ // só depois de um toque da pessoa (regra do navegador)
+  if(!canAskNotif()) return false;
+  if(notifState()==="granted"){ setNotifOff(false); if(window.estouraPush) await window.estouraPush.subscribe(); toast("Notificações ativadas!"); renderTips(); return true; }
+  let perm; try{ perm=await Notification.requestPermission(); }catch(e){ perm="denied"; }
+  if(perm!=="granted"){ toast("Notificações bloqueadas. Libere nas configurações do navegador."); return false; }
+  setNotifOff(false);
+  if(window.estouraPush) await window.estouraPush.subscribe();
+  toast("Notificações ativadas!"); renderTips(); return true;
+}
+let deferredInstall=null;
+addEventListener("beforeinstallprompt",e=>{ e.preventDefault(); deferredInstall=e; renderTips(); });
+addEventListener("appinstalled",()=>{ deferredInstall=null; renderTips(); toast("App instalado!"); });
+async function installApp(){
+  if(!deferredInstall) return;
+  deferredInstall.prompt(); try{ await deferredInstall.userChoice; }catch(e){}
+  deferredInstall=null; renderTips();
+}
+function renderTips(){
+  const el=document.getElementById("tip-bar"); if(!el) return;
+  const out=[];
+  if(authed()&&notifState()==="default"&&!tipDone("notif")){
+    if(canAskNotif()) out.push(`<div class="tip"><span>🔔 Ative as notificações pra saber na hora quando alguém te responder.</span><button class="btn sm primary" data-tip="notif">Ativar</button><button class="x" data-skip="notif" aria-label="Agora não">×</button></div>`);
+    else if(isIOS&&!standalone()) out.push(`<div class="tip"><span>🔔 No iPhone, toque em Compartilhar › Adicionar à Tela de Início pra instalar o app e receber notificações.</span><button class="x" data-skip="notif" aria-label="Fechar">×</button></div>`);
+  }
+  if(deferredInstall&&!tipDone("install")) out.push(`<div class="tip"><span>📲 Instale o Estoura no seu aparelho: abre mais rápido e em tela cheia.</span><button class="btn sm primary" data-tip="install">Instalar</button><button class="x" data-skip="install" aria-label="Agora não">×</button></div>`);
+  el.innerHTML=out.join("");
+}
+document.getElementById("tip-bar").onclick=async e=>{
+  const s=e.target.closest("[data-skip]"); if(s) return dismissTip(s.dataset.skip);
+  const b=e.target.closest("[data-tip]"); if(!b) return;
+  if(b.dataset.tip==="notif") await enableNotifications(); else await installApp();
+};
+// bloco "Este aparelho" do menu da conta
+function deviceHTML(){
+  const n=notifState();
+  const notif=!notifSupported()?`<span class="note" style="margin:0">Este navegador não envia notificações.</span>`
+    :isIOS&&!standalone()?`<span class="note" style="margin:0">No iPhone, instale o app (Compartilhar › Adicionar à Tela de Início) pra receber notificações.</span>`
+    :n==="granted"&&!notifOff()?`<div class="row"><span>🔔 Notificações ligadas</span><button class="btn sm" type="button" id="dev-notif-off">Desligar</button></div>`
+    :n==="denied"?`<span class="note" style="margin:0">Notificações bloqueadas. Libere nas configurações do navegador pra este site.</span>`
+    :`<div class="row"><span>🔔 Notificações desligadas</span><button class="btn sm primary" type="button" id="dev-notif-on">Ativar</button></div>`;
+  const inst=standalone()?"":deferredInstall?`<div class="row"><span>📲 App na tela inicial</span><button class="btn sm primary" type="button" id="dev-install">Instalar</button></div>`:"";
+  return `<div class="sec"><div class="tag">Este aparelho</div><div class="form">${notif}${inst}</div></div>`;
+}
+function wireDevice(reopen){
+  const g=id=>document.getElementById(id);
+  if(g("dev-notif-on")) g("dev-notif-on").onclick=async()=>{ await enableNotifications(); reopen(); };
+  if(g("dev-notif-off")) g("dev-notif-off").onclick=async()=>{ setNotifOff(true); if(window.estouraPush) await window.estouraPush.unsubscribe(); toast("Notificações desligadas neste aparelho."); reopen(); };
+  if(g("dev-install")) g("dev-install").onclick=async()=>{ await installApp(); reopen(); };
+}
+
 function setView(v){
   document.querySelectorAll(".view").forEach(s=>s.hidden = s.id!=="view-"+v);
   document.querySelectorAll("nav button").forEach(b=>{ if(b.dataset.view===v) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current"); });
@@ -618,7 +753,7 @@ function setView(v){
 }
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>setView(b.dataset.view));
 
-function renderAll(){ renderHeader(); renderTrend(); renderFocus(); renderMatches(); renderEvents(); renderGroups(); }
+function renderAll(){ renderHeader(); renderTrend(); renderFocus(); renderMatches(); renderEvents(); renderGroups(); renderTips(); refreshBadges(); tryLink(); }
 function renderHeader(){ document.querySelector("#pop-count b").textContent = state.lv.size; }
 
 function renderTrend(){
@@ -640,41 +775,50 @@ function renderFocus(){
   }
 }
 
+const MATCH_PREVIEW=3; // quantas pessoas a tela de Matches mostra antes do "Ver mais"
 function renderMatches(){
   document.getElementById("filters").innerHTML=`
     <label for="city">Você está em <select id="city">${Object.keys(CITIES).map(c=>`<option${c===state.city?" selected":""}>${c}</option>`).join("")}</select></label>
     <div class="seg" role="group" aria-label="Raio de distância">${[[10,"10 km"],[50,"50 km"],[300,"300 km"],[0,"Brasil todo"]].map(([v,l])=>`<button data-r="${v}" aria-pressed="${state.radius===v}">${l}</button>`).join("")}</div>`;
   const all=ranked(), r=all.filter(x=>x.d==null||inRadius(x.d)), out=all.length-r.length;
   const inv=CONNS.filter(c=>c.status==="pending"&&!c.mine).length;
-  const mb=document.getElementById("match-badge"); mb.hidden=!(r.length+inv); mb.textContent=r.length+inv;
+  // o selo da aba mostra o que é novo (convites e mensagens); sem novidade, quantas pessoas combinam
+  const nv=inv+unreadKind("c:"), mb=document.getElementById("match-badge"); mb.hidden=!(nv||r.length); mb.textContent=nv||r.length; mb.classList.toggle("alert-on",!!nv);
+  // mostra só 3 de cada vez (quem mandou mensagem nova sempre aparece primeiro); "Ver mais" abre o resto
+  const chatKey=x=>x.p.conn?"c:"+x.p.conn.id:"", news=r.filter(x=>unreadOf(chatKey(x))>0);
+  const ordered=state.moreMatches?r:[...news,...r.filter(x=>!news.includes(x))];
+  const shown=state.moreMatches?r:ordered.slice(0,Math.max(MATCH_PREVIEW,news.length)), rest=r.length-shown.length;
   document.getElementById("match-list").innerHTML =
     inviteBlock() +
     (out?`<div class="note">${out} ${out>1?"pessoas":"pessoa"} com bolhas em comum fora do raio.</div>`:"") +
-    (r.length ? r.map(({p,pct,shared,d})=>`
+    (r.length ? shown.map(({p,pct,shared,d})=>{ const nn=unreadOf(p.conn?"c:"+p.conn.id:""); return `
     <button class="card" data-person="${p.id}">
       ${avatar(p)}
-      <span class="who"><span class="name">${esc(p.name)}</span> ${isLinked(p)?'<span class="ok">conectados</span>':""}${p.conn&&p.conn.status==="pending"&&!p.conn.mine?'<span class="ok">convidou você</span>':""}${exTag(p)}
+      <span class="who"><span class="name">${esc(p.name)}</span> ${nn?`<span class="newmsg">${nn} ${nn>1?"novas":"nova"}</span>`:""}${isLinked(p)?'<span class="ok">conectados</span>':""}${p.conn&&p.conn.status==="pending"&&!p.conn.mine?'<span class="ok">convidou você</span>':""}${exTag(p)}
         <span class="meta" style="display:block">${esc(metaLine(p,d))}</span>
-        <span class="chips">${shared.slice(0,5).map(i=>chip(i,{p})).join("")}${shared.length>5?`<span class="chip dim">+${shared.length-5}</span>`:""}</span></span>
+        <span class="chips">${shared.slice(0,3).map(i=>chip(i,{p})).join("")}${shared.length>3?`<span class="chip dim">+${shared.length-3}</span>`:""}</span></span>
       <span><span class="score">${pct}%<small>${shared.length} em comum</small></span><span class="bar"><span style="width:${pct}%"></span></span></span>
-    </button>`).join("") : `<div class="empty">${!state.lv.size?"Estoure algumas bolhas pra ver seus matches.":out?"Ninguém nesse raio ainda. Aumente a distância.":"Ainda ninguém estourou as mesmas bolhas que você. Convide amigos pra entrar no Estoura!"}</div>`);
+    </button>`; }).join("")
+      + (r.length>MATCH_PREVIEW?`<button class="btn more" data-more="1" aria-expanded="${!!state.moreMatches}">${state.moreMatches?"Mostrar menos":`Ver mais ${rest} ${rest>1?"pessoas":"pessoa"}`}</button>`:"")
+      : `<div class="empty">${!state.lv.size?"Estoure algumas bolhas pra ver seus matches.":out?"Ninguém nesse raio ainda. Aumente a distância.":"Ainda ninguém estourou as mesmas bolhas que você. Convide amigos pra entrar no Estoura!"}</div>`);
 }
 document.getElementById("filters").addEventListener("change",e=>{ if(e.target.id==="city"){ state.city=e.target.value; rebuild(); renderAll(); } });
 document.getElementById("filters").addEventListener("click",e=>{ const b=e.target.closest("[data-r]"); if(b){ state.radius=+b.dataset.r; rebuild(); renderAll(); } });
 document.getElementById("match-list").onclick=e=>{
+  if(e.target.closest("[data-more]")){ state.moreMatches=!state.moreMatches; renderMatches(); return; }
   const a=e.target.closest("[data-inv]"); if(a){ if(window.estouraRespond) window.estouraRespond(a.dataset.inv,a.dataset.act==="accept"); return; }
   const b=e.target.closest("[data-person]"); if(b) openProfile(everyone().find(p=>p.id===b.dataset.person)); };
 
 function renderEvents(){
   const vis=visibleEvents().sort((a,b)=>(relevant(b.interest)-relevant(a.interest))||a.days-b.days);
   const rel=vis.filter(e=>relevant(e.interest)).length;
-  const eb=document.getElementById("event-badge"); eb.hidden=!rel; eb.textContent=rel;
+  const nvE=unreadKind("e_"), eb=document.getElementById("event-badge"); eb.hidden=!(nvE||rel); eb.textContent=nvE||rel; eb.classList.toggle("alert-on",!!nvE);
   const hidden=EVENTS.filter(e=>e.days>=0).length-vis.length;
   document.getElementById("ev-note").textContent = `${vis.length} perto de ${state.city}${hidden?` · ${hidden} fora do raio`:""}`;
   document.getElementById("event-list").innerHTML = vis.length ? vis.map(e=>{ const i=byId(e.interest), me=state.going.has(e.id);
     return `<div class="group ev" style="--h:${i.hue}">
       <button class="link" data-event="${e.id}">
-        <span class="row"><span>${chip(e.interest)} ${relevant(e.interest)?'<span class="ok">combina com você</span>':""}${exTag(e)}</span><span class="when">${evWhen(e)}</span></span>
+        <span class="row"><span>${chip(e.interest)} ${unreadOf(e.id)?`<span class="newmsg">${unreadOf(e.id)} ${unreadOf(e.id)>1?"novas":"nova"}</span> `:""}${relevant(e.interest)?'<span class="ok">combina com você</span>':""}${exTag(e)}</span><span class="when">${evWhen(e)}</span></span>
         <span class="gt" style="margin-top:8px">${esc(e.title)}</span>
         <span class="meta">${esc(evLong(e))} · ${e.time} · ${esc(e.place)} · ${fmtDist(km(myC(),e.c))}</span>
       </button>
@@ -750,11 +894,12 @@ function openProfile(p){
     if(g("real-invite")) g("real-invite").onclick=()=>window.estouraInvite&&window.estouraInvite(p);
     if(g("real-accept")) g("real-accept").onclick=()=>window.estouraRespond&&window.estouraRespond(p.conn.id,true);
     if(g("real-decline")) g("real-decline").onclick=()=>window.estouraRespond&&window.estouraRespond(p.conn.id,false);
-    if(g("real-chat")) g("real-chat").onclick=()=>openChat({key:"c:"+p.conn.id,title:p.name,members:[p],shared,real:p.conn.id});
+    if(g("real-chat")) g("real-chat").onclick=()=>openRealChat(p);
   }
   const c=document.getElementById("chat-btn"); if(c) c.onclick=()=>openChat({key:"p:"+p.id,title:p.name,members:[p],shared});
   const iv=document.getElementById("invite-btn"); if(iv) iv.onclick=()=>invite(p);
 }
+function openRealChat(p){ openChat({key:"c:"+p.conn.id,title:p.name,members:[p],shared:match(p).shared,real:p.conn.id}); }
 function invite(p){
   state.conn[p.id]="pending"; openProfile(p); toast(`Convite enviado pra ${p.name.split(" ")[0]}`);
   if(p.shy) return;
@@ -821,7 +966,7 @@ function openCreateEvent(){
 /* ---------- chat ---------- */
 let current=null;
 function openChat(c){
-  current=c; sheet=null;
+  current=c; sheet=null; clearUnread(c.key);
   if(!state.chats[c.key]) state.chats[c.key]=[{sys:(c.intro?c.intro+" ":"")+`Em comum: ${c.shared.map(i=>byId(i).name).join(", ")}.`}];
   const n=c.members.length;
   const sub = n>1||c.key.startsWith("e")||c.key.startsWith("u") ? (n?"você, "+c.members.map(m=>m.name.split(" ")[0]).join(", "):"só você por enquanto") : [c.members[0].city,`match ${match(c.members[0]).pct}%`].filter(Boolean).join(" · ");
@@ -831,14 +976,27 @@ function openChat(c){
       ${n>1?`<div class="stack">${c.members.slice(0,3).map(avatar).join("")}</div>`:n?avatar(c.members[0]):""}
       <div class="t" style="margin-left:${n>1?8:0}px">${esc(c.title)}<small>${esc(sub)}</small></div></div>
     <div class="msgs gut" id="msgs"></div>
+    <div class="tip gut" id="chat-tip" hidden style="margin:0;border-radius:0;border-width:1px 0 0"></div>
     <div class="ice gut" id="ice">${ice.map(q=>`<button data-q="${esc(q)}">${esc(q)}</button>`).join("")}</div>
     <form class="composer gut" id="composer"><input type="text" id="msg-input" placeholder="Escreva uma mensagem" autocomplete="off"><button class="btn primary" type="submit">Enviar</button></form>
   </div>`;
   renderMsgs();
   if((c.real||c.ev) && window.estouraLoadChat) window.estouraLoadChat(c); // conversa de verdade: busca o histórico no banco
   document.getElementById("back").onclick=closeLayer;
+  chatTip(c);
   document.getElementById("ice").onclick=e=>{ const b=e.target.closest("[data-q]"); if(b) send(b.dataset.q); };
   document.getElementById("composer").onsubmit=e=>{ e.preventDefault(); const i=document.getElementById("msg-input"); if(i.value.trim()){ send(i.value.trim()); i.value=""; } };
+}
+// conversa de verdade: oferece ligar as notificações (o toque no botão é o que o navegador exige)
+function chatTip(c){
+  const el=document.getElementById("chat-tip"); if(!el||!(c.real||c.ev)||!authed()||notifState()!=="default"||tipDone("chat-notif")) return;
+  if(!canAskNotif()&&!(isIOS&&!standalone())) return;
+  el.hidden=false;
+  el.innerHTML=canAskNotif()
+    ?`<span>🔔 Quer ser avisado quando responderem?</span><button class="btn sm primary" id="tip-on" type="button">Ativar</button><button class="x" id="tip-x" type="button" aria-label="Agora não">×</button>`
+    :`<span>🔔 Pra receber avisos no iPhone, instale o app: Compartilhar › Adicionar à Tela de Início.</span><button class="x" id="tip-x" type="button" aria-label="Fechar">×</button>`;
+  const on=document.getElementById("tip-on"); if(on) on.onclick=async()=>{ if(await enableNotifications()) el.hidden=true; };
+  document.getElementById("tip-x").onclick=()=>{ el.hidden=true; try{ const t=tipsDone(); t["chat-notif"]=1; localStorage.setItem("estoura-tips",JSON.stringify(t)); }catch(e){} };
 }
 function renderMsgs(typing){
   const box=document.getElementById("msgs"); if(!box||!current) return;
@@ -886,6 +1044,7 @@ function useBubble(it,parentId){
   const at=it.parent?` (em ${byId(it.parent).name})`:"";
   if(mine&&here) return toast(`"${it.name}" já está nas suas bolhas${at}`);
   if(!placeMine(it,parentId)) return;
+  if(!state.focus && !it.parent) setTimeout(()=>{ if(rotating() && !it.parent) spinTo(it.id,true); },60); // gira o globo até ela (se você ainda está no globo)
   toast(here?`"${it.name}" já existia, estourei pra você${at}`:mine?`"${it.name}" agora está ${where}`:`"${it.name}" já existia: guardei ${where}`);
 }
 // lugar novo pra uma bolha na sua árvore (se ainda não era sua, passa a ser). Leva junto o que está dentro dela.
@@ -894,7 +1053,7 @@ function placeMine(it,parentId){
   if(parentId&&(parentId===it.id||isDescendant(parentId,it.id))){ toast("Não dá pra guardar uma bolha dentro dela mesma"); return false; }
   state.pp.set(it.id,parentId); state.auto.delete(it.id);
   if(!state.lv.has(it.id)){ setLevel(it,1,true); return true; }
-  reparent(); markUp(it.id); rebuild(); renderAll();
+  reparent(); markUp(it.id); pruneAuto(); rebuild(); renderAll(); // a mãe antiga pode ter ficado sem sub-bolhas marcadas
   if(window.estouraSync) window.estouraSync();
   return true;
 }
@@ -1123,10 +1282,63 @@ function setFilter(k,quiet){
   if(!quiet) toast(f.t);
   try{ localStorage.setItem("estoura-filter",k); }catch(_){}
 }
+/* ---------- rodízio: o globo mostra um número limitado de bolhas e vai trocando ----------
+   As suas e as em alta ficam sempre. As outras são sorteadas (as mais populares têm mais chance)
+   e, de tempos em tempos, uma sai e outra entra no lugar dela. A visão espalhada mostra todas. */
+const MAXG=()=>W&&W<640?16:22;
+let shown=new Set(); // bolhas sorteadas que estão no globo agora
+const pinned=it=>state.lv.has(it.id)||TREND.has(it.id);
+function pickWeighted(list){
+  const w=list.map(i=>1+Math.sqrt(count(i))); let r=Math.random()*w.reduce((a,b)=>a+b,0);
+  for(let k=0;k<list.length;k++){ r-=w[k]; if(r<=0) return list[k]; }
+  return list[list.length-1];
+}
+function sample(pool){
+  const max=MAXG();
+  if(pool.length<=max){ shown=new Set(pool.map(i=>i.id)); return pool; }
+  const out=pool.filter(pinned);
+  for(const i of pool) if(out.length<max && shown.has(i.id) && !pinned(i)) out.push(i); // as que já estavam continuam
+  const rest=pool.filter(i=>!out.includes(i));
+  while(out.length<max && rest.length) out.push(rest.splice(rest.indexOf(pickWeighted(rest)),1)[0]);
+  shown=new Set(out.map(i=>i.id));
+  return out;
+}
+const rootPool=()=>applyF(INTERESTS.filter(i=>!i.parent));
+const rotating=()=>!state.focus && !spread.on;
+// troca uma bolha do globo por outra que ainda não apareceu: a de saída encolhe e a nova cresce no lugar dela
+function rotateOne(){
+  if(!rotating() || anim || drag || hoverPause || grab || document.hidden) return;
+  const pool=rootPool(), out=pool.filter(i=>!shown.has(i.id));
+  const leave=items.filter(i=>!i.type && !pinned(i) && !i.out && !i.next);
+  if(!out.length || !leave.length) return;
+  const v=leave[Math.floor(Math.random()*leave.length)], n=pickWeighted(out);
+  v.out=true; v.next=n; shown.add(n.id);
+}
+setInterval(rotateOne, 4500);
+// a bolha de saída já sumiu: a nova entra no mesmo lugar
+function swapOut(){
+  for(let k=items.length-1;k>=0;k--){ const v=items[k];
+    if(!v.out) continue;
+    if(pinned(v) || !rotating()){ v.out=false; if(v.next){ shown.delete(v.next.id); v.next=null; } continue; } // curtiu enquanto saía: fica
+    if(v.dr>1) continue;
+    const n=v.next; v.out=false; v.next=null; shown.delete(v.id);
+    if(!n || items.includes(n) || n.parent || !byId(n.id)){ items.splice(k,1); continue; } // a nova sumiu nesse meio-tempo
+    n.p=v.p; n.dr=0; n.out=false; items[k]=n;
+  }
+}
+// bolha principal que você acabou de estourar e não estava no globo: entra no lugar de uma sorteada
+function bringIn(it){
+  if(!rotating() || it.parent || items.includes(it)) return;
+  const leave=items.filter(i=>!i.type && !pinned(i));
+  if(!leave.length){ rebuild(); return; }
+  const v=leave[Math.floor(Math.random()*leave.length)], k=items.indexOf(v);
+  shown.delete(v.id); shown.add(it.id); it.p=v.p; it.dr=0; it.out=false; items[k]=it;
+}
 function rebuild(fresh){
+  items.forEach(i=>{ i.out=false; i.next=null; });
   if(spread.on){ items=[...applyF(INTERESTS),...evF()]; layoutSpread(); if(spread.auto) fitSpread(); return; }
   if(state.focus){ items=[...applyF(kids(state.focus)),ADD]; if(items.length>SPHERE_MIN) fib(items); }
-  else { items=[...applyF(INTERESTS.filter(i=>!i.parent)),...evF()]; fib(items); }
+  else { items=[...sample(rootPool()),...evF()]; fib(items); }
   items.forEach(it=>{ if(fresh||it.dr==null) it.dr=reduce?targetR(it):0; });
 }
 function resize(){
@@ -1140,7 +1352,7 @@ new ResizeObserver(resize).observe(cv.parentElement);
 // à bolha mais popular do grupo. Com poucas pessoas as bolhas continuam grandes.
 const peak = list => Math.max(1,...list.map(count));
 const BIG=()=>bubbleFilter==="unliked"?1.25:1; // só as que não curti: um pouco maiores
-const targetR=it=>baseR(it)*(it.type==="add"?1:BIG());
+const targetR=it=>it.out?0:baseR(it)*(it.type==="add"?1:BIG());
 function baseR(it){
   if(state.focus){ const S=shellR(), sp=sphere();
     if(it.type==="add") return Math.max(S*.14,sp?22:26);
@@ -1170,6 +1382,7 @@ function project(){
       return {it,sx:c.x+Math.cos(a)*ring,sy:c.y+Math.sin(a)*ring*.92,r:Math.max(0,it.dr),z:1}; });
     return;
   }
+  swapOut();
   // poucas bolhas (filtro): o globo encolhe junto, pra elas não ficarem espaçadas demais
   const gT=Math.max(.42,Math.min(1,Math.sqrt(items.length/16))); gS+=(gT-gS)*.12; const RG=R*gS;
   const cy=Math.cos(rotY),sy=Math.sin(rotY),cx=Math.cos(rotX),sx=Math.sin(rotX), D=RG*3.2;
@@ -1410,6 +1623,17 @@ function frame(t){
 // marcar uma sub-bolha marca também as bolhas acima dela (as que ainda não estavam marcadas ficam como "automáticas")
 // (cada uma fica guardada onde estava na tela)
 function markUp(id){ ancestors(id).forEach(a=>{ if(!state.lv.has(a)){ state.lv.set(a,1); state.auto.add(a); state.pp.set(a,byId(a).parent||null); } }); }
+// bolha-mãe automática que ficou sem nenhuma sub-bolha marcada sai também. Devolve quantas saíram.
+function pruneAuto(){
+  let n=0, again=true;
+  while(again){ again=false;
+    for(const a of [...state.auto]){
+      if(!byId(a) || !descendants(a).some(k=>state.lv.has(k.id))){ state.lv.delete(a); state.auto.delete(a); state.pp.delete(a); n++; again=true; }
+    }
+    if(again) reparent();
+  }
+  return n;
+}
 function setLevel(it,L,silent){
   if(!L){ const sel=descendants(it.id).filter(k=>state.lv.has(k.id)).length; // bolha pai só desmarca quando nenhuma sub-bolha está marcada
     if(sel){ toast(`Desmarque antes as ${sel} sub-bolha${sel>1?"s":""} marcada${sel>1?"s":""} de ${it.name}`); return; } }
@@ -1428,6 +1652,7 @@ function setLevel(it,L,silent){
   }
   // sem ser sua, a bolha volta pro lugar onde a maioria guarda
   if(reparent()||moved) rebuild();
+  else if(L) bringIn(it); // bolha principal estourada pela busca que não estava no globo: aparece
   const back=!L && (it.parent||null)!==before ? ` (ela volta ${it.parent?"pra "+byId(it.parent).name:"pras bolhas principais"}, onde a maioria guarda)` : "";
   if(!silent || gone.length || back){
     const n=everyone().filter(p=>p.lv.has(it.id)).length;
@@ -1704,7 +1929,9 @@ if (cfg.url && cfg.key) {
           <div class="note">Só aparecem para quem você aceitar conversar, e só depois que os dois aceitarem. Pode deixar em branco o que não quiser mostrar.</div>
           <button class="btn mint" type="submit">Salvar perfil</button>
         </form></div>
+      ${deviceHTML()}
       <div class="actions"><button class="btn" data-close>Fechar</button><button class="btn primary" id="signout">Sair da conta</button></div>`, { type: "account" });
+    wireDevice(() => openAccount(u));
     document.getElementById("prof-form").onsubmit = async e => {
       e.preventDefault();
       const socials = {};
@@ -1719,7 +1946,62 @@ if (cfg.url && cfg.key) {
       toast(error ? "Não consegui salvar o perfil" : "Perfil salvo");
     };
     // recarrega a página para não deixar as bolhas da conta na memória
-    document.getElementById("signout").onclick = async () => { await sb.auth.signOut(); location.reload(); };
+    document.getElementById("signout").onclick = async () => { if (window.estouraPush) await window.estouraPush.unsubscribe(); await sb.auth.signOut(); location.reload(); };
+  }
+
+  /* ---------- avisos (push) e mensagens não lidas ---------- */
+  // pede ao servidor do site pra avisar a outra pessoa (só funciona se as chaves VAPID estiverem configuradas)
+  async function notifyServer(kind, id){
+    if (!cfg.vapid || !uid) return;
+    try {
+      const { data } = await sb.auth.getSession(), t = data.session && data.session.access_token;
+      if (!t) return;
+      fetch("/api/push", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json", Authorization: "Bearer " + t }, body: JSON.stringify({ kind, id: String(id) }) }).catch(() => {});
+    } catch (e) {}
+  }
+  const b64u = v => { const raw = atob((v + "=".repeat((4 - v.length % 4) % 4)).replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from(raw, ch => ch.charCodeAt(0)); };
+  window.estouraPush = {
+    async subscribe(){
+      if (!cfg.vapid || !uid || !("PushManager" in window)) return false;
+      try {
+        const reg = await navigator.serviceWorker.ready, key = b64u(cfg.vapid);
+        let sub = await reg.pushManager.getSubscription();
+        if (sub && sub.options && sub.options.applicationServerKey) { // chaves trocadas: refaz a inscrição
+          const cur = new Uint8Array(sub.options.applicationServerKey);
+          if (cur.length !== key.length || cur.some((v, i) => v !== key[i])) { await sub.unsubscribe(); sub = null; }
+        }
+        if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+        const j = sub.toJSON();
+        const { error } = await sb.rpc("save_push_subscription", { p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth });
+        return !error;
+      } catch (e) { return false; }
+    },
+    async unsubscribe(){
+      try {
+        const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription();
+        if (sub) { if (uid) await sb.rpc("delete_push_subscription", { p_endpoint: sub.endpoint }); await sub.unsubscribe(); }
+      } catch (e) {}
+    },
+  };
+  // mensagens novas desde a última vez que cada conversa foi aberta (a leitura fica guardada neste aparelho)
+  async function loadUnread(){
+    if (!uid) return;
+    const [a, b] = await Promise.all([
+      sb.from("messages").select("id, connection_id").neq("sender_id", uid).order("id", { ascending: false }).limit(300),
+      sb.from("event_messages").select("id, event_id").neq("sender_id", uid).order("id", { ascending: false }).limit(300),
+    ]);
+    if (a.error && b.error) return;
+    const rows = [...(a.data || []).map(r => ({ key: chatKey(r.connection_id), id: r.id })), ...(b.data || []).map(r => ({ key: "e_" + r.event_id, id: r.id }))];
+    let map = readMap();
+    if (map === null) { // primeira vez neste aparelho: o que já existe conta como lido
+      try { localStorage.setItem("estoura-read", "{}"); } catch (e) {}
+      rows.forEach(r => markRead(r.key, r.id));
+      map = readMap() || {};
+    }
+    const next = new Map();
+    rows.forEach(r => { if (r.id > (map[r.key] || 0) && !watching(r.key)) next.set(r.key, (next.get(r.key) || 0) + 1); });
+    state.unread = next;
+    renderAll();
   }
 
   /* ---------- convites, conexões e chat de verdade ---------- */
@@ -1738,7 +2020,8 @@ if (cfg.url && cfg.key) {
   }
 
   window.estouraInvite = async p => {
-    const { error } = await sb.from("connections").insert({ requester_id: uid, addressee_id: p.uid });
+    const { data: made, error } = await sb.from("connections").insert({ requester_id: uid, addressee_id: p.uid }).select("id").single();
+    if (!error && made) notifyServer("i", made.id);
     toast(error ? (error.code === "23505" ? "Já existe um convite entre vocês" : "Não consegui enviar o convite") : `Convite enviado pra ${p.name.split(" ")[0]}`);
     await loadConnections();
   };
@@ -1746,11 +2029,13 @@ if (cfg.url && cfg.key) {
     const c = CONNS.find(x => x.id === connId);
     const { error } = await sb.rpc("respond_connection", { p_id: connId, p_accept: accept });
     if (error) return toast("Não consegui responder ao convite");
+    if (accept) notifyServer("a", connId);
     toast(accept ? `Vocês estão conectados${c ? " com " + c.name.split(" ")[0] : ""}! Redes liberadas` : "Convite recusado");
     await loadConnections();
   };
 
   function pushMsg(key, m){
+    if (m.id != null && (m.me || watching(key))) markRead(key, m.id);
     const list = state.chats[key]; if (!list) return;
     if (list.some(x => x.id === m.id)) return; // a mesma mensagem chega pela resposta do envio e pelo tempo real
     list.push(m);
@@ -1766,6 +2051,7 @@ if (cfg.url && cfg.key) {
     if (error) return toast("Não consegui carregar a conversa");
     const intro = state.chats[c.key].filter(m => m.sys);
     state.chats[c.key] = [...intro, ...data.map(m => ({ id: m.id, me: m.sender_id === uid, p: authorOf(c, m.sender_id), text: m.body }))];
+    if (data.length) markRead(c.key, data[data.length - 1].id);
     if (current === c) renderMsgs();
   };
   window.estouraSend = async (c, text) => {
@@ -1775,6 +2061,7 @@ if (cfg.url && cfg.key) {
     const { data, error } = await q.select("id").single();
     if (error) return toast("Não consegui enviar a mensagem");
     pushMsg(c.key, { id: data.id, me: true, p: authorOf(c, uid), text });
+    notifyServer(c.ev ? "e" : "c", data.id);
   };
 
   /* ---------- eventos reais ---------- */
@@ -1829,20 +2116,26 @@ if (cfg.url && cfg.key) {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, ({ new: m }) => {
         const c = CONNS.find(x => x.id === m.connection_id), mine = m.sender_id === uid, key = chatKey(m.connection_id);
         pushMsg(key, { id: m.id, me: mine, p: { name: c ? c.name : "Alguém" }, text: m.body });
-        if (!mine && !(current && current.key === key)) toast(`Nova mensagem de ${c ? c.name.split(" ")[0] : "alguém"}: ${m.body.slice(0, 50)}`);
+        if (mine) return;
+        if (watching(key)) return markRead(key, m.id); // a conversa está aberta na tela
+        bumpUnread(key);
+        incoming({ title: c ? c.name : "Nova mensagem", body: m.body.slice(0, 140), tag: key + "#" + m.id, url: "/?chat=" + key });
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "event_messages" }, ({ new: m }) => {
         const ev = EVENTS.find(x => x.id === "e_" + m.event_id), mine = m.sender_id === uid, key = "e_" + m.event_id;
         const who = (ev && ev.going.find(p => p.uid === m.sender_id)) || { name: "Alguém", lv: new Map([[ev ? ev.interest : "", 1]]) };
         pushMsg(key, { id: m.id, me: mine, p: who, text: m.body });
-        if (!mine && !(current && current.key === key)) toast(`${who.name.split(" ")[0]} em ${ev ? ev.short : "um evento"}: ${m.body.slice(0, 40)}`);
+        if (mine) return;
+        if (watching(key)) return markRead(key, m.id);
+        bumpUnread(key);
+        incoming({ title: ev ? ev.title : "Chat de evento", body: `${who.name.split(" ")[0]}: ${m.body.slice(0, 130)}`, tag: key + "#" + m.id, url: "/?chat=" + key });
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "connections" }, async ({ eventType, new: row }) => {
         await loadConnections();
         if (!row) return;
         const c = CONNS.find(x => x.id === row.id), nm = c ? c.name.split(" ")[0] : "Alguém";
-        if (eventType === "INSERT" && row.addressee_id === uid) toast(`${nm} convidou você pra conversar`);
-        if (eventType === "UPDATE" && row.status === "accepted" && row.requester_id === uid) toast(`${nm} aceitou! Redes sociais liberadas`);
+        if (eventType === "INSERT" && row.addressee_id === uid) incoming({ title: "Novo convite", body: `${nm} convidou você pra conversar`, tag: "i:" + row.id, url: "/?tab=matches" });
+        if (eventType === "UPDATE" && row.status === "accepted" && row.requester_id === uid) incoming({ title: "Convite aceito", body: `${nm} aceitou! Redes sociais liberadas`, tag: "a:" + row.id, url: "/?chat=c:" + row.id });
       })
       .subscribe();
   }
@@ -1911,27 +2204,35 @@ if (cfg.url && cfg.key) {
     // reforço: se o canal cair ou o SQL 0003 não tiver rodado, atualiza a cada 30 s (só com a aba visível)
     setInterval(() => { if (!document.hidden) refreshWorld(); }, 30000);
   }
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) { loadConnections(); refreshWorld(); } });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { loadConnections(); refreshWorld(); loadUnread(); } });
 
   /* ---------- bolhas salvas na conta ---------- */
   let uid = null, loading = false, timer = null, queue = Promise.resolve(), pending = Promise.resolve();
   const saved = new Map(); // o que já está no banco: interest_id -> "nível|onde você guardou"
   const creating = new Set(); // bolhas criadas agora que ainda estão indo pro banco
-  const row = id => `${state.lv.get(id)}|${state.pp.get(id) || ""}`;
+  let hasAuto = true; // banco já tem a coluna auto (SQL 0010)
+  const row = id => `${state.lv.get(id)}|${state.pp.get(id) || ""}|${hasAuto && state.auto.has(id) ? 1 : ""}`;
 
   // tamanho da comunidade: o banco informa (coluna total); sem o SQL 0005, usa a maior bolha como aproximação
   const community = rows => (rows.length && rows[0].total != null ? rows[0].total : Math.max(1, ...rows.map(r => r.people)));
   async function loadMine(){
     loading = true;
-    const [st, mine] = await Promise.all([ sb.rpc("interest_stats"), sb.from("user_interests").select("interest_id, level, parent_id") ]);
+    let [st, mine] = await Promise.all([ sb.rpc("interest_stats"), sb.from("user_interests").select("interest_id, level, parent_id, auto") ]);
+    if (mine.error) { // sem o SQL 0010 ainda: funciona sem lembrar as bolhas-mãe automáticas
+      const old = await sb.from("user_interests").select("interest_id, level, parent_id");
+      if (!old.error) { mine = old; hasAuto = false; }
+    }
     loading = false;
     if (st.error || mine.error) { uid = null; toast("Não consegui carregar suas bolhas. Nada será salvo agora."); return; }
     state.lv.clear(); state.auto.clear(); state.pp.clear(); saved.clear();
-    mine.data.forEach(r => { state.lv.set(r.interest_id, r.level); state.pp.set(r.interest_id, r.parent_id || null); saved.set(r.interest_id, row(r.interest_id)); });
+    mine.data.forEach(r => { state.lv.set(r.interest_id, r.level); state.pp.set(r.interest_id, r.parent_id || null); if (r.auto) state.auto.add(r.interest_id); saved.set(r.interest_id, row(r.interest_id)); });
     syncInterests(st.data); // bolhas novas, excluídas e movidas por outras pessoas + contagens do banco
+    if (pruneAuto()) setTimeout(window.estouraSync, 0); // bolha-mãe automática que ficou sem sub-bolha marcada: sai
     rebuild(); renderAll();
     loadMatches();
     loadConnections(); loadEvents(); startLive(); startPulse();
+    loadUnread();
+    if ("Notification" in window && Notification.permission === "granted" && !notifOff()) window.estouraPush.subscribe(); // garante o aparelho inscrito nesta conta
     if (mine.data.length) toast(`${mine.data.length} ${mine.data.length > 1 ? "bolhas carregadas" : "bolha carregada"} da sua conta`);
   }
 
@@ -1955,14 +2256,14 @@ if (cfg.url && cfg.key) {
   async function flush(){
     await pending;
     const up = [], del = [];
-    state.lv.forEach((l, id) => { if (byId(id) && saved.get(id) !== row(id)) up.push({ user_id: uid, interest_id: id, level: l, parent_id: state.pp.get(id) || null }); });
+    state.lv.forEach((l, id) => { if (byId(id) && saved.get(id) !== row(id)) up.push({ user_id: uid, interest_id: id, level: l, parent_id: state.pp.get(id) || null, ...(hasAuto ? { auto: state.auto.has(id) } : {}) }); });
     saved.forEach((_, id) => { if (!state.lv.has(id)) del.push(id); });
     if (!up.length && !del.length) return;
     let err = null;
     if (up.length) err = (await sb.from("user_interests").upsert(up)).error;
     if (!err && del.length) err = (await sb.from("user_interests").delete().eq("user_id", uid).in("interest_id", del)).error;
     if (err) { toast("Não consegui salvar. Confira sua conexão."); return; }
-    up.forEach(r => saved.set(r.interest_id, `${r.level}|${r.parent_id || ""}`));
+    up.forEach(r => saved.set(r.interest_id, `${r.level}|${r.parent_id || ""}|${r.auto ? 1 : ""}`));
     del.forEach(id => saved.delete(id));
     loadMatches(); // seus matches mudam quando suas bolhas mudam
   }
