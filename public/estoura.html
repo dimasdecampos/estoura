@@ -677,6 +677,7 @@ const evDate = e => { const d=new Date(); d.setDate(d.getDate()+e.days); const [
 const evWhen = e => e.days===0?"hoje":e.days===1?"amanhã":`em ${e.days} dias`;
 const evLong = e => evDate(e).toLocaleDateString("pt-BR",{weekday:"short",day:"numeric",month:"short"});
 const evShortDay = e => evDate(e).toLocaleDateString("pt-BR",{weekday:"short",day:"numeric"}).replace(".","").replace(",","");
+const evPlace = e => e.place + (e.city && !cityKey(e.place).includes(cityKey(e.city)) ? ", " + e.city : "");
 const evCount = e => e.going.length + (state.going.has(e.id)?1:0);
 const visibleEvents = () => EVENTS.filter(e=>e.days>=0 && inRadius(distTo(e.c)));
 
@@ -966,7 +967,7 @@ function renderEvents(){
       <button class="link" data-event="${e.id}">
         <span class="row"><span>${chip(e.interest)} ${unreadOf(e.id)?`<span class="newmsg">${unreadOf(e.id)} ${unreadOf(e.id)>1?"novas":"nova"}</span> `:""}${relevant(e.interest)?'<span class="ok">combina com você</span>':""}${exTag(e)}</span><span class="when">${evWhen(e)}</span></span>
         <span class="gt" style="margin-top:8px">${esc(e.title)}</span>
-        <span class="meta">${esc(evLong(e))} · ${e.time} · ${esc(e.place)}${distTxt(e.c)}</span>
+        <span class="meta">${esc(evLong(e))} · ${e.time} · ${esc(evPlace(e))}${distTxt(e.c)}</span>
       </button>
       <div class="row"><div class="stack">${me?'<span class="av me">EU</span>':""}${e.going.map(avatar).join("")}<span class="meta" style="margin-left:14px">${evCount(e)} ${evCount(e)>1?"vão":"vai"}</span></div>
         <button class="btn sm ${me?"":"primary"}" data-go="${e.id}">${me?"Abrir chat":"Eu vou"}</button></div>
@@ -1062,15 +1063,16 @@ function openEvent(e){
     <div class="row"><span>${chip(e.interest)}</span><span class="when">${evWhen(e)}</span></div>
     <h3 style="font-family:var(--display);font-size:24px;margin:10px 0 4px">${esc(e.title)}</h3>
     <div class="meta">${esc(evLong(e))} · ${e.time}</div>
-    <div class="meta">${esc(e.place)}${distTxt(e.c)}</div>
+    <div class="meta">${esc(evPlace(e))}${distTxt(e.c)}</div>
     <div class="sec"><div class="tag">Quem vai (${evCount(e)})</div>
       <div class="chips">${me?'<span class="chip" style="--h:330">Você</span>':""}${e.going.map(p=>`<span class="chip" style="--h:${hueOf(p)}">${esc(p.name.split(" ")[0])}</span>`).join("")}</div></div>
     <p class="note" style="margin-top:14px">A bolha deste evento some do globo depois de ${esc(evLong(e))}.</p>
-    <div class="actions"><button class="btn" data-close>Fechar</button>
+    <div class="actions"><button class="btn" data-close>Fechar</button>${e.real&&e.mine?'<button class="btn" id="ev-edit">Editar</button>':""}
       ${me?`<button class="btn" id="ev-leave">Não vou mais</button><button class="btn primary" id="ev-chat">Abrir chat</button>`:`<button class="btn primary" id="ev-go">Eu vou</button>`}</div>`,{type:"event",id:e.id});
   const g=document.getElementById("ev-go"); if(g) g.onclick=()=>{ toggleGoing(e); openEvent(e); };
   const l=document.getElementById("ev-leave"); if(l) l.onclick=()=>{ toggleGoing(e); openEvent(e); };
   const c=document.getElementById("ev-chat"); if(c) c.onclick=()=>openEventChat(e);
+  const ed=document.getElementById("ev-edit"); if(ed) ed.onclick=()=>openCreateEvent(e);
 }
 function toggleGoing(e){
   if(e.real && window.estouraToggleGo){ window.estouraToggleGo(e); return; } // evento de verdade: salva no banco
@@ -1082,28 +1084,41 @@ function openEventChat(e){
   openChat({key:e.id,title:e.title,members:e.going,shared:[e.interest],ev:e.real?e.uuid:null,
     intro:`Chat do evento · ${evLong(e)} às ${e.time} · ${e.place}. Ele é arquivado depois do evento.`});
 }
-function openCreateEvent(){
+function openCreateEvent(old){ // com um evento seu na mão, edita ele
   const opts=[...state.lv.keys()].map(byId); const list=(opts.length?opts:INTERESTS.filter(i=>!i.parent));
+  if(old&&!list.some(i=>i.id===old.interest)) list.push(byId(old.interest));
+  const dstr=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
   openSheet(`
-    <h3 style="font-family:var(--display);font-size:22px;margin:0 0 4px">Nova bolha de evento</h3>
-    <p class="sub" style="margin-bottom:6px">Aparece no globo de quem está perto e some depois da data.</p>
+    <h3 style="font-family:var(--display);font-size:22px;margin:0 0 4px">${old?"Editar evento":"Nova bolha de evento"}</h3>
+    <p class="sub" style="margin-bottom:6px">Aparece no globo de quem está perto da cidade do evento e some depois da data.</p>
     <form class="form" id="ev-form">
-      <label for="ev-title">Nome do rolê<input type="text" id="ev-title" maxlength="40" value="Slack + piquenique no Villa-Lobos" required></label>
-      <label for="ev-int">Bolha<select id="ev-int">${list.map(i=>`<option value="${i.id}">${esc(pathOf(i.id).join(" › "))}</option>`).join("")}</select></label>
+      <label for="ev-title">Nome do rolê<input type="text" id="ev-title" maxlength="40" value="${esc(old?old.title:"Slack + piquenique no Villa-Lobos")}" required></label>
+      <label for="ev-int">Bolha<select id="ev-int">${list.map(i=>`<option value="${i.id}"${old&&old.interest===i.id?" selected":""}>${esc(pathOf(i.id).join(" › "))}</option>`).join("")}</select></label>
       <div class="two">
-        <label for="ev-day">Quando<select id="ev-day">${[1,2,3,4,5,6,7,14].map(d=>`<option value="${d}"${d===4?" selected":""}>${d===1?"amanhã":`em ${d} dias`}</option>`).join("")}</select></label>
-        <label for="ev-time">Hora<input type="time" id="ev-time" value="15:00"></label>
+        ${old?`<label for="ev-date">Quando<input type="date" id="ev-date" value="${dstr(old.start||evDate(old))}" min="${dstr(new Date())}" required></label>`:`<label for="ev-day">Quando<select id="ev-day">${[1,2,3,4,5,6,7,14].map(d=>`<option value="${d}"${d===4?" selected":""}>${d===1?"amanhã":`em ${d} dias`}</option>`).join("")}</select></label>`}
+        <label for="ev-time">Hora<input type="time" id="ev-time" value="${old?old.time:"15:00"}"></label>
       </div>
-      <label for="ev-place">Lugar<input type="text" id="ev-place" maxlength="60" value="Parque Villa-Lobos, São Paulo"></label>
-      <div class="actions"><button class="btn" type="button" data-close>Cancelar</button><button class="btn primary" type="submit">Soltar a bolha</button></div>
+      <label for="ev-place">Lugar<input type="text" id="ev-place" maxlength="60" value="${esc(old?old.place:"Parque Villa-Lobos")}"></label>
+      <label for="ev-city">Cidade do evento<input type="text" id="ev-city" maxlength="60" placeholder="Ex.: São Luiz do Paraitinga" value="${esc(old?(old.city||""):(cityName(state.city)||state.city||""))}" required></label>
+      <div class="note">É a cidade que vale para o raio: só aparece pra quem está perto dela.</div>
+      <div class="actions"><button class="btn" type="button" data-close>Cancelar</button><button class="btn primary" type="submit">${old?"Salvar":"Soltar a bolha"}</button></div>
     </form>`,{type:"create"});
   document.getElementById("ev-form").onsubmit=ev=>{
     ev.preventDefault();
-    if(!myC()) return toast("Coloque sua cidade no perfil pra criar o rolê");
+    const cityTxt=document.getElementById("ev-city").value.trim(), cc=coordsOf(cityTxt);
+    if(!cc) return toast("Não reconheci a cidade do evento. Confira a grafia.");
+    const city=cityName(cityTxt);
     const t=document.getElementById("ev-title").value.trim()||"Rolê sem nome";
     const e={type:"event",id:"u"+Date.now(),title:t,short:t.length>18?t.slice(0,17)+"…":t,interest:document.getElementById("ev-int").value,
       days:+document.getElementById("ev-day").value,time:document.getElementById("ev-time").value||"15:00",
-      place:document.getElementById("ev-place").value.trim()||state.city,c:myC(),going:[]};
+      place:document.getElementById("ev-place").value.trim()||city,city,c:cc,going:[]};
+    if(old){
+      const dd=document.getElementById("ev-date").value; if(!dd) return toast("Escolha a data");
+      const t0=new Date(); t0.setHours(0,0,0,0); const [y,m,d]=dd.split("-").map(Number);
+      e.days=Math.round((new Date(y,m-1,d)-t0)/86400000);
+      if(window.estouraUpdateEvent){ window.estouraUpdateEvent(old,e); closeLayer(); }
+      return;
+    }
     if(window.estouraAuthed && window.estouraCreateEvent){ window.estouraCreateEvent(e); closeLayer(); return; } // logado: evento de verdade
     EVENTS.push(e); state.going.add(e.id); rebuild(); renderAll(); closeLayer();
     toast("Bolha de evento solta no globo!");
@@ -2256,7 +2271,7 @@ if (cfg.url && cfg.key) {
     const att = (r.attendees || []).filter(a => a.id !== uid)
       .map(a => ({ id: "u_" + a.id, uid: a.id, name: a.name || "Alguém", photo: a.photo, city: "", real: true, lv: new Map([[r.interest_id, 1]]) }));
     return { type: "event", real: true, uuid: r.id, id: "e_" + r.id, title: r.title, short: r.title.length > 18 ? r.title.slice(0, 17) + "…" : r.title,
-      interest: r.interest_id, days: Math.round((d0 - t0) / 86400000), place: r.place, going: att, iGo: r.i_go,
+      interest: r.interest_id, city: r.city || "", mine: r.created_by === uid, start: d, days: Math.round((d0 - t0) / 86400000), place: r.place, going: att, iGo: r.i_go,
       time: String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"),
       c: r.lat != null ? [r.lat, r.lng] : null };
   };
@@ -2281,11 +2296,20 @@ if (cfg.url && cfg.key) {
     toast(going ? "Tudo bem, você saiu do evento" : `Você vai! Chat de ${e.short} liberado`);
     await loadEvents();
   };
+  window.estouraUpdateEvent = async (old, e) => {
+    const start = new Date();
+    start.setDate(start.getDate() + e.days);
+    const [h, m] = e.time.split(":"); start.setHours(+h, +m, 0, 0);
+    const { data, error } = await sb.from("events").update({ interest_id: e.interest, title: e.title, place: e.place, city: e.city, lat: e.c[0], lng: e.c[1], starts_at: start.toISOString() }).eq("id", old.uuid).select("id");
+    if (error || !data || !data.length) return toast("Não consegui salvar o evento. Rode o SQL 0013 no Supabase.");
+    toast("Evento atualizado");
+    await loadEvents();
+  };
   window.estouraCreateEvent = async e => {
     const start = new Date();
     start.setDate(start.getDate() + e.days);
     const [h, m] = e.time.split(":"); start.setHours(+h, +m, 0, 0);
-    const { error } = await sb.from("events").insert({ created_by: uid, interest_id: e.interest, title: e.title, place: e.place, city: state.city, lat: e.c[0], lng: e.c[1], starts_at: start.toISOString() });
+    const { error } = await sb.from("events").insert({ created_by: uid, interest_id: e.interest, title: e.title, place: e.place, city: e.city, lat: e.c[0], lng: e.c[1], starts_at: start.toISOString() });
     if (error) { // sem o SQL 0004 o evento vale só neste aparelho, como no protótipo
       EVENTS.push(e); state.going.add(e.id); rebuild(); renderAll();
       return toast("Evento criado só no seu aparelho: rode o SQL 0004 para compartilhar");

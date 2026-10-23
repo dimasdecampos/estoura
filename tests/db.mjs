@@ -173,5 +173,23 @@ ok(pub2.cinema === 2 && pub2.yoga === 1 && pub2.futebol === 0, "visitante vê a 
 await as(A); await run(`select public.create_interest('uorf', 'Bolha Orfa Visitante', null, 1)`); await as(null);
 ok(!(await q(`select id from public_interest_stats()`)).some(r => r.id === "uorf"), "bolha criada por alguém e que ninguém mais tem não aparece pro visitante");
 
+// 0013: quem criou o evento pode editar
+await run(file("migrations/0013_editar_evento.sql"));
+await run(file("migrations/0013_editar_evento.sql"));
+await run(`grant usage on schema public to authenticated; grant select, insert, update, delete on all tables in schema public to authenticated`);
+await as(A);
+await run(`insert into events (id, created_by, interest_id, title, place, city, lat, lng, starts_at) values ('00000000-0000-0000-0000-0000000000e1', '${A}', 'cinema', 'Cine', 'Praça', 'Ubatuba', -23.43, -45.08, now() + interval '2 days')`);
+await run(`set role authenticated`);
+const upA = await q(`update events set title = 'Cine 2', city = 'São Luiz do Paraitinga', lat = -23.22, lng = -45.31 where id = '00000000-0000-0000-0000-0000000000e1' returning id`);
+ok(upA.length === 1, "0013: quem criou o evento consegue editar (nome, cidade e coordenadas)");
+await as(B);
+const upB = await q(`update events set title = 'Invadido' where id = '00000000-0000-0000-0000-0000000000e1' returning id`);
+ok(upB.length === 0, "0013: outra pessoa não consegue editar o evento");
+await as(A);
+let stolen = false; try { stolen = (await q(`update events set created_by = '${B}' where id = '00000000-0000-0000-0000-0000000000e1' returning id`)).length > 0; } catch (e) {}
+ok(!stolen, "0013: não dá pra passar o evento pra outra pessoa");
+await run(`reset role`);
+await as(null);
+
 console.log(fails ? `\n${fails} FALHA(S)` : "\nTUDO OK");
 process.exit(fails ? 1 : 0);
