@@ -1303,6 +1303,8 @@ function frame(t){
 
 /* ---------- interação ---------- */
 function setLevel(it,L,silent){
+  if(!L){ const sel=descendants(it.id).filter(k=>state.lv.has(k.id)).length; // bolha pai só desmarca quando nenhuma sub-bolha está marcada
+    if(sel){ toast(`Desmarque antes as ${sel} sub-bolha${sel>1?"s":""} marcada${sel>1?"s":""} de ${it.name}`); return; } }
   if(L){ showHeart(it); const was=state.lv.get(it.id)||0; state.lv.set(it.id,L); ancestors(it.id).forEach(a=>{ if(!state.lv.has(a)) state.lv.set(a,1); }); burst(it,!was);
     try{ navigator.vibrate && navigator.vibrate(L===2?[10,40,10]:12); }catch(e){} }
   else { state.lv.delete(it.id); descendants(it.id).forEach(k=>state.lv.delete(k.id)); }
