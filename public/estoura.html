@@ -290,14 +290,18 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
 }
 /* celular deitado */
 @media (max-height:500px) and (orientation:landscape) and (max-width:1000px){
-  header{padding-block:4px 2px}
+  /* menu na lateral (compacto: ícone com o nome embaixo), como no desktop, em vez de uma tira minúscula no rodapé */
+  .app{max-width:none!important;grid-template-columns:calc(86px + env(safe-area-inset-left,0px)) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);grid-template-areas:"head head" "nav main"}
+  header{grid-area:head;padding-block:4px 2px}
+  main{grid-area:main}
+  nav{grid-area:nav;grid-auto-flow:row;grid-auto-columns:1fr;grid-auto-rows:min-content;align-content:start;gap:2px;border-top:0;border-right:1px solid var(--line);padding:4px 4px 4px max(4px,env(safe-area-inset-left,0px));overflow-y:auto}
+  nav button{padding:8px 2px 6px;border-radius:12px}
+  nav button[aria-current="page"]{background:var(--surface-2)}
   .hint,.trend{display:none}
   .crumb{min-height:36px}
   .dock{padding-block:4px 6px}
-  nav button{padding:5px 2px 4px;grid-auto-flow:column;justify-content:center;align-items:center;gap:8px}
-  nav svg{width:18px;height:18px}
-  .badge{position:static}
   .sheet{max-height:94%}
+  .toast{left:calc(50% + 43px)}
 }
 /* tablet */
 @media (min-width:760px){
@@ -914,6 +918,7 @@ document.getElementById("trend").onclick=e=>{ const b=e.target.closest("[data-tr
 function renderFocus(){
   const f=state.focus;
   document.getElementById("topbar").hidden=!!f; document.getElementById("dock-top").hidden=!!f||!newOpen; document.getElementById("new-toggle").hidden=!!f;
+  document.getElementById("people-toggle").hidden=!(pm&&pm.access)||!!f;
   document.getElementById("dock-search").hidden=!!f||!searchOpen; document.getElementById("search-toggle").hidden=!!f;
   document.getElementById("crumb").hidden=!f; document.getElementById("dock-focus").hidden=!f;
   if(f){
@@ -2139,7 +2144,7 @@ const pmView=()=>document.getElementById("view-bolhas");
 const ICON_SPREAD='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6.500" cy="7" r="2.800"/><circle cx="17" cy="6" r="2"/><circle cx="18" cy="15.500" r="3.200"/><circle cx="8" cy="17.500" r="2.300"/><circle cx="12.500" cy="11.500" r="1.200"/></svg>';
 const ICON_GLOBE='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3.200 3 3.200 15 0 18M12 3c-3.200 3-3.200 15 0 18"/></svg>';
 function peopleAccess(ok){
-  document.getElementById("people-toggle").hidden=!ok;
+  pm.access=ok; renderFocus(); // some quando uma bolha está aberta, como a lupa e o +
   if(!ok && pm.on) setPeople(false);
 }
 function setPeople(on){

@@ -106,11 +106,23 @@ for (const [w, h, tag] of [[420, 860, "celular"], [1280, 820, "desktop"]]) {
   ok(await E(() => document.getElementById("people-toggle").querySelectorAll("circle").length === 1), `${tag}: com a visão aberta, o botão vira o globo (pra voltar)`);
   await page.click("#people-toggle");
   ok(await E(() => !pm.on && getComputedStyle(document.getElementById("globe")).display !== "none"), `${tag}: tocar de novo volta pro globo`);
+  // dentro de uma bolha o botão some (como a lupa e o +) e volta ao sair
+  await E(() => { state.focus = INTERESTS.find(i => INTERESTS.some(k => k.parent === i.id)).id; rebuild(true); renderFocus(); });
+  ok(await E(() => document.getElementById("people-toggle").hidden && document.getElementById("search-toggle").hidden), `${tag}: dentro de uma bolha o botão de pessoas some, como a lupa`);
+  await E(() => { goHome(); });
+  ok(await E(() => !document.getElementById("people-toggle").hidden), `${tag}: ao voltar pro globo o botão volta`);
   await E(() => { setPeople(true); peopleAccess(false); });
   ok(await E(() => !pm.on && document.getElementById("people-toggle").hidden), `${tag}: saindo da conta, a visão fecha e o botão some`);
 
 }
 
+// celular deitado: menu na lateral, não uma tira no rodapé
+await page.setViewport({ width: 844, height: 390, isMobile: true, hasTouch: true });
+await page.goto(origin + "/", { waitUntil: "load" });
+await wait(500);
+const nav = await E(() => { const r = document.querySelector("nav").getBoundingClientRect(); return { l: r.left, w: r.width, h: r.height, vh: innerHeight }; });
+ok(nav.l === 0 && nav.w > 60 && nav.w < 120 && nav.h > nav.vh * .6, "celular deitado: o menu fica na lateral esquerda (" + Math.round(nav.w) + "px de largura)");
+ok(await E(() => { const r = document.querySelector("nav").getBoundingClientRect(), m = document.querySelector("main").getBoundingClientRect(); return m.left >= r.right - 1 && m.bottom > innerHeight - 4; }), "celular deitado: a tela de bolhas usa todo o espaço ao lado do menu");
 ok(errors.length === 0, "sem erros no console" + (errors.length ? ": " + errors.join(" | ") : ""));
 await browser.close(); srv.close();
 process.exit(fails ? 1 : 0);
