@@ -1389,6 +1389,7 @@ function welcome(){
 const cv=document.getElementById("globe"), ctx=cv.getContext("2d");
 const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
 const AUTO=reduce?0:0.0025, AUTO_O=reduce?0:0.0016;
+const SPH=.84; // tamanho da esfera em relação à área (as bolhas mantêm o tamanho; só ficam mais juntas)
 let W=0,H=0,R=100,DPR=1, rotY=0.6, rotX=-0.25, vY=AUTO, vX=0, orbit=0, vO=AUTO_O;
 let fY=0.6, fX=-0.25, fvY=AUTO, fvX=0; // giro da esfera de dentro de uma bolha com muitas sub-bolhas
 let gS=1, pts=[], fx=[], items=[], target=null, anim=null, fade=1, now=0;
@@ -1619,7 +1620,7 @@ function project(){
   }
   swapOut();
   // poucas bolhas (filtro): o globo encolhe junto, pra elas não ficarem espaçadas demais
-  const gT=Math.max(.42,Math.min(1,Math.sqrt(items.length/16))); gS+=(gT-gS)*.12; const RG=R*gS;
+  const gT=Math.max(.42,Math.min(1,Math.sqrt(items.length/16))); gS+=(gT-gS)*.12; const RG=R*SPH*gS;
   const cy=Math.cos(rotY),sy=Math.sin(rotY),cx=Math.cos(rotX),sx=Math.sin(rotX), D=RG*3.2;
   pts=items.map(it=>{
     const [x,y,z]=it.p, x1=x*cy+z*sy, z1=-x*sy+z*cy, y2=y*cx-z1*sx, z2=y*sx+z1*cx, s=D/(D-z2*RG);
@@ -1853,7 +1854,7 @@ function frame(t){
         if(Math.abs(dy)<.002&&Math.abs(dx)<.002){ target=null; vY=AUTO; }
       } else if(!drag && !hoverPause){ rotY+=vY; rotX+=vX; vX*=.95; vY+=((reduce?0:AUTO*Math.sign(vY||1))-vY)*.02; }
       rotX=wrap(rotX); // gira livre também de cima pra baixo
-      const halo=ctx.createRadialGradient(W/2,H/2,R*gS*.2,W/2,H/2,R*gS*1.5);
+      const halo=ctx.createRadialGradient(W/2,H/2,R*SPH*gS*.2,W/2,H/2,R*SPH*gS*1.5);
       halo.addColorStop(0,"rgba(143,240,222,.07)"); halo.addColorStop(1,"rgba(143,240,222,0)"); ctx.fillStyle=halo; ctx.fillRect(0,0,W,H);
       project(); drawAll();
     }
@@ -2043,7 +2044,7 @@ cv.addEventListener("pointerdown",e=>{
     } } });
 cv.addEventListener("contextmenu",e=>e.preventDefault());
 // o mouse em qualquer ponto da massa de bolhas (inclusive entre elas) também segura o giro
-const overMass=p=>{ if(spread.on) return false; const c=state.focus?shellC():{x:W/2,y:H/2}, rr=state.focus?shellR():R*gS*1.15+20; return Math.hypot(p.x-c.x,p.y-c.y)<rr; };
+const overMass=p=>{ if(spread.on) return false; const c=state.focus?shellC():{x:W/2,y:H/2}, rr=state.focus?shellR():R*SPH*gS*1.15+20; return Math.hypot(p.x-c.x,p.y-c.y)<rr; };
 cv.addEventListener("pointerleave",()=>{ hoverPause=false; spread.mouse=null; cv.style.cursor=""; });
 cv.addEventListener("pointermove",e=>{
   if(ptrs.has(e.pointerId)) ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
