@@ -30,7 +30,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .app{height:100%;display:grid;grid-template-rows:auto 1fr auto;max-width:720px;margin:0 auto}
 .gut{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 
-header{padding-block:12px 6px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+header{position:relative;z-index:7;background:var(--bg);padding-block:12px 6px;display:flex;align-items:center;justify-content:space-between;gap:12px}
 .logo{font-family:var(--display);font-weight:800;font-size:26px;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
 .logo svg{width:32px;height:32px;color:var(--accent);flex:none}
 .wlogo{width:56px;height:56px;color:var(--accent);display:block;margin-bottom:10px}
@@ -105,9 +105,9 @@ input[type=text],input[type=time],select{background:var(--surface);border:1px so
 input::placeholder{color:var(--muted)}
 .dock input{flex:1}
 /* sugestões enquanto digita o nome de uma bolha nova */
-#dock-top,#dock-search{position:relative}
+#dock-top,#dock-search{position:relative;z-index:6;padding-block:6px 4px}
 .sugg{display:grid;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:5px;max-height:46vh;overflow-y:auto}
-#dock-top .sugg,#dock-search .sugg{position:absolute;left:16px;right:16px;bottom:calc(100% - 4px);z-index:5;box-shadow:0 10px 30px #0009}
+#dock-top .sugg,#dock-search .sugg{position:absolute;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));top:calc(100% - 2px);z-index:5;box-shadow:0 10px 30px #0009;max-height:min(46vh,calc(var(--vvh,100dvh) - 170px))}
 .sheet .sugg{margin-top:8px}
 .sg{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;text-align:left;background:none;border:0;border-radius:10px;padding:8px 10px;color:var(--ink)}
 .sg:hover,.sg:focus-visible{background:var(--surface-2)}
@@ -263,9 +263,12 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
   .actions .btn{flex:1 1 100%}
   nav button{font-size:11px}
 }
-/* celular: o chat acompanha o teclado virtual */
+/* celular: o app e o chat acompanham o teclado virtual (o topo fica fixo, a barra de abas some enquanto digita) */
 @media (max-width:759px){
   .chat{height:var(--vvh);bottom:auto}
+  .app{height:var(--vvh)}
+  html.kb nav{display:none}
+  input[type=text],input[type=time],select{font-size:16px} /* abaixo de 16px o iPhone dá zoom ao tocar no campo */
 }
 /* celular deitado */
 @media (max-height:500px) and (orientation:landscape) and (max-width:1000px){
@@ -338,6 +341,18 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
 
   <main>
     <section class="view" id="view-bolhas" aria-label="Bolhas">
+      <div class="dock gut" id="dock-search" hidden>
+        <form id="search-form">
+          <input type="text" id="search-input" maxlength="24" placeholder="Buscar uma bolha que já existe" autocomplete="off" enterkeyhint="search" aria-controls="search-sugg">
+        </form>
+        <div class="sugg" id="search-sugg" role="listbox" aria-label="Bolhas encontradas" hidden></div>
+      </div>
+      <div class="dock gut" id="dock-top" hidden>
+        <form id="new-form">
+          <input type="text" id="new-input" maxlength="24" placeholder="Nome da nova bolha" autocomplete="off" enterkeyhint="done" aria-controls="new-sugg">
+        </form>
+        <div class="sugg" id="new-sugg" role="listbox" aria-label="Bolhas parecidas" hidden></div>
+      </div>
       <div id="topbar">
         <p class="hint gut" id="hint" hidden>Arraste pra girar. Toque 1× pra marcar a bolha; 2 toques (ou segure no celular) pra entrar nela e escolher "É minha vida ♥". Pra tirar uma bolha das suas, segure e arraste até "Remover"; pra guardar uma bolha dentro de outra, use o botão Mover. Cada pessoa organiza as próprias bolhas. O globo vai trocando as bolhas que mostra; pra achar uma específica, use a busca (lupa), e pra criar uma nova, o botão +.</p>
         <div class="trend gut" id="trend"></div>
@@ -354,18 +369,6 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
         <button class="vt" id="filter-toggle" type="button" aria-label="Filtro: ver tudo" title="Filtro: ver tudo"></button>
         <button class="vt f2" id="search-toggle" type="button" aria-label="Buscar bolha" title="Buscar bolha"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.500"/><path d="M16 16l4.500 4.500"/></svg></button>
         <button class="vt f3" id="new-toggle" type="button" aria-label="Criar bolha" title="Criar bolha"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
-      </div>
-      <div class="dock gut" id="dock-search" hidden>
-        <div class="sugg" id="search-sugg" role="listbox" aria-label="Bolhas encontradas" hidden></div>
-        <form id="search-form">
-          <input type="text" id="search-input" maxlength="24" placeholder="Buscar uma bolha que já existe" autocomplete="off" enterkeyhint="search" aria-controls="search-sugg">
-        </form>
-      </div>
-      <div class="dock gut" id="dock-top" hidden>
-        <div class="sugg" id="new-sugg" role="listbox" aria-label="Bolhas parecidas" hidden></div>
-        <form id="new-form">
-          <input type="text" id="new-input" maxlength="24" placeholder="Nome da nova bolha" autocomplete="off" enterkeyhint="done" aria-controls="new-sugg">
-        </form>
       </div>
       <div class="dock gut" id="dock-focus" hidden>
         <div class="seg" id="focus-seg" role="group" aria-label="Quanto você curte esta bolha">
@@ -1969,7 +1972,12 @@ cv.addEventListener("pointercancel",e=>{ptrs.delete(e.pointerId);pinch=null;pinc
 
 // teclado virtual (iOS/Android): o chat encolhe junto com a área visível
 if(window.visualViewport){
-  const vv=visualViewport, fit=()=>{ document.documentElement.style.setProperty("--vvh",vv.height+"px"); if(vv.offsetTop) scrollTo(0,0); };
+  const vv=visualViewport, fit=()=>{
+    document.documentElement.style.setProperty("--vvh",vv.height+"px");
+    document.documentElement.classList.toggle("kb",innerHeight-vv.height>150); // teclado aberto
+    if(vv.offsetTop) scrollTo(0,0);
+    resize(); // o globo se ajusta ao espaço que sobrou
+  };
   vv.addEventListener("resize",fit); vv.addEventListener("scroll",fit); fit();
 }
 // Esc fecha folhas e chat; Enter/Espaço já funcionam nos botões

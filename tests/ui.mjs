@@ -149,6 +149,17 @@ await page.click("#search-toggle");
 ok(await E(() => !document.getElementById("dock-search").hidden && document.getElementById("dock-top").hidden), "Buscar abre só o campo de busca");
 await page.type("#search-input", "corrida de rua");
 ok(await E(() => { const b = document.querySelector('#search-sugg [data-sg-go="corrida/rua"]'); return !!b && /em Corrida/.test(b.textContent) && !document.querySelector("#search-sugg [data-sg-make],#search-sugg [data-sg-new]"); }), "busca acha 'Corrida de rua' (em Corrida) e não oferece criar");
+// o campo e os resultados ficam no topo (o teclado do celular não cobre nada)
+const lay = await E(() => { const r = id => document.getElementById(id).getBoundingClientRect(), h = document.querySelector("header").getBoundingClientRect();
+  return { headerBottom: h.bottom, dockTop: r("dock-search").top, inputBottom: r("search-input").bottom, suggTop: r("search-sugg").top, stageTop: document.querySelector(".stage").getBoundingClientRect().top, H: innerHeight, inputTop: r("search-input").top }; });
+ok(lay.dockTop >= lay.headerBottom - 1 && lay.inputBottom < lay.H / 3 && lay.dockTop < lay.stageTop, "o campo de busca abre no topo, logo abaixo do cabeçalho (y=" + Math.round(lay.inputTop) + " de " + lay.H + ")");
+ok(lay.suggTop >= lay.inputBottom - 4, "os resultados abrem abaixo do campo");
+// teclado do celular: o app encolhe junto com a área visível e o topo continua no lugar
+const kb = await E(() => { document.documentElement.style.setProperty("--vvh", "480px"); document.documentElement.classList.add("kb");
+  const app = document.querySelector(".app").getBoundingClientRect(), h = document.querySelector("header").getBoundingClientRect(), nav = getComputedStyle(document.querySelector("nav")).display;
+  const out = { appH: Math.round(app.height), headerTop: Math.round(h.top), nav }; document.documentElement.style.setProperty("--vvh", "100dvh"); document.documentElement.classList.remove("kb"); return out; });
+ok(kb.appH === 480 && kb.headerTop === 0 && kb.nav === "none", "com o teclado aberto: app com 480px de altura, topo fixo em y=0 e barra de abas escondida (" + JSON.stringify(kb) + ")");
+ok(await E(() => parseFloat(getComputedStyle(document.getElementById("search-input")).fontSize) >= 16), "campo com fonte de 16px (evita o zoom do iPhone)");
 await page.screenshot({ path: path.join(OUT, "busca.png") });
 await page.click('#search-sugg [data-sg-go="corrida/rua"]');
 await wait(1300);
