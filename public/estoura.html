@@ -1321,6 +1321,11 @@ function tap(it){
   if(it.type==="add") return openNewSub();
   if(it.type==="event") return openEvent(it);
   const L=state.lv.get(it.id)||0, t=performance.now();
+  if(kids(it.id).length){ // tem sub-bolhas: 1 toque abre; só dá pra marcar a última bolha da fila (a pai fica marcada pelas filhas)
+    lastTap={id:null,t:0};
+    if(!spread.on) return enter(it.id);
+    setSpread(false); setTimeout(()=>enter(it.id),reduce?0:80); return;
+  }
   if(!spread.on && lastTap.id===it.id && t-lastTap.t<380){ // 2 toques (PC) ou toque longo (celular): entra na bolha
     lastTap={id:null,t:0};
     if(!L) setLevel(it,1,true);
@@ -1445,7 +1450,7 @@ cv.addEventListener("pointerdown",e=>{
       if(!spread.on){
         lpG=setTimeout(()=>{ if(drag) grow={it:h.it,t0:performance.now()}; },300);
         lpE=setTimeout(()=>{ if(!drag) return; lpDone=true; grow=null; try{ navigator.vibrate && navigator.vibrate(15); }catch(_){}
-          if(!state.lv.has(h.it.id)) setLevel(h.it,1,true);
+          if(!state.lv.has(h.it.id) && !kids(h.it.id).length) setLevel(h.it,1,true);
           enter(h.it.id); },1000); // segurou ~1 s: entra na bolha sem precisar soltar
       }
       lp=setTimeout(()=>{
