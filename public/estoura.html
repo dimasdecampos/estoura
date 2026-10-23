@@ -520,7 +520,17 @@ const CITIES = {"São Paulo":[-23.55,-46.63],"Campinas":[-22.90,-47.06],"Santos"
 
 // o texto da cidade do perfil é livre: ignora acento, caixa e o que vem depois de vírgula, hífen ou barra ("Santos - SP")
 const cityKey = t => String(t||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().split(/[,\/\-(]/)[0].replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim();
-const CITY_KEYS = Object.keys(CITIES).map(n=>[cityKey(n),n]);
+// cidades menores e grafias alternativas: só servem pra reconhecer o texto do perfil (não entram na lista do seletor)
+const TOWNS = {"São Luiz do Paraitinga":[-23.22,-45.31],"São Luís do Paraitinga":[-23.22,-45.31],"São Luiz":[-2.53,-44.30],
+  "Cunha":[-23.07,-44.96],"Lagoinha":[-23.09,-45.19],"Natividade da Serra":[-23.37,-45.46],"Redenção da Serra":[-23.26,-45.54],"Paraibuna":[-23.39,-45.66],
+  "Taubaté":[-23.03,-45.56],"Tremembé":[-22.96,-45.55],"Pindamonhangaba":[-22.92,-45.46],"Guaratinguetá":[-22.82,-45.19],"Aparecida":[-22.85,-45.23],
+  "Lorena":[-22.73,-45.12],"Cachoeira Paulista":[-22.67,-45.01],"Campos do Jordão":[-22.74,-45.59],"Caraguatatuba":[-23.62,-45.41],
+  "São Sebastião":[-23.76,-45.41],"Ilhabela":[-23.78,-45.36],"Paraty":[-23.22,-44.71],"Angra dos Reis":[-23.01,-44.32],"Mogi das Cruzes":[-23.52,-46.19],
+  "Jacareí":[-23.31,-45.97],"São Roque":[-23.53,-47.14],"Atibaia":[-23.12,-46.55],"Bragança Paulista":[-22.95,-46.54],"Itu":[-23.26,-47.30],
+  "Americana":[-22.74,-47.33],"Limeira":[-22.56,-47.40],"Araraquara":[-21.79,-48.18],"São Carlos":[-22.02,-47.89],"Franca":[-20.54,-47.40],
+  "Presidente Prudente":[-22.12,-51.39],"Marília":[-22.21,-49.95],"Araçatuba":[-21.21,-50.43],"Praia Grande":[-24.01,-46.41],"São Vicente":[-23.96,-46.39]};
+const ALL_CITIES = {...CITIES,...TOWNS};
+const CITY_KEYS = Object.keys(ALL_CITIES).map(n=>[cityKey(n),n]);
 function cityName(t){
   const k=cityKey(t); if(!k) return null;
   const hit=CITY_KEYS.find(([c])=>c===k); if(hit) return hit[1];
@@ -528,7 +538,7 @@ function cityName(t){
   const inside=CITY_KEYS.filter(([c])=>(" "+k+" ").includes(" "+c+" ")).sort((a,b)=>b[0].length-a[0].length)[0];
   return inside?inside[1]:null;
 }
-const coordsOf = t => { const n=cityName(t); return n?CITIES[n]:null; };
+const coordsOf = t => { const n=cityName(t); return n?ALL_CITIES[n]:null; };
 
 // pessoas reais vêm do Supabase (REAL, abaixo); não há perfis de exemplo
 const PEOPLE = [];
