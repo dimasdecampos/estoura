@@ -1022,8 +1022,12 @@ const evF=()=>bubbleFilter==="all"?visibleEvents():[];
 function setFilter(k,quiet){
   bubbleFilter=k; const f=FILTERS.find(x=>x.k===k), b=document.getElementById("filter-toggle");
   b.innerHTML=f.ic; b.title=f.t; b.setAttribute("aria-label","Filtro: "+f.t); b.classList.toggle("on",k!=="all");
-  if(spread.on) spread.auto=true;
-  rebuild(true); if(!quiet) toast(f.t);
+  if(spread.on){ // reagrupa só as bolhas exibidas: refaz o arranjo a partir de onde elas estão agora
+    const old=new Map(items.filter(i=>i.sp).map(i=>[i.id,{x:i.sp.x,y:i.sp.y,r:i.sp.r}])); items.forEach(i=>{ i.sp=null; });
+    spread.auto=true; rebuild(true);
+    items.forEach(i=>{ const o=old.get(i.id); if(o&&i.sp){ i.sp.x=o.x; i.sp.y=o.y; i.sp.r=o.r; } });
+  } else rebuild(true);
+  if(!quiet) toast(f.t);
   try{ localStorage.setItem("estoura-filter",k); }catch(_){}
 }
 function rebuild(fresh){
