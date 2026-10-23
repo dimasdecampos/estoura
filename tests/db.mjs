@@ -191,5 +191,42 @@ ok(!stolen, "0013: não dá pra passar o evento pra outra pessoa");
 await run(`reset role`);
 await as(null);
 
+// 0014: painel de administração
+await run(`alter table auth.users add column last_sign_in_at timestamptz`);
+const OWNER = "00000000-0000-0000-0000-0000000000d1", ADM = "00000000-0000-0000-0000-0000000000d2", USR = "00000000-0000-0000-0000-0000000000d3", USR2 = "00000000-0000-0000-0000-0000000000d4";
+await run(`insert into auth.users (id, email) values ('${ADM}', 'adm@x'), ('${USR}', 'usr@x'), ('${USR2}', 'usr2@x')`);
+await run(file("migrations/0014_admin.sql"));
+await run(file("migrations/0014_admin.sql"));
+await run(`insert into auth.users (id, email) values ('${OWNER}', 'DimasRafting@gmail.com')`);
+const roleOf = async id => { await run(`reset role`); const r = (await q(`select role from profiles where id = '${id}'`))[0]; await run(`set role authenticated`); return r && r.role; };
+ok(await roleOf(OWNER) === "super_admin", "0014: o e-mail do dono nasce super_admin");
+ok(await roleOf(USR) === "user", "0014: os outros nascem usuário comum");
+await run(`set role authenticated`);
+await as(USR);
+let selfPromo = true; try { selfPromo = (await q(`update profiles set role = 'super_admin' where id = '${USR}' returning id`)).length > 0; } catch (e) { selfPromo = false; }
+ok(!selfPromo, "0014: usuário comum não consegue se promover editando o perfil");
+ok((await q(`update profiles set city = 'Santos' where id = '${USR}' returning id`)).length === 1, "0014: usuário ainda edita a própria cidade");
+const denied = async sql => { try { await q(sql); return false; } catch (e) { return true; } };
+ok(await denied(`select * from admin_list_users()`), "0014: usuário comum não lista usuários");
+ok(await denied(`select admin_delete_user('${USR2}')`), "0014: usuário comum não exclui ninguém");
+await run(`reset role`); await run(`select set_config('estoura.role_change', 'on', false); update profiles set role = 'admin' where id = '${ADM}'; select set_config('estoura.role_change', 'off', false)`);
+await run(`set role authenticated`);
+await as(ADM);
+ok((await q(`select * from admin_list_users()`)).length >= 4, "0014: admin lista os usuários");
+ok(await denied(`select admin_set_role('${USR}', 'admin')`), "0014: admin comum não muda papéis");
+ok(await denied(`select admin_delete_user('${OWNER}')`), "0014: admin não exclui o super admin");
+await q(`select admin_delete_user('${USR2}')`);
+await run(`reset role`); const userGone = (await q(`select 1 from auth.users where id = '${USR2}'`)).length === 0; await run(`set role authenticated`);
+ok(userGone && (await q(`select 1 from profiles where id = '${USR2}'`)).length === 0, "0014: admin exclui um usuário comum (conta e perfil somem)");
+await as(OWNER);
+await q(`select admin_set_role('${USR}', 'admin')`);
+ok(await roleOf(USR) === "admin", "0014: super admin promove usuário a admin");
+ok(await denied(`select admin_set_role('${OWNER}', 'user')`), "0014: super admin não muda o próprio papel");
+ok(await denied(`select admin_set_role('${USR}', 'super_admin')`), "0014: não existe promover a super admin pela tela");
+await q(`select admin_delete_user('${USR}')`);
+ok((await q(`select 1 from profiles where id = '${USR}'`)).length === 0, "0014: super admin exclui um admin");
+await run(`reset role`);
+await as(null);
+
 console.log(fails ? `\n${fails} FALHA(S)` : "\nTUDO OK");
 process.exit(fails ? 1 : 0);

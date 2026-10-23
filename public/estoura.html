@@ -415,6 +415,13 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
       <p class="sub">Combinações das suas bolhas e sub-bolhas que outras pessoas também estouraram.</p>
       <div class="list" id="group-list"></div>
     </section>
+
+    <section class="view gut" id="view-admin" hidden aria-label="Admin">
+      <h2>Administração</h2>
+      <p class="sub">Gerencie quem usa o Estoura: papéis e exclusão de contas.</p>
+      <div class="row" style="margin-bottom:14px"><input type="text" id="adm-q" placeholder="Buscar por nome, e-mail ou cidade" autocomplete="off" style="flex:1"><span class="note" id="adm-note"></span></div>
+      <div class="list" id="admin-list"></div>
+    </section>
   </main>
 
   <nav class="gut" aria-label="Navegação">
@@ -428,6 +435,8 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
       <svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Eventos<span class="badge" id="event-badge" hidden></span></button>
     <button data-view="grupos">
       <svg viewBox="0 0 24 24"><path d="M4 6h16v10H9l-5 4z"/></svg>Grupos<span class="badge" id="group-badge" hidden></span></button>
+    <button data-view="admin" hidden>
+      <svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.500-3 8-7 10-4-2-7-5.500-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>Admin</button>
   </nav>
 </div>
 
@@ -2436,6 +2445,7 @@ if (cfg.url && cfg.key) {
     // "Você está em" e o raio seguem a cidade do perfil (vazia = sem filtro de distância)
     const pr = await sb.from("profiles").select("city").eq("id", uid).maybeSingle();
     state.city = (pr.data && pr.data.city) || "";
+    setRole(((await sb.from("profiles").select("role").eq("id", uid).maybeSingle()).data || {}).role); // sem o SQL 0014 não há a coluna: segue como usuário comum
     state.lv.clear(); state.auto.clear(); state.pp.clear(); saved.clear();
     mine.data.forEach(r => { state.lv.set(r.interest_id, r.level); state.pp.set(r.interest_id, r.parent_id || null); if (r.auto) state.auto.add(r.interest_id); saved.set(r.interest_id, row(r.interest_id)); });
     syncInterests(st.data); // bolhas novas, excluídas e movidas por outras pessoas + contagens do banco
@@ -2512,6 +2522,55 @@ if (cfg.url && cfg.key) {
     queue = queue.then(flush).then(() => sb.rpc("forget_interest", { p_id: id })).catch(() => {});
   };
 
+  /* ---------- administração (só aparece para admin e super_admin; o banco confere tudo de novo) ---------- */
+  let myRole = "user", admUsers = [];
+  const ROLE_LABEL = { user: "Usuário", admin: "Admin", super_admin: "Super admin" };
+  function setRole(r){
+    myRole = ["admin", "super_admin"].includes(r) ? r : "user";
+    const isAdm = myRole !== "user";
+    document.querySelector('nav [data-view="admin"]').hidden = !isAdm;
+    if (!isAdm && !document.getElementById("view-admin").hidden) setView("bolhas");
+  }
+  function renderAdmin(){
+    const q = cityKey(document.getElementById("adm-q").value), list = document.getElementById("admin-list");
+    const rows = admUsers.filter(u => !q || cityKey([u.display_name, u.email, u.city].join(" ")).includes(q));
+    document.getElementById("adm-note").textContent = `${rows.length} de ${admUsers.length}`;
+    list.innerHTML = rows.map(u => {
+      const self = u.id === uid, canRole = myRole === "super_admin" && !self && u.role !== "super_admin";
+      const canDel = !self && u.role !== "super_admin" && (u.role === "user" || myRole === "super_admin");
+      return `<div class="card" data-u="${u.id}" style="grid-template-columns:auto 1fr">
+        ${avatar({ name: u.display_name || u.email || "?", photo: u.avatar_url, lv: new Map() })}
+        <span class="who"><span class="name">${esc(u.display_name || "Sem nome")}</span> <span class="ok">${ROLE_LABEL[u.role] || esc(u.role)}</span>${self ? ' <span class="ok">você</span>' : ""}
+          <span class="meta" style="display:block">${esc([u.email, u.city, u.bubbles + (u.bubbles === 1 ? " bolha" : " bolhas")].filter(Boolean).join(" · "))}</span>
+          <span class="meta" style="display:block">Entrou em ${new Date(u.created_at).toLocaleDateString("pt-BR")}${u.last_sign_in_at ? " · último acesso " + new Date(u.last_sign_in_at).toLocaleDateString("pt-BR") : ""}</span></span>
+        <span class="row" style="grid-column:1/-1;justify-content:flex-end;gap:8px">
+          ${canRole ? `<select data-role aria-label="Papel de ${esc(u.display_name || "")}"><option value="user"${u.role === "user" ? " selected" : ""}>Usuário</option><option value="admin"${u.role === "admin" ? " selected" : ""}>Admin</option></select>` : ""}
+          ${canDel ? '<button class="btn sm" data-del type="button">Excluir</button>' : ""}</span></div>`;
+    }).join("") || '<div class="empty">Ninguém encontrado.</div>';
+  }
+  async function loadAdmin(){
+    const { data, error } = await sb.rpc("admin_list_users");
+    if (error) return toast("Não consegui carregar os usuários. Rode o SQL 0014 no Supabase.");
+    admUsers = data || []; renderAdmin();
+  }
+  document.querySelector('nav [data-view="admin"]').addEventListener("click", loadAdmin);
+  document.getElementById("adm-q").addEventListener("input", renderAdmin);
+  document.getElementById("admin-list").addEventListener("change", async e => {
+    const sel = e.target.closest("[data-role]"); if (!sel) return;
+    const id = sel.closest("[data-u]").dataset.u, u = admUsers.find(x => x.id === id);
+    const { error } = await sb.rpc("admin_set_role", { p_user: id, p_role: sel.value });
+    toast(error ? "Não consegui mudar o papel" : `${u.display_name || "Usuário"} agora é ${ROLE_LABEL[sel.value]}`);
+    await loadAdmin();
+  });
+  document.getElementById("admin-list").addEventListener("click", async e => {
+    if (!e.target.closest("[data-del]")) return;
+    const id = e.target.closest("[data-u]").dataset.u, u = admUsers.find(x => x.id === id); if (!u) return;
+    if (!confirm(`Excluir a conta de ${u.display_name || u.email}? Bolhas, conversas e eventos dela somem. Isso não tem volta.`)) return;
+    const { error } = await sb.rpc("admin_delete_user", { p_user: id });
+    toast(error ? "Não consegui excluir" : "Conta excluída");
+    await loadAdmin();
+  });
+
   let wasLogged = false;
   function render(event, session){
     const u = session && session.user;
@@ -2534,6 +2593,7 @@ if (cfg.url && cfg.key) {
       btn.setAttribute("aria-label", "Entrar com o Google");
       btn.onclick = signIn;
       uid = null;
+      setRole("user");
       window.estouraAuthed = false;
     }
     wasLogged = !!u;
