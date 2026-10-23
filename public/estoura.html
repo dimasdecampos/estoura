@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#0b1322;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
 <title>Estoura</title>
 <meta name="description" content="Estoura: estoure as bolhas dos seus interesses e ache a sua turma.">
 <meta name="theme-color" content="#0b1322">
@@ -21,7 +21,7 @@
   --body:"Figtree",system-ui,-apple-system,sans-serif;
   color-scheme:dark;
 }
-html{height:100%;box-sizing:border-box}
+html{height:100%;box-sizing:border-box;background:var(--bg)} /* a faixa da área segura do celular (rodapé) também fica escura */
 *,*::before,*::after{box-sizing:inherit}
 body{height:100%;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;overflow:hidden}
 button,select,input{font:inherit;color:inherit}
@@ -64,14 +64,12 @@ button.pill:hover{border-color:#3a4f7a}
 .vt.f2{top:62px}
 .vt.f3{top:116px}
 /* Matches: menu Lista | Bolhas | Rede. Em Bolhas e Rede, a lista dá lugar a um canvas de pessoas */
-.mmode{display:flex;margin:14px 0 2px}
-.mmode button{flex:1}
-#view-matches.pm{display:flex;flex-direction:column;overflow:hidden;padding-bottom:0}
-#view-matches.pm>h2,#view-matches.pm>.sub,#view-matches.pm #tip-bar,#view-matches.pm #match-list{display:none}
-#view-matches.pm .filters{margin:10px 0 0}
-.pstage{position:relative;flex:1;min-height:0}
+/* visão de pessoas (botão de bolhinhas espalhadas no globo, pra quem está logado): o globo dá lugar às pessoas */
+.vt.f4{top:170px}
+#view-bolhas.pm #topbar,#view-bolhas.pm .dock,#view-bolhas.pm #crumb,#view-bolhas.pm #globe,#view-bolhas.pm .vt:not(#people-toggle){display:none!important}
+#view-bolhas.pm #people-toggle{top:8px}
 #people{cursor:default}
-.pbar{position:absolute;top:8px;left:0;right:0;z-index:3;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;pointer-events:none}
+.pbar{position:absolute;top:8px;left:max(16px,env(safe-area-inset-left,0px));right:70px;z-index:3;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;pointer-events:none}
 .pbar>*{pointer-events:auto}
 .pbar .note{margin:0;font-size:12.5px;flex-basis:100%}
 .pbar .pwho{font-size:14px;min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -219,7 +217,7 @@ nav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8}
 .composer{display:flex;gap:8px;padding-block:8px 10px}
 .composer input{flex:1}
 
-.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);font-weight:600;font-size:13.5px;padding:9px 14px;border-radius:12px;z-index:40;max-width:calc(100% - 32px);text-align:center;transition:opacity .2s}
+.toast{position:fixed;left:50%;top:var(--ntop,64px);transform:translateX(-50%);background:var(--ink);color:var(--bg);font-weight:600;font-size:13.5px;padding:9px 14px;border-radius:12px;z-index:40;max-width:calc(100% - 32px);text-align:center;transition:opacity .2s;pointer-events:none}
 .toast[data-off]{opacity:0;pointer-events:none}
 /* alerta de mensagem nova (faixa no topo, toque pra abrir) */
 .alert{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top,0px));transform:translateX(-50%);width:min(440px,calc(100% - 24px));display:grid;gap:2px;text-align:left;background:var(--surface-2);color:var(--ink);border:1px solid var(--accent);border-radius:16px;padding:11px 14px;z-index:60;box-shadow:0 12px 34px #000b;transition:transform .25s,opacity .25s}
@@ -231,7 +229,7 @@ nav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8}
 @keyframes ping{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 70%,transparent)}80%,100%{box-shadow:0 0 0 8px transparent}}
 @media (prefers-reduced-motion:reduce){.badge.alert-on{animation:none}}
 /* aviso de instalação no primeiro acesso */
-.installbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));width:min(460px,calc(100% - 24px));display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--accent-2);border-radius:16px;padding:11px 12px;font-size:13px;line-height:1.4;z-index:42;box-shadow:0 12px 34px #000b}
+.installbar{position:relative;margin:8px max(16px,env(safe-area-inset-left,0px)) 0;max-width:460px;display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--accent-2);border-radius:16px;padding:11px 12px;font-size:13px;line-height:1.4;z-index:42;box-shadow:0 12px 34px #000b}
 .installbar>span{flex:1;min-width:0}
 .installbar svg{width:15px;height:15px;vertical-align:-3px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .installbar .x{background:none;border:0;color:var(--muted);font-size:18px;line-height:1;padding:4px 6px}
@@ -311,8 +309,6 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
   .sheet{max-width:560px;max-height:min(86dvh,820px);border:1px solid var(--line);border-radius:24px;padding-block:14px 22px;animation:pop .2s ease-out}
   .grab{display:none}
   .chat{top:4dvh;bottom:4dvh;left:0;right:0;max-width:560px;border:1px solid var(--line);border-radius:24px;overflow:hidden;box-shadow:0 0 0 100vmax #050912b3,0 30px 80px #000a}
-  .toast{bottom:28px}
-  .installbar{bottom:28px}
 }
 @keyframes pop{from{transform:scale(.96);opacity:.4}}
 /* desktop: menu lateral, tela larga */
@@ -325,7 +321,8 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
   .pill{font-size:13.5px;padding:8px 14px}
   .pill.auth img{width:22px;height:22px}
   .vt{top:16px} .vt.f2{top:70px} .vt.f3{top:124px}
-  .mmode{max-width:420px;margin-top:22px}
+  .vt.f4{top:178px}
+  #view-bolhas.pm #people-toggle,#view-bolhas.pm .pbar{top:16px}
   main{grid-area:main}
   nav{grid-area:nav;grid-auto-flow:row;grid-template-columns:1fr;align-content:start;gap:4px;border-top:0;border-right:1px solid var(--line);padding-block:14px}
   nav button{grid-template-columns:auto 1fr auto;justify-items:start;align-items:center;gap:12px;font-size:15px;padding:13px 14px;border-radius:14px;text-align:left}
@@ -344,7 +341,6 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
   p.sub{font-size:15px}
   .list{grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:14px}
   .toast{left:calc(50% + 120px)}
-  .installbar{left:calc(50% + 120px)}
 }
 @media (min-width:1500px){
   .app{max-width:1440px}
@@ -375,6 +371,7 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
       <div id="topbar">
         <p class="hint gut" id="hint" hidden>Arraste pra girar. Toque 1× pra marcar a bolha; 2 toques (ou segure no celular) pra entrar nela e escolher "Eu amo! ♥". Pra tirar uma bolha das suas, segure e arraste até "Remover"; pra guardar uma bolha dentro de outra, use o botão Mover. Cada pessoa organiza as próprias bolhas. O globo vai trocando as bolhas que mostra; pra achar uma específica, use a busca (lupa), e pra criar uma nova, o botão +.</p>
         <div class="trend gut" id="trend"></div>
+        <div class="installbar" id="install-bar" role="dialog" aria-label="Instalar o app" hidden></div>
       </div>
       <div class="dock gut" id="dock-search" hidden>
         <form id="search-form">
@@ -400,6 +397,9 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
         <button class="vt" id="filter-toggle" type="button" aria-label="Filtro: ver tudo" title="Filtro: ver tudo"></button>
         <button class="vt f2" id="search-toggle" type="button" aria-label="Buscar bolha" title="Buscar bolha"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.500"/><path d="M16 16l4.500 4.500"/></svg></button>
         <button class="vt f3" id="new-toggle" type="button" aria-label="Criar bolha" title="Criar bolha"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+        <canvas id="people" hidden aria-label="Pessoas que combinam com você"></canvas>
+        <div class="pbar" id="people-bar" hidden></div>
+        <button class="vt f4" id="people-toggle" type="button" hidden aria-pressed="false" aria-label="Ver pessoas que combinam com você" title="Ver pessoas que combinam com você"></button>
       </div>
       <div class="dock gut" id="dock-focus" hidden>
         <div class="seg" id="focus-seg" role="group" aria-label="Quanto você curte esta bolha">
@@ -410,18 +410,11 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
     </section>
 
     <section class="view gut" id="view-matches" hidden aria-label="Matches">
-      <div class="seg mmode" id="match-mode" role="group" aria-label="Como ver seus matches" hidden>
-        <button data-mm="lista" aria-pressed="true">Lista</button><button data-mm="bolhas" aria-pressed="false">Bolhas</button><button data-mm="rede" aria-pressed="false">Rede</button>
-      </div>
       <h2>Quem estourou o mesmo que você</h2>
       <p class="sub">Interesses raros e sub-bolhas pesam mais. Quem marcou "eu amo!" no mesmo que você ganha bônus (♥).</p>
       <div id="tip-bar"></div>
       <div class="filters" id="filters"></div>
       <div class="list" id="match-list"></div>
-      <div class="pstage" id="people-stage" hidden>
-        <canvas id="people" aria-label="Pessoas que combinam com você"></canvas>
-        <div class="pbar" id="people-bar"></div>
-      </div>
     </section>
 
     <section class="view gut" id="view-chat" hidden aria-label="Conversas">
@@ -469,7 +462,6 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
 
 <div class="toast" id="toast" role="status" aria-live="polite" data-off></div>
 <button class="alert" id="alert" type="button" role="alert" data-off></button>
-<div class="installbar" id="install-bar" role="dialog" aria-label="Instalar o app" hidden></div>
 <div class="nudge" id="nudge" role="status" hidden><span>💾 Entre pra <b>salvar suas bolhas</b> e encontrar matches de verdade.</span><button class="btn sm primary" id="nudge-go" type="button">Entrar</button><button class="x" id="nudge-x" type="button" aria-label="Fechar">×</button></div>
 <div id="layer"></div>
 
@@ -733,7 +725,7 @@ function suggestGroups(){
 }
 
 /* ================= UI ================= */
-let tt; function toast(t){ const el=document.getElementById("toast"); el.textContent=t; delete el.dataset.off; clearTimeout(tt); tt=setTimeout(()=>el.dataset.off="",2400); }
+let tt; function toast(t){ const el=document.getElementById("toast"); el.textContent=t; noticeTop(); delete el.dataset.off; clearTimeout(tt); tt=setTimeout(()=>el.dataset.off="",2400); }
 
 /* ---------- avisos: mensagens novas, notificações e app instalado ---------- */
 state.unread=new Map(); // chave da conversa ("c:<conexão>" ou "e_<evento>") -> mensagens novas
@@ -836,7 +828,7 @@ async function installApp(){
 const SHARE_ICON='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4M8 8l4-4 4 4M6 12v7h12v-7"/></svg>';
 const installSeen=()=>{ try{ return localStorage.getItem("estoura-install-seen")==="1"; }catch(e){ return false; } };
 const setInstallSeen=()=>{ try{ localStorage.setItem("estoura-install-seen","1"); }catch(e){} };
-function hideInstallBar(){ document.getElementById("install-bar").hidden=true; }
+function hideInstallBar(){ document.getElementById("install-bar").hidden=true; noticeTop(); }
 // devolve true quando não precisa mais tentar (mostrou, já instalado ou já viu)
 function maybeShowInstallBar(){
   const el=document.getElementById("install-bar");
@@ -845,14 +837,14 @@ function maybeShowInstallBar(){
   if(layer.firstElementChild) return false; // tem boas-vindas, conversa ou folha aberta: espera fechar
   if(deferredInstall){
     el.innerHTML=`<span>📲 <b>Instale o Estoura</b> no seu aparelho: abre em tela cheia e mais rápido.</span><button class="btn sm primary" id="install-go" type="button">Instalar</button><button class="x" id="install-x" type="button" aria-label="Agora não">×</button>`;
-    el.hidden=false; setInstallSeen();
+    el.hidden=false; noticeTop(); setInstallSeen();
     document.getElementById("install-go").onclick=async()=>{ hideInstallBar(); await installApp(); };
     document.getElementById("install-x").onclick=hideInstallBar;
     return true;
   }
   if(isIOS){
     el.innerHTML=`<span>📲 <b>Instale o Estoura</b>: toque em Compartilhar ${SHARE_ICON} e depois em <b>Adicionar à Tela de Início</b>.</span><button class="btn sm" id="install-x" type="button">Entendi</button>`;
-    el.hidden=false; setInstallSeen();
+    el.hidden=false; noticeTop(); setInstallSeen();
     document.getElementById("install-x").onclick=hideInstallBar;
     return true;
   }
@@ -893,12 +885,13 @@ function wireDevice(reopen){
 }
 
 function setView(v){
+  setTimeout(noticeTop,0);
   document.querySelectorAll(".view").forEach(s=>s.hidden = s.id!=="view-"+v);
   document.querySelectorAll("nav button").forEach(b=>{ if(b.dataset.view===v) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current"); });
   if(v==="bolhas") resize();
 }
-document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{ setView(b.dataset.view); if(b.dataset.view==="bolhas") goHome(); });
-document.getElementById("logo").onclick=()=>{ setView("bolhas"); goHome(); };
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{ setView(b.dataset.view); if(b.dataset.view==="bolhas"){ if(pm&&pm.on) setPeople(false); goHome(); } });
+document.getElementById("logo").onclick=()=>{ setView("bolhas"); if(pm&&pm.on) setPeople(false); goHome(); };
 
 function renderAll(){ renderHeader(); renderTrend(); renderFocus(); renderMatches(); renderChats(); renderEvents(); renderGroups(); renderTips(); refreshBadges(); tryLink(); if(pm&&pm.on) peopleSync(); }
 function renderHeader(){ document.querySelector("#pop-count b").textContent = state.lv.size; }
@@ -907,8 +900,15 @@ function renderTrend(){
   const el=document.getElementById("trend"); el.hidden=!!state.focus;
   const tr=trending(); TREND.clear(); tr.forEach(x=>TREND.add(x.i.id)); // as bolhas em alta pulsam no globo
   el.innerHTML=tr.length ? `<span class="tag">Em alta</span>`+tr.map(({i,r})=>`<button data-trend="${i.id}" style="--h:${i.hue}">${esc(i.name)}<b>+${r}</b></button>`).join("")
-    +`<span class="note" style="flex:none;margin:0 0 0 4px">pessoas na semana</span>` : "";
+    : "";
 }
+/* avisos (toast e "instale o app") aparecem no topo, logo abaixo do "Em alta" (ou do cabeçalho, nas outras abas) */
+function noticeTop(){
+  const h=document.querySelector("header").getBoundingClientRect().bottom, t=document.getElementById("topbar");
+  let b=h; if(t&&t.offsetParent&&t.offsetHeight) b=Math.max(b,t.getBoundingClientRect().bottom); // topo da tela de bolhas: Em alta + aviso de instalar
+  document.documentElement.style.setProperty("--ntop",Math.round(b+8)+"px");
+}
+new ResizeObserver(noticeTop).observe(document.getElementById("topbar")); addEventListener("resize",noticeTop);
 document.getElementById("trend").onclick=e=>{ const b=e.target.closest("[data-trend]"); if(b) spinTo(b.dataset.trend); };
 
 function renderFocus(){
@@ -1809,7 +1809,7 @@ function countsForFrame(){
 }
 function frame(t){
   now=t||0; countsForFrame();
-  if(W){
+  if(W && !(pm&&pm.on)){ // na visão de pessoas o globo fica parado
     ctx.clearRect(0,0,W,H);
     if(anim){
       anim.t=Math.min(1,anim.t+0.045); const e=ease(anim.t), S=shellR(), c=shellC();
@@ -2135,23 +2135,25 @@ var pm={on:false,mode:"bolhas",open:null,closing:false,z:0,nodes:new Map(),inner
 const pv=document.getElementById("people"), px=pv.getContext("2d");
 const PM_MAX=24, NET_MAX=18, GOLD=2.39996;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-const pmView=()=>document.getElementById("view-matches");
+const pmView=()=>document.getElementById("view-bolhas");
+const ICON_SPREAD='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6.500" cy="7" r="2.800"/><circle cx="17" cy="6" r="2"/><circle cx="18" cy="15.500" r="3.200"/><circle cx="8" cy="17.500" r="2.300"/><circle cx="12.500" cy="11.500" r="1.200"/></svg>';
+const ICON_GLOBE='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3.200 3 3.200 15 0 18M12 3c-3.200 3-3.200 15 0 18"/></svg>';
 function peopleAccess(ok){
-  document.getElementById("match-mode").hidden=!ok;
-  if(!ok) return setMatchMode("lista",true);
-  let last="lista"; try{ last=localStorage.getItem("estoura-match-mode")||"lista"; }catch(_){} // lembra o último jeito de ver
-  setMatchMode(["lista","bolhas","rede"].includes(last)?last:"lista",true);
+  document.getElementById("people-toggle").hidden=!ok;
+  if(!ok && pm.on) setPeople(false);
 }
-function setMatchMode(m,quiet){
-  const on=m!=="lista", was=pm.on;
-  document.querySelectorAll("#match-mode [data-mm]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.mm===m)));
-  if(!quiet) try{ localStorage.setItem("estoura-match-mode",m); }catch(_){}
-  pm.mode=on?m:pm.mode; pm.on=on; pm.sel=null; pm.hover=null; pm.open=null; pm.closing=false; pm.z=0;
-  pmView().classList.toggle("pm",on); document.getElementById("people-stage").hidden=!on;
+function setPeople(on){
+  if(on===pm.on) return;
+  pm.on=on; pmView().classList.toggle("pm",on); pv.hidden=!on; document.getElementById("people-bar").hidden=!on;
+  const b=document.getElementById("people-toggle"), t=on?"Voltar pro globo de bolhas":"Ver pessoas que combinam com você";
+  b.innerHTML=on?ICON_GLOBE:ICON_SPREAD; // o ícone mostra pra onde você vai
+  b.setAttribute("aria-pressed",String(on)); b.title=t; b.setAttribute("aria-label",t);
   cancelAnimationFrame(pm.raf);
-  if(on){ if(!was){ pm.nodes.clear(); pm.ints.clear(); } pmResize(); peopleSync(); pm.raf=requestAnimationFrame(pmFrame); }
+  if(on){ goHome(); pm.open=null; pm.closing=false; pm.z=0; pm.sel=null; pm.hover=null; pm.nodes.clear(); pm.ints.clear(); pmResize(); peopleSync(); pm.raf=requestAnimationFrame(pmFrame); }
+  else resize();
 }
-document.getElementById("match-mode").onclick=e=>{ const b=e.target.closest("[data-mm]"); if(b) setMatchMode(b.dataset.mm); };
+document.getElementById("people-toggle").innerHTML=ICON_SPREAD;
+document.getElementById("people-toggle").onclick=()=>setPeople(!pm.on);
 
 function photoOf(url){
   if(!url) return null;
@@ -2239,12 +2241,13 @@ function pmBar(){
       else if(nd) note=`${esc(nd.p.name)} · ${nd.pct}% · ${nd.shared.length} em comum. Toque de novo pra abrir o perfil.`;
       else if(n) note+=". Toque numa bolha ou pessoa pra ver as linhas dela.";
     } else if(n) note+=". Toque numa pessoa pra ver o que ela curte.";
-    el.innerHTML=`<span class="note">${note}</span>`;
+    el.innerHTML=`<div class="seg" role="group" aria-label="Como ver as pessoas"><button data-pm="bolhas" aria-pressed="${pm.mode==="bolhas"}">Bolhas</button><button data-pm="rede" aria-pressed="${pm.mode==="rede"}">Rede</button></div><span class="note">${note}</span>`;
   }
-  const top=Math.max(28,el.offsetHeight+16);
+  const top=Math.max(48,el.offsetHeight+16);
   if(top!==pm.top){ pm.top=top; pmLayout(); }
 }
 document.getElementById("people-bar").onclick=e=>{
+  const m=e.target.closest("[data-pm]"); if(m){ pm.mode=m.dataset.pm; pm.sel=null; pm.hover=null; pm.open=null; pm.closing=false; pm.z=0; pmBar(); return; }
   const a=e.target.closest("[data-pact]"); if(!a) return;
   if(a.dataset.pact==="back") pmClose(); else if(pm.open) openProfile(pm.open.p);
 };

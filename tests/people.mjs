@@ -1,4 +1,4 @@
-// Matches em Bolhas e Rede (pra quem está logado): bolhas de pessoas com foto, abrir uma pessoa, estourar uma bolha dela, rede. Sem Supabase.
+// Visão de pessoas (botão no globo, pra quem está logado): bolhas de pessoas com foto, abrir uma pessoa, estourar uma bolha dela, rede. Sem Supabase.
 import puppeteer from "puppeteer-core";
 import http from "node:http";
 import fs from "node:fs";
@@ -31,7 +31,7 @@ for (const [w, h, tag] of [[420, 860, "celular"], [1280, 820, "desktop"]]) {
   await page.goto(origin + "/", { waitUntil: "load" });
   await wait(500);
 
-  ok(await E(() => document.getElementById("match-mode").hidden), `${tag}: sem login, o menu Lista/Bolhas/Rede não aparece nos Matches`);
+  ok(await E(() => document.getElementById("people-toggle").hidden), `${tag}: sem login, o botão de pessoas não aparece no globo`);
   await E(() => {
     ["surf", "viagens", "viagens/mochilao", "cafe", "trilhas"].forEach(id => setLevel(byId(id), 1, true));
     setLevel(byId("surf"), 2, true);
@@ -48,14 +48,14 @@ for (const [w, h, tag] of [[420, 860, "celular"], [1280, 820, "desktop"]]) {
     gente.forEach(([n, lv], i) => REAL.push({ id: "r_" + i, uid: "u" + i, name: n + " Teste", city: "Santos", real: true, shy: true, photo: i % 2 ? null : foto(["#c47", "#47c", "#4a7"][i / 2]), lv: new Map(lv), conn: null }));
     renderAll();
     peopleAccess(true); // logou
-    setView("matches");
-  });
-  ok(await E(() => !document.getElementById("match-mode").hidden), `${tag}: logado, o menu Lista/Bolhas/Rede aparece no topo dos Matches`);
-  ok(await E(() => !pm.on && document.querySelectorAll("#match-list .card").length > 0), `${tag}: começa na Lista de sempre`);
 
-  await page.click('#match-mode [data-mm="bolhas"]');
+  });
+  ok(await E(() => !document.getElementById("people-toggle").hidden && document.getElementById("people-toggle").querySelectorAll("circle").length === 5), `${tag}: logado, o botão das bolhinhas espalhadas aparece no globo`);
+  ok(await E(() => !pm.on && getComputedStyle(document.getElementById("globe")).display !== "none"), `${tag}: começa no globo de sempre`);
+
+  await page.click("#people-toggle");
   await wait(1800); // deixa as bolhas se acomodarem
-  ok(await E(() => pm.on && !document.getElementById("people-stage").hidden && getComputedStyle(document.getElementById("match-list")).display === "none" && document.getElementById("people").getBoundingClientRect().height > 300), `${tag}: Bolhas troca a lista pela visão de pessoas`);
+  ok(await E(() => pm.on && !document.getElementById("people").hidden && getComputedStyle(document.getElementById("globe")).display === "none" && document.getElementById("people").getBoundingClientRect().height > 300), `${tag}: o botão troca o globo pela visão de pessoas`);
   ok(await E(() => pm.nodes.size === 6), `${tag}: uma bolha por pessoa que combina (6)`);
   ok(await E(() => { const n = [...pm.nodes.values()].sort((a, b) => b.pct - a.pct), hi = n[0], lo = n[n.length - 1], d = x => Math.hypot(x.btx - pmGeo().cx, x.bty - pmGeo().cy);
     return hi.pct > lo.pct && hi.br > lo.br && d(hi) < d(lo); }), `${tag}: quem combina mais tem bolha maior e mais perto de você`);
@@ -84,7 +84,7 @@ for (const [w, h, tag] of [[420, 860, "celular"], [1280, 820, "desktop"]]) {
   ok(await E(() => !pm.open), `${tag}: tocar fora fecha a pessoa`);
 
   // rede
-  await page.click('#match-mode [data-mm="rede"]');
+  await page.click('#people-bar [data-pm="rede"]');
   await wait(1200);
   ok(await E(() => pm.mode === "rede" && pm.ints.size >= 4 && pm.ints.has("viagens") && pm.ints.has("surf")), `${tag}: rede mostra as bolhas em comum no meio`);
   ok(await E(() => !pm.ints.has("leitura") && !pm.ints.has("skate")), `${tag}: bolhas que só a outra pessoa tem não entram na rede`);
@@ -103,12 +103,12 @@ for (const [w, h, tag] of [[420, 860, "celular"], [1280, 820, "desktop"]]) {
   await E(() => closeLayer());
 
   // lembra a escolha; Lista volta; sair da conta esconde o menu
-  ok(await E(() => localStorage.getItem("estoura-match-mode") === "rede"), `${tag}: lembra que você estava na Rede`);
-  await page.click('#match-mode [data-mm="lista"]');
-  ok(await E(() => !pm.on && getComputedStyle(document.getElementById("match-list")).display !== "none" && document.getElementById("people-stage").hidden), `${tag}: Lista volta pra lista de sempre`);
-  await E(() => { setMatchMode("bolhas"); peopleAccess(false); });
-  ok(await E(() => !pm.on && document.getElementById("match-mode").hidden), `${tag}: saindo da conta, a visão fecha e o menu some`);
-  await E(() => localStorage.removeItem("estoura-match-mode"));
+  ok(await E(() => document.getElementById("people-toggle").querySelectorAll("circle").length === 1), `${tag}: com a visão aberta, o botão vira o globo (pra voltar)`);
+  await page.click("#people-toggle");
+  ok(await E(() => !pm.on && getComputedStyle(document.getElementById("globe")).display !== "none"), `${tag}: tocar de novo volta pro globo`);
+  await E(() => { setPeople(true); peopleAccess(false); });
+  ok(await E(() => !pm.on && document.getElementById("people-toggle").hidden), `${tag}: saindo da conta, a visão fecha e o botão some`);
+
 }
 
 ok(errors.length === 0, "sem erros no console" + (errors.length ? ": " + errors.join(" | ") : ""));
