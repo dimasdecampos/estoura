@@ -1130,9 +1130,9 @@ function openCreateEvent(old){ // com um evento seu na mão, edita ele
     const cityTxt=document.getElementById("ev-city").value.trim(), cc=coordsOf(cityTxt);
     if(!cc) return toast("Não reconheci a cidade do evento. Confira a grafia.");
     const city=cityName(cityTxt);
-    const t=document.getElementById("ev-title").value.trim()||"Rolê sem nome";
+    const t=document.getElementById("ev-title").value.trim()||"Rolê sem nome", dayEl=document.getElementById("ev-day"); // editando, o campo é a data (ev-date) e não existe ev-day
     const e={type:"event",id:"u"+Date.now(),title:t,short:t.length>18?t.slice(0,17)+"…":t,interest:document.getElementById("ev-int").value,
-      days:+document.getElementById("ev-day").value,time:document.getElementById("ev-time").value||"15:00",
+      days:dayEl?+dayEl.value:0,time:document.getElementById("ev-time").value||"15:00",
       place:document.getElementById("ev-place").value.trim()||city,city,c:cc,going:[]};
     if(old){
       const dd=document.getElementById("ev-date").value; if(!dd) return toast("Escolha a data");
