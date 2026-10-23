@@ -121,7 +121,7 @@ await page.setViewport({ width: 844, height: 390, isMobile: true, hasTouch: true
 await page.goto(origin + "/", { waitUntil: "load" });
 await wait(500);
 const nav = await E(() => { const r = document.querySelector("nav").getBoundingClientRect(); return { l: r.left, w: r.width, h: r.height, vh: innerHeight }; });
-ok(nav.l === 0 && nav.w > 60 && nav.w < 120 && nav.h > nav.vh * .6, "celular deitado: o menu fica na lateral esquerda (" + Math.round(nav.w) + "px de largura)");
+ok(nav.l === 0 && nav.w >= 200 && nav.h > nav.vh * .6, "celular deitado: o menu fica aberto na lateral esquerda, como no PC (" + Math.round(nav.w) + "px de largura)");
 ok(await E(() => { const r = document.querySelector("nav").getBoundingClientRect(), m = document.querySelector("main").getBoundingClientRect(); return m.left >= r.right - 1 && m.bottom > innerHeight - 4; }), "celular deitado: a tela de bolhas usa todo o espaço ao lado do menu");
 ok(errors.length === 0, "sem erros no console" + (errors.length ? ": " + errors.join(" | ") : ""));
 await browser.close(); srv.close();
