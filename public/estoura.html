@@ -59,6 +59,7 @@ button.pill:hover{border-color:#3a4f7a}
 .hr{display:flex;align-items:center;gap:8px}
 .pill.auth{display:inline-flex;align-items:center;gap:6px;color:var(--ink)}
 .pill.auth img{width:20px;height:20px;border-radius:50%;object-fit:cover}
+.pill.auth:not(.in){background:var(--accent);border-color:var(--accent);color:#2a0d1b;font-weight:700} /* "Entrar" em destaque */
 .vt{position:absolute;top:8px;right:12px;z-index:3;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:var(--surface-2);border:1px solid var(--line);color:var(--ink);box-shadow:0 6px 20px #0006;transition:transform .15s,border-color .15s,background .15s}
 .vt.f2{top:62px}
 .vt.f3{top:116px}
@@ -314,7 +315,15 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
 /* desktop: menu lateral, tela larga */
 @media (min-width:1024px){
   .app{max-width:1280px;grid-template-columns:240px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);grid-template-areas:"head head" "nav main"}
-  header{grid-area:head;padding-block:18px 10px}
+  /* topo vira uma barra: linha embaixo de ponta a ponta da tela, que encontra a linha do menu lateral */
+  header{grid-area:head;padding-block:14px}
+  header::after{content:"";position:absolute;left:50%;bottom:0;width:100vw;height:1px;background:var(--line);transform:translateX(-50%);pointer-events:none}
+  .hr{gap:10px}
+  .pill{font-size:13.5px;padding:8px 14px}
+  .pill.auth img{width:22px;height:22px}
+  .vt{top:16px} .vt.f2{top:70px} .vt.f3{top:124px} .vt.f4{top:178px}
+  #view-bolhas.pm #people-toggle{top:16px}
+  #view-bolhas.pm .pbar{top:16px}
   main{grid-area:main}
   nav{grid-area:nav;grid-auto-flow:row;grid-template-columns:1fr;align-content:start;gap:4px;border-top:0;border-right:1px solid var(--line);padding-block:14px}
   nav button{grid-template-columns:auto 1fr auto;justify-items:start;align-items:center;gap:12px;font-size:15px;padding:13px 14px;border-radius:14px;text-align:left}
@@ -2899,7 +2908,7 @@ if (cfg.url && cfg.key) {
   function render(event, session){
     const u = session && session.user;
     if (u) {
-      btn.innerHTML = (photo(u) ? `<img src="${esc(photo(u))}" alt="" referrerpolicy="no-referrer">` : "") + esc(first(u));
+      btn.classList.add("in"); btn.innerHTML = (photo(u) ? `<img src="${esc(photo(u))}" alt="" referrerpolicy="no-referrer">` : "") + esc(first(u));
       btn.setAttribute("aria-label", "Minha conta");
       btn.onclick = () => openAccount(u);
       window.estouraEditProfile = () => openAccount(u);
@@ -2913,7 +2922,7 @@ if (cfg.url && cfg.key) {
         loading = true; setTimeout(loadMine, 0); // fora do callback de auth, para não travar o cliente
       }
     } else {
-      btn.textContent = "Entrar";
+      btn.classList.remove("in"); btn.textContent = "Entrar";
       btn.setAttribute("aria-label", "Entrar com o Google");
       btn.onclick = signIn;
       uid = null;
