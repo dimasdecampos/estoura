@@ -1,5 +1,6 @@
 // Bolhas de evento flutuantes: os próximos eventos saem do globo e flutuam nos cantos da tela, maiores pra ler.
-// Tocar: mini bolhas em volta com ver o evento, excluir (para de flutuar e volta pequeno pro globo) e fechar.
+// Tocar: mini bolhas em volta com ver o evento e fechar (a bolha grande sai daqui e o evento volta pequeno pro globo).
+// Tocar fora ou na bolha de novo só recolhe as mini bolhas.
 // Arrastar: muda a bolha de lugar (o lugar fica guardado neste aparelho). Os outros eventos continuam no globo (evF, em globo.js).
 const FLOAT_MAX=4, FLOAT_SLOTS=["tl","tr","bl","br"], FLOAT_KEY="estoura-flutuantes";
 // pos: {id: {x,y}} lugar pra onde você arrastou (fração da tela); hidden: ids que você tirou dos cantos (voltam pro globo)
@@ -33,7 +34,7 @@ function renderFloats(){
   const old=new Set([...floatLayer.querySelectorAll(".evf")].map(b=>b.dataset.ev));
   floatSig=sig; closeFloatMenu();
   floatLayer.innerHTML=list.map((e,k)=>{ const h=(byId(e.interest)||{hue:40}).hue;
-    return `<button class="evf${old.has(e.id)?"":" in"}" type="button" data-ev="${esc(e.id)}" data-slot="${FLOAT_SLOTS[k]}" style="--h:${h}" aria-label="Evento: ${esc(e.title)}, ${esc(evWhen(e))} às ${e.time}. Toque pra ver ou tirar daqui; arraste pra mover.">
+    return `<button class="evf${old.has(e.id)?"":" in"}" type="button" data-ev="${esc(e.id)}" data-slot="${FLOAT_SLOTS[k]}" style="--h:${h}" aria-label="Evento: ${esc(e.title)}, ${esc(evWhen(e))} às ${e.time}. Toque pra ver ou fechar; arraste pra mover.">
       <b>${esc(e.title)}</b><small>${esc(evShortDay(e))} · ${e.time}</small></button>`; }).join("");
   const box=floatLayer.getBoundingClientRect();
   floatLayer.querySelectorAll(".evf").forEach(el=>{
@@ -49,28 +50,26 @@ function closeFloatMenu(){ if(floatMenu){ const m=floatMenu; floatMenu=null; m.c
 // ícones das mini bolhas
 const FICON={
   open:'<circle cx="12" cy="12" r="3"/><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/>',
-  hide:'<path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/>',
   close:'<path d="M6 6l12 12M18 6L6 18"/>'};
 // toque: mini bolhas com ícones em volta da bolha do evento, abrindo pro lado de dentro da tela
 function openFloatMenu(el,e){
   closeFloatMenu();
-  const opts=[["open","Ver evento"],["hide","Excluir daqui (volta pequeno pro globo)"],["close","Fechar"]];
+  const opts=[["open","Ver evento"],["close","Fechar (volta pequeno pro globo)"]];
   const box=floatLayer.getBoundingClientRect(), r=el.getBoundingClientRect();
   const cx=r.left-box.left+r.width/2, cy=r.top-box.top+r.height/2;
   // leque de ~105° na diagonal livre (pro lado oposto ao canto onde a bolha está)
-  const dir=Math.atan2(Math.sign(box.height/2-cy)||1,Math.sign(box.width/2-cx)||1), ring=r.width/2+34, spread=Math.PI*.42;
+  const dir=Math.atan2(Math.sign(box.height/2-cy)||1,Math.sign(box.width/2-cx)||1), ring=r.width/2+34, spread=Math.PI*.3;
   floatMenu=document.createElement("div"); floatMenu.className="evf-menu"; floatMenu.setAttribute("role","menu");
   floatMenu.style.left=cx+"px"; floatMenu.style.top=cy+"px";
   const inside=(v,max)=>Math.max(24,Math.min(max-24,v)); // a mini bolha nunca sai da tela
   floatMenu.innerHTML=opts.map(([k,t],i)=>{ const a=dir+(i/(opts.length-1)-.5)*spread;
     const tx=inside(cx+Math.cos(a)*ring,box.width)-cx, ty=inside(cy+Math.sin(a)*ring,box.height)-cy;
-    return `<button type="button" role="menuitem" class="evf-opt${k==="hide"?" danger":""}" data-fm="${k}" aria-label="${t}" title="${t}" style="--tx:${tx.toFixed(1)}px;--ty:${ty.toFixed(1)}px;--d:${i*35}ms"><svg viewBox="0 0 24 24" aria-hidden="true">${FICON[k]}</svg></button>`; }).join("");
+    return `<button type="button" role="menuitem" class="evf-opt" data-fm="${k}" aria-label="${t}" title="${t}" style="--tx:${tx.toFixed(1)}px;--ty:${ty.toFixed(1)}px;--d:${i*35}ms"><svg viewBox="0 0 24 24" aria-hidden="true">${FICON[k]}</svg></button>`; }).join("");
   floatLayer.appendChild(floatMenu);
   requestAnimationFrame(()=>floatMenu&&floatMenu.classList.add("on")); // as mini bolhas saem de dentro da bolha
   floatMenu.onclick=ev=>{
     const b=ev.target.closest("[data-fm]"); if(!b) return;
     const k=b.dataset.fm; closeFloatMenu();
-    if(k==="close") return;
     if(k==="open") return openEvent(e);
     floatPrefs.hidden.push(e.id); delete floatPrefs.pos[e.id]; saveFloats();
     el.classList.add("out"); // estoura e some daqui...
