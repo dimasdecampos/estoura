@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { PUB, OUT, launchArgs } from "./lib.mjs";
 
-const types = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".webmanifest": "application/manifest+json", ".png": "image/png" };
+const types = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".webmanifest": "application/manifest+json", ".png": "image/png" };
 const srv = http.createServer((req, res) => {
   let f = decodeURIComponent(req.url.split("?")[0]); if (f === "/") f = "/estoura.html";
   const p = path.join(PUB, f);

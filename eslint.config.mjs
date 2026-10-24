@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // o app é JS puro de navegador, não React: as regras de React (ex.: "useBubble" parece um hook) não se aplicam
+    "public/**",
   ]),
 ]);
 

@@ -8,7 +8,7 @@ const srv = http.createServer((req, res) => {
   let f = decodeURIComponent(req.url.split("?")[0]); if (f === "/") f = "/estoura.html";
   const p = path.join(PUB, f);
   if (!fs.existsSync(p) || fs.statSync(p).isDirectory()) { res.writeHead(404); return res.end(); }
-  res.writeHead(200, { "content-type": p.endsWith(".html") ? "text/html; charset=utf-8" : p.endsWith(".js") ? "text/javascript" : "application/octet-stream" });
+  res.writeHead(200, { "content-type": p.endsWith(".html") ? "text/html; charset=utf-8" : p.endsWith(".js") ? "text/javascript" : p.endsWith(".css") ? "text/css" : "application/octet-stream" });
   fs.createReadStream(p).pipe(res);
 }).listen(0);
 const url = `http://localhost:${srv.address().port}/`;
@@ -204,6 +204,25 @@ ok(await E(() => state.focus === null && !document.getElementById("view-bolhas")
 await E(() => { doEnter("corrida"); setView("matches"); }); await wait(300);
 await page.click("#logo"); await wait(300);
 ok(await E(() => state.focus === null && !document.getElementById("view-bolhas").hidden), "clicar na logo volta pro início, de qualquer tela");
+
+// tela de introdução no 1º acesso: 3 páginas (propósito, bolhas, gente e privacidade)
+{
+  const ctx = await browser.createBrowserContext(), w = await ctx.newPage();
+  await w.setViewport({ width: 420, height: 860 });
+  w.on("pageerror", e => errors.push(e.message));
+  await w.goto(url, { waitUntil: "load" }); await wait(800);
+  const txt = () => w.evaluate(() => (document.querySelector(".sheet") || {}).textContent || "");
+  ok(/unir pessoas com gostos em comum/.test(await txt()) && /descubra coisas novas/.test(await txt()), "intro, página 1: o propósito");
+  await w.click("#w-next"); await wait(200);
+  ok(/Pontinhos dentro/.test(await txt()) && /Transparente/.test(await txt()) && /Tracejada/.test(await txt()) && (await w.$$(".legend .wbub")).length === 6, "intro, página 2: legenda com os 6 tipos de bolha desenhados");
+  await w.click("#w-next"); await wait(200);
+  ok(/primeiro nome/.test(await txt()) && !!(await w.$("#w-zero")), "intro, página 3: privacidade e botão Começar");
+  await w.click("#w-back"); await wait(200);
+  ok(/Pontinhos dentro/.test(await txt()), "intro: Voltar volta uma página");
+  await w.click("#w-next"); await wait(200); await w.click("#w-zero"); await wait(200);
+  ok(!(await w.$(".sheet")) && await w.evaluate(() => localStorage.getItem("estoura-welcome") === "1"), "Começar fecha e não mostra de novo");
+  await ctx.close();
+}
 
 ok(errors.length === 0,"sem erros no console: " + JSON.stringify(errors));
 console.log(fails ? `\n${fails} FALHA(S)` : "\nTUDO OK");

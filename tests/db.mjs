@@ -228,5 +228,41 @@ ok((await q(`select 1 from profiles where id = '${USR}'`)).length === 0, "0014: 
 await run(`reset role`);
 await as(null);
 
+// 0015: quem ainda não aceitou conversar só recebe o primeiro nome (resto em asteriscos) e a foto embaçada
+await run(file("migrations/0015_privacidade.sql"));
+await run(file("migrations/0015_privacidade.sql"));
+ok((await q(`select public.masked_name('Maria Clara  Souza') a, public.masked_name(null) b, public.masked_name('Carla') c`))
+  .every(r => r.a === "Maria ***** *****" && r.b === "Alguém" && r.c === "Carla"), "0015: masked_name troca o resto do nome por asteriscos");
+const BLUR = "data:image/jpeg;base64,AAAA";
+await run(`update profiles set display_name = 'Bruno Lima Souza', avatar_url = 'https://foto/bruno.jpg', avatar_blur = '${BLUR}' where id = '${B}';
+  update profiles set display_name = 'Ana Paula', avatar_url = 'https://foto/ana.jpg' where id = '${A}';
+  delete from connections;
+  insert into event_attendees (event_id, user_id) values ('00000000-0000-0000-0000-0000000000e1', '${B}');
+  insert into push_subscriptions (user_id, endpoint, p256dh, auth) values ('${B}', 'https://push/b', 'k', 'a');`);
+ok(await denied(`update profiles set avatar_blur = 'https://foto/original.jpg' where id = '${B}'`), "0015: a miniatura só aceita data:image (não dá pra pôr o link da foto original)");
+const seen = async () => {
+  const m = (await q(`select distinct display_name, avatar_url from my_matches() where user_id = $1`, [B]))[0];
+  const c = (await q(`select display_name, avatar_url from connection_people()`))[0];
+  const ev = (await q(`select attendees from upcoming_events() where id = '00000000-0000-0000-0000-0000000000e1'`))[0].attendees;
+  return { m, c, b: ev.find(x => x.id === B), a: ev.find(x => x.id === A) };
+};
+await as(A);
+const conn = (await q(`insert into connections (requester_id, addressee_id) values ('${A}', '${B}') returning id`))[0].id;
+let v = await seen();
+ok(v.m.display_name === "Bruno **** *****" && v.m.avatar_url === BLUR, "0015: matches antes do aceite: nome mascarado e só a foto embaçada (" + JSON.stringify(v.m) + ")");
+ok(v.c.display_name === "Bruno **** *****" && v.c.avatar_url === BLUR, "0015: convite pendente: nome mascarado e foto embaçada");
+ok(v.b.name === "Bruno **** *****" && v.b.photo === BLUR, "0015: quem vai no evento: nome mascarado e foto embaçada");
+ok(v.a.name === "Ana Paula" && v.a.photo === "https://foto/ana.jpg", "0015: eu mesma apareço com nome e foto de verdade no evento");
+const inv = await q(`select body from push_targets('i', $1)`, [conn]);
+ok(inv.length === 1 && inv[0].body === "Ana ***** convidou você pra conversar", "0015: aviso de convite usa o nome mascarado: " + JSON.stringify(inv));
+await as(B); await q(`select respond_connection($1, true)`, [conn]);
+await as(A);
+v = await seen();
+ok(v.m.display_name === "Bruno Lima Souza" && v.m.avatar_url === "https://foto/bruno.jpg", "0015: depois do aceite, matches com nome completo e foto original");
+ok(v.c.display_name === "Bruno Lima Souza" && v.c.avatar_url === "https://foto/bruno.jpg", "0015: depois do aceite, conexão com nome completo e foto original");
+ok(v.b.name === "Bruno Lima Souza" && v.b.photo === "https://foto/bruno.jpg", "0015: depois do aceite, evento com nome completo e foto original");
+ok((await q(`select has_function_privilege('authenticated', 'public.is_linked(uuid)', 'execute') as p`))[0].p === false, "0015: is_linked não é chamada direto pela API");
+await as(null);
+
 console.log(fails ? `\n${fails} FALHA(S)` : "\nTUDO OK");
 process.exit(fails ? 1 : 0);

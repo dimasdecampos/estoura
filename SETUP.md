@@ -3,9 +3,9 @@
 Tempo estimado: 30 a 40 minutos. Faça na ordem.
 
 ```
-Você ──► Estoura (Next.js) ──► Supabase Auth ──► Google
-                 ▲                    │
-                 └──── /auth/callback ◄┘   (sessão em cookie)
+Você ──► Estoura (public/estoura.html) ──► Supabase Auth ──► Google
+                 ▲                                 │
+                 └──────────── volta pra / ◄───────┘   (sessão no navegador)
 ```
 
 ---
@@ -73,7 +73,7 @@ cd estoura-web
 npm run dev
 ```
 
-Abra <http://localhost:3000>, clique em **Entrar → Continuar com o Google**. Você deve cair em `/app` com sua foto no canto. Estoure uma bolha e confira em **Table Editor → user_interests** que a linha apareceu.
+Abra <http://localhost:3000>, clique em **Entrar → Continuar com o Google**. Você deve voltar pra página inicial com sua foto no canto. Estoure uma bolha e confira em **Table Editor → user_interests** que a linha apareceu.
 
 Para ter matches, entre com uma segunda conta Google (adicione-a como usuário de teste) e estoure as mesmas bolhas.
 
@@ -110,7 +110,7 @@ Vercel → **Settings → Domains** → adicione `estoura.com.br` (ou o seu). De
 | Em produção, o login volta para `localhost` | O **Site URL** do Supabase ainda é o de desenvolvimento. |
 | `Unsupported provider: provider is not enabled` | Google não foi ligado em **Authentication → Providers**. |
 | Google mostra "Acesso bloqueado" | App em modo teste e seu e-mail não está em **Usuários de teste** (ou publique o app). |
-| `/login` mostra "Falta configurar o Supabase" | `.env.local` ausente ou servidor não foi reiniciado. |
+| Não aparece o botão **Entrar** | `.env.local` ausente ou servidor não foi reiniciado (o `/config.js` vem sem as chaves). |
 | Matches carregam erro | O `0001_init.sql` não foi executado por completo (falta a função `my_matches`). |
 | Globo vazio | O `seed.sql` não foi executado. |
 
@@ -129,6 +129,8 @@ Vercel → **Settings → Domains** → adicione `estoura.com.br` (ou o seu). De
   3. Sem essas variáveis o app continua funcionando: avisa com o app aberto (faixa no topo, som e selo de "novas"), só não avisa com o app fechado.
   4. No iPhone, as notificações só funcionam com o app instalado (Compartilhar → Adicionar à Tela de Início).
 - Rode o `0012_bolhas_publicas.sql`: quem ainda não entrou passa a ver as bolhas reais, com a quantidade de pessoas e tamanho proporcional (só números, nenhum dado de pessoa). Sem ele, o visitante vê só as bolhas de exemplo.
+- Rode o `0013_editar_evento.sql` e o `0014_admin.sql` (quem criou o evento pode editar; painel de administração).
+- Rode o `0015_privacidade.sql`: quem ainda não aceitou conversar com você só recebe o seu **primeiro nome** (resto em asteriscos) e uma **miniatura embaçada** da sua foto, nunca a foto original. Rode **antes** de publicar o app novo. Cada pessoa gera a própria miniatura ao abrir o app; até lá, os outros veem só a inicial.
 - Testes automáticos: `npm test` (tudo, ~2 min) ou `npm run test:fast` (sem a rota de push). Precisam do Chrome instalado (ou `CHROME_PATH`).
 - Ninguém mexe no mapa de todo mundo pelo app. Para fundir duas bolhas repetidas, use o comando do topo do `0009` no SQL Editor.
 - Revise as políticas de privacidade e termos (você coleta nome, e-mail e foto — LGPD).

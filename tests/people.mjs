@@ -4,7 +4,7 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { PUB, OUT, launchArgs } from "./lib.mjs";
-const types = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".webmanifest": "application/manifest+json", ".png": "image/png" };
+const types = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".webmanifest": "application/manifest+json", ".png": "image/png" };
 const srv = http.createServer((req, res) => {
   let f = decodeURIComponent(req.url.split("?")[0]); if (f === "/") f = "/estoura.html";
   const p = path.join(PUB, f);
@@ -67,7 +67,7 @@ for (const [w, h, tag] of [[420, 860, "celular"], [1280, 820, "desktop"]]) {
   await tapAt(ana.x, ana.y);
   await wait(900);
   ok(await E(() => pm.open && pm.open.p.name.startsWith("Ana") && pm.inner.length === 5), `${tag}: tocar na Ana abre a bolha dela com as 5 bolhas que ela curte`);
-  ok(await E(() => /Ana Teste/.test(document.getElementById("people-bar").textContent) && /Voltar/.test(document.getElementById("people-bar").textContent)), `${tag}: barra mostra o nome e o Voltar`);
+  ok(await E(() => /Ana [*]{5}/.test(document.getElementById("people-bar").textContent) && !/Teste/.test(document.getElementById("people-bar").textContent) && /Voltar/.test(document.getElementById("people-bar").textContent)), `${tag}: barra mostra o nome e o Voltar`);
   ok(await E(() => { const s = id => state.lv.has(id); const i = pm.inner.map(b => b.id); return i.findIndex(id => !s(id)) > i.filter(s).length - 1; }), `${tag}: bolhas em comum vêm primeiro (no meio)`);
   await page.screenshot({ path: path.join(OUT, `pessoas-aberta-${tag}.png`) });
 
@@ -97,9 +97,9 @@ for (const [w, h, tag] of [[420, 860, "celular"], [1280, 820, "desktop"]]) {
   await page.screenshot({ path: path.join(OUT, `pessoas-rede-viagens-${tag}.png`) });
   const bruno = await E(() => { const n = [...pm.nodes.values()].find(x => x.p.name.startsWith("Bruno")); return { x: n.x, y: n.y }; });
   await tapAt(bruno.x, bruno.y); await wait(200);
-  ok(/Bruno Teste/.test(await E(() => document.querySelector("#people-bar .note").textContent)), `${tag}: 1º toque numa pessoa destaca ela`);
+  ok(/Bruno [*]{5}/.test(await E(() => document.querySelector("#people-bar .note").textContent)), `${tag}: 1º toque numa pessoa destaca ela`);
   await tapAt(bruno.x, bruno.y); await wait(300);
-  ok(await E(() => !!document.querySelector(".sheet") && /Bruno Teste/.test(document.querySelector(".sheet").textContent)), `${tag}: 2º toque abre o perfil`);
+  ok(await E(() => !!document.querySelector(".sheet") && /Bruno [*]{5}/.test(document.querySelector(".sheet").textContent) && !/Teste/.test(document.querySelector(".sheet h3").textContent)), `${tag}: 2º toque abre o perfil (nome mascarado)`);
   await E(() => closeLayer());
 
   // lembra a escolha; Lista volta; sair da conta esconde o menu

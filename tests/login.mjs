@@ -15,12 +15,14 @@ create function realtime.send(jsonb, text, text, boolean) returns void language 
 create publication supabase_realtime;`);
 for (const f of ["migrations/0001_init.sql", "seed.sql", "migrations/0002_connections_chat.sql", "migrations/0003_pulse.sql",
   "migrations/0004_events.sql", "migrations/0005_real_numbers.sql", "migrations/0006_manage_interests.sql",
-  "migrations/0007_unlimited_depth.sql", "migrations/0008_categorias_populares.sql", "migrations/0009_bolhas_pessoais.sql", "migrations/0010_bolha_mae_automatica.sql", "migrations/0011_notificacoes.sql", "migrations/0012_bolhas_publicas.sql"])
+  "migrations/0007_unlimited_depth.sql", "migrations/0008_categorias_populares.sql", "migrations/0009_bolhas_pessoais.sql", "migrations/0010_bolha_mae_automatica.sql", "migrations/0011_notificacoes.sql", "migrations/0012_bolhas_publicas.sql", "migrations/0015_privacidade.sql"])
   await db.exec(fs.readFileSync(path.join(ROOT, "supabase", f), "utf8"));
 const A = "00000000-0000-0000-0000-00000000000a", B = "00000000-0000-0000-0000-00000000000b", C = "00000000-0000-0000-0000-00000000000c";
 const CONN = "11111111-1111-1111-1111-111111111111";
+const PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 await db.exec(`insert into auth.users (id, email) values ('${A}', 'a@x'), ('${B}', 'b@x'), ('${C}', 'c@x');
-  update public.profiles set display_name = 'Bruno Silva' where id = '${B}'; update public.profiles set display_name = 'Carla' where id = '${C}';
+  update public.profiles set display_name = 'Bruno Silva', avatar_url = '${PNG}#bruno' where id = '${B}';
+  update public.profiles set display_name = 'Carla Souza', avatar_url = 'https://example.invalid/carla.jpg', avatar_blur = '${PNG}' where id = '${C}';
   insert into public.user_interests (user_id, interest_id, level) values ('${C}', 'surf', 1);
   insert into public.connections (id, requester_id, addressee_id, status) values ('${CONN}', '${B}', '${A}', 'accepted');
   insert into public.messages (connection_id, sender_id, body) values ('${CONN}', '${B}', 'Oi Ana!'), ('${CONN}', '${B}', 'Bora surfar?');
@@ -104,7 +106,7 @@ const srv = http.createServer(async (req, res) => {
   let f = u.pathname === "/" ? "/estoura.html" : u.pathname;
   const p = path.join(PUB, f);
   if (!fs.existsSync(p) || fs.statSync(p).isDirectory()) { res.writeHead(404); return res.end(); }
-  res.writeHead(200, { "content-type": p.endsWith(".html") ? "text/html; charset=utf-8" : "text/javascript" });
+  res.writeHead(200, { "content-type": p.endsWith(".html") ? "text/html; charset=utf-8" : p.endsWith(".css") ? "text/css" : "text/javascript" });
   fs.createReadStream(p).pipe(res);
 }).listen(0);
 const port = srv.address().port, url = `http://localhost:${port}/`;
@@ -245,6 +247,26 @@ await E(() => window.estouraInvite(REAL.find(p => p.name.startsWith("Carla"))));
 await wait(800);
 const invId = (await q(`select id from connections where requester_id='${A}'`))[0];
 ok(!!invId && pushCalls.some(c => c.kind === "i" && c.id === invId.id), "ao convidar, o app pede o aviso do convite (kind i)");
+
+// ---- privacidade (SQL 0015): quem não aceitou conversar aparece com o primeiro nome e a foto embaçada ----
+await E(() => { closeLayer(); setView("matches"); });
+await wait(300);
+const cards = await E(() => [...document.querySelectorAll("#match-list .card")].map(c => { const im = c.querySelector(".av img");
+  return { name: c.querySelector(".name").textContent, img: im && { src: im.getAttribute("src"), blur: im.classList.contains("blur") } }; }));
+const carla = cards.find(c => c.name.startsWith("Carla")), bruno = cards.find(c => c.name.startsWith("Bruno"));
+ok(carla && carla.name === "Carla *****", "Carla (convite ainda não aceito) aparece como 'Carla *****': " + JSON.stringify(carla && carla.name));
+ok(carla && carla.img && carla.img.blur && carla.img.src.startsWith("data:image/"), "foto da Carla: só a miniatura embaçada que o banco mandou");
+ok(await E(() => !document.documentElement.innerHTML.includes("example.invalid") && !REAL.some(p => /Souza|example\.invalid/.test(p.name + p.photo))), "o endereço da foto original e o sobrenome da Carla nem chegam no navegador");
+ok(bruno && bruno.name === "Bruno Silva" && bruno.img && !bruno.img.blur, "Bruno (conversa aceita): nome completo e foto nítida");
+// atualizar a página continua na mesma aba
+await page.click('nav [data-view="matches"]');
+await page.reload({ waitUntil: "load" });
+for (let i = 0; i < 40 && !(await E(() => window.estouraAuthed && state.lv.size > 0)); i++) await wait(150);
+ok(await E(() => !document.getElementById("view-matches").hidden), "atualizar estando em Matches: continua em Matches");
+await page.click('nav [data-view="chat"]');
+await page.reload({ waitUntil: "load" });
+for (let i = 0; i < 40 && !(await E(() => !document.getElementById("view-chat").hidden)); i++) await wait(150);
+ok(await E(() => !document.getElementById("view-chat").hidden), "atualizar estando no Chat: volta pro Chat quando as conversas carregam");
 
 console.log(log.filter(l => l.startsWith("ERRO")).join("\n") || "(sem erros no servidor)");
 ok(errors.length === 0, "sem erros no console: " + JSON.stringify(errors));

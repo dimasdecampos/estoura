@@ -23,7 +23,7 @@ const srv = http.createServer((req, res) => {
   if (u.pathname.startsWith("/sb/")) { res.writeHead(200, { "content-type": "application/json" }); return res.end("[]"); }
   const f = u.pathname === "/" ? "/estoura.html" : u.pathname, p = path.join(PUB, f);
   if (!fs.existsSync(p) || fs.statSync(p).isDirectory()) { res.writeHead(404); return res.end(); }
-  res.writeHead(200, { "content-type": p.endsWith(".html") ? "text/html; charset=utf-8" : "text/javascript" });
+  res.writeHead(200, { "content-type": p.endsWith(".html") ? "text/html; charset=utf-8" : p.endsWith(".css") ? "text/css" : "text/javascript" });
   fs.createReadStream(p).pipe(res);
 }).listen(0);
 const url = `http://localhost:${srv.address().port}/`;

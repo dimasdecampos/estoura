@@ -3,10 +3,12 @@
    - Ícones: cache com atualização em segundo plano.
    - Nunca mexe em /config.js, /auth, /api e chamadas ao Supabase (login e dados sempre ao vivo).
    - Notificações push: mostra o aviso quando o app não está na tela e abre a conversa ao tocar. */
-const CACHE = "estoura-v2";
+const CACHE = "estoura-v3";
+// o app em si (CSS e JS separados do HTML): rede primeiro, cópia pra quando estiver sem internet
+const APP = ["/estoura.css", "/js/dados.js", "/js/estado.js", "/js/ui.js", "/js/globo.js", "/js/pessoas.js", "/js/conta.js"];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.add("/")).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(["/", ...APP])).then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (e) => {
@@ -31,6 +33,15 @@ self.addEventListener("fetch", (e) => {
           return res;
         })
         .catch(() => caches.match("/", { ignoreSearch: true }).then((hit) => hit || Response.error())),
+    );
+    return;
+  }
+
+  if (APP.includes(url.pathname)) {
+    e.respondWith(
+      fetch(req)
+        .then((res) => { if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(url.pathname, copy)); } return res; })
+        .catch(() => caches.match(url.pathname).then((hit) => hit || Response.error())),
     );
     return;
   }
