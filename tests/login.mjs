@@ -15,8 +15,14 @@ create function realtime.send(jsonb, text, text, boolean) returns void language 
 create publication supabase_realtime;`);
 for (const f of ["migrations/0001_init.sql", "seed.sql", "migrations/0002_connections_chat.sql", "migrations/0003_pulse.sql",
   "migrations/0004_events.sql", "migrations/0005_real_numbers.sql", "migrations/0006_manage_interests.sql",
-  "migrations/0007_unlimited_depth.sql", "migrations/0008_categorias_populares.sql", "migrations/0009_bolhas_pessoais.sql", "migrations/0010_bolha_mae_automatica.sql", "migrations/0011_notificacoes.sql", "migrations/0012_bolhas_publicas.sql", "migrations/0015_privacidade.sql"])
+  "migrations/0007_unlimited_depth.sql", "migrations/0008_categorias_populares.sql", "migrations/0009_bolhas_pessoais.sql", "migrations/0010_bolha_mae_automatica.sql", "migrations/0011_notificacoes.sql", "migrations/0012_bolhas_publicas.sql", "migrations/0015_privacidade.sql"]) {
+  if (f.includes("0015")) { // 0013/0014 (eventos editáveis, papéis) antes da privacidade; 0016/0017 depois
+    await db.exec("alter table auth.users add column last_sign_in_at timestamptz");
+    for (const g of ["migrations/0013_editar_evento.sql", "migrations/0014_admin.sql"]) await db.exec(fs.readFileSync(path.join(ROOT, "supabase", g), "utf8"));
+  }
   await db.exec(fs.readFileSync(path.join(ROOT, "supabase", f), "utf8"));
+}
+for (const f of ["migrations/0016_miniaturas_admin.sql", "migrations/0017_admin_bolhas.sql"]) await db.exec(fs.readFileSync(path.join(ROOT, "supabase", f), "utf8"));
 const A = "00000000-0000-0000-0000-00000000000a", B = "00000000-0000-0000-0000-00000000000b", C = "00000000-0000-0000-0000-00000000000c";
 const CONN = "11111111-1111-1111-1111-111111111111";
 const PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
@@ -93,7 +99,8 @@ async function api(req, res, u) {
         return send(201, one ? row : [row]);
       }
     }
-    if (req.method === "GET") return send(200, u.pathname.includes("profiles") ? null : []);
+    if (req.method === "GET" && u.pathname === "/sb/rest/v1/profiles") return send(200, (await q(`select city, role from profiles where id = $1`, [current]))[0] || null);
+    if (req.method === "GET") return send(200, []);
     return send(201);
   } catch (e) { log.push("ERRO " + e.message); return send(400, { message: e.message }); }
 }
@@ -288,6 +295,25 @@ const sk = await E(() => { const keep = REAL.splice(0); state.loadingPeople = tr
   REAL.push(...keep); state.loadingPeople = false; renderMatches(); return r; });
 ok(sk.skel === 3 && !/Ainda ninguém/.test(sk.txt), "sem cópia dos matches: mostra a sombra das informações em vez de 'nenhum match'");
 page.off("request", block); await page.setRequestInterception(false);
+
+// ---- admin: renomear e excluir uma bolha pela tela (SQL 0017) ----
+await db.exec(`select set_config('estoura.role_change', 'on', false); update public.profiles set role = 'admin' where id = '${A}'; select set_config('estoura.role_change', 'off', false);
+  insert into public.interests (id, name, parent_id, hue) values ('zz1', 'Surff', null, 10);
+  insert into public.user_interests (user_id, interest_id, level) values ('${B}', 'zz1', 1);`);
+await page.reload({ waitUntil: "load" });
+for (let i = 0; i < 40 && !(await E(() => window.estouraAuthed && state.lv.size > 0 && byId("zz1") && !document.querySelector('nav [data-view="admin"]').hidden)); i++) await wait(150);
+await page.click('nav [data-view="admin"]'); await page.click('#adm-tabs [data-adm="bolhas"]');
+await page.type("#admb-q", "surff"); await wait(200);
+ok(await E(() => [...document.querySelectorAll("#admb-list .card .name")].map(n => n.textContent).join() === "Surff"), "admin: a busca de bolhas acha 'Surff'");
+await page.click('#admb-list [data-b="zz1"] [data-ba="rename"]'); await wait(300);
+await E(() => { document.getElementById("admb-name").value = "Surfe Certo"; });
+await page.click("#admb-save"); await wait(900);
+ok((await q(`select name from interests where id = 'zz1'`))[0].name === "Surfe Certo" && await E(() => byId("zz1").name === "Surfe Certo"), "admin: renomear pela tela muda no banco e no app");
+await E(() => { const i = document.getElementById("admb-q"); i.value = "surfe certo"; i.dispatchEvent(new Event("input")); });
+await page.click('#admb-list [data-b="zz1"] [data-ba="delete"]'); await wait(300);
+ok(await E(() => /1 pessoa perde essa bolha/.test(document.querySelector(".sheet").textContent)), "admin: excluir avisa quantas pessoas perdem a bolha");
+await page.click("#admb-ok"); await wait(900);
+ok((await q(`select 1 from interests where id = 'zz1'`)).length === 0 && await E(() => !byId("zz1")), "admin: excluir pela tela apaga do banco e do app");
 
 console.log(fails ? `\n${fails} FALHA(S)` : "\nTUDO OK");
 await browser.close(); srv.close();

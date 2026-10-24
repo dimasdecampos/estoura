@@ -106,9 +106,17 @@
 
     <section class="view gut" id="view-admin" hidden aria-label="Admin">
       <h2>Administração</h2>
-      <p class="sub">Gerencie quem usa o Estoura: papéis e exclusão de contas.</p>
-      <div class="row" style="margin-bottom:14px"><input type="text" id="adm-q" placeholder="Buscar por nome, e-mail ou cidade" autocomplete="off" style="flex:1"><span class="note" id="adm-note"></span></div>
-      <div class="list" id="admin-list"></div>
+      <div class="seg" role="group" aria-label="O que gerenciar" id="adm-tabs" style="margin:4px 0 12px"><button data-adm="pessoas" aria-pressed="true">Pessoas</button><button data-adm="bolhas" aria-pressed="false">Bolhas</button></div>
+      <div id="adm-pessoas">
+        <p class="sub">Papéis e exclusão de contas.</p>
+        <div class="row" style="margin-bottom:14px"><input type="text" id="adm-q" placeholder="Buscar por nome, e-mail ou cidade" autocomplete="off" style="flex:1"><span class="note" id="adm-note"></span></div>
+        <div class="list" id="admin-list"></div>
+      </div>
+      <div id="adm-bolhas" hidden>
+        <p class="sub">Corrija bolhas para todo mundo. Nome errado ou repetido? Prefira <b>Juntar</b>: quem curtia continua curtindo a certa.</p>
+        <div class="row" style="margin-bottom:14px"><input type="text" id="admb-q" placeholder="Buscar bolha" autocomplete="off" style="flex:1"><span class="note" id="admb-note"></span></div>
+        <div class="list" id="admb-list"></div>
+      </div>
     </section>
   </main>
 

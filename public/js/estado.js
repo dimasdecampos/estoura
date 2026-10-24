@@ -83,6 +83,7 @@ function syncWorld(rows, keep = new Set(), onRemove = () => {}){
   rows.forEach(r => {
     let it = byId(r.id);
     if (!it) { it = { id: r.id, name: r.name, hue: r.hue, base: r.people, week: r.week_count, parent: null }; INTERESTS.push(it); out.fresh.push(it); }
+    if (it.name !== r.name) { it.name = r.name; it._s = undefined; } // renomeada por um admin
     it.gp = r.parent_id || null; it.custom = !!r.custom; it.places = r.places || [];
   });
   out.moved = reparent();

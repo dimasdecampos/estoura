@@ -282,5 +282,37 @@ ok(!(await q(`select id from admin_missing_blur()`)).some(r => r.id === B), "001
 await run(`reset role`);
 await as(null);
 
+// 0017: admin renomeia, junta e exclui bolhas pra todo mundo
+await run(file("migrations/0017_admin_bolhas.sql"));
+await run(file("migrations/0017_admin_bolhas.sql"));
+await run(`insert into interests (id, name, parent_id, hue) values ('tz1', 'Surff', null, 1), ('tz2', 'Xadrex', null, 1), ('tz3', 'Tricô Errado', null, 1), ('tz4', 'Dentro', 'tz3', 1);
+  insert into user_interests (user_id, interest_id, level) values ('${A}', 'tz1', 2), ('${B}', 'tz2', 1), ('${A}', 'tz3', 1);
+  insert into user_interests (user_id, interest_id, level, parent_id) values ('${B}', 'tz4', 1, 'tz3');`);
+await run(`set role authenticated`);
+await as(B); // B não é admin
+ok(await denied(`select admin_rename_interest('tz2', 'Xadrez')`) && await denied(`select admin_delete_interest('tz3')`) && await denied(`select admin_merge_interest('tz1', 'yoga')`), "0017: usuário comum não renomeia, junta nem exclui");
+await as(ADM);
+await q(`select admin_rename_interest('tz2', '  Xadrez  ')`);
+await run(`reset role`);
+ok((await q(`select name from interests where id = 'tz2'`))[0].name === "Xadrez", "0017: renomear corrige o nome pra todo mundo");
+ok((await q(`select interest_id from interest_aliases where slug = 'xadrex'`))[0]?.interest_id === "tz2", "0017: o nome errado vira apelido (quem digitar 'Xadrex' cai em Xadrez)");
+await run(`set role authenticated`);
+ok(await denied(`select admin_rename_interest('tz2', 'yoga')`), "0017: não renomeia pra um nome que já existe (aí é juntar)");
+const surfBefore = (await q(`select count(*)::int n from user_interests where interest_id = 'surf/longboard'`))[0].n;
+await q(`select admin_merge_interest('tz1', 'surf/longboard')`);
+await run(`reset role`);
+ok((await q(`select 1 from interests where id = 'tz1'`)).length === 0 && (await q(`select level from user_interests where user_id = '${A}' and interest_id = 'surf/longboard'`))[0]?.level === 2,
+  "0017: juntar 'Surff' em outra bolha: some e quem tinha passa a ter a outra (" + surfBefore + " antes)");
+await run(`set role authenticated`);
+await q(`select admin_delete_interest('tz3')`);
+await run(`reset role`);
+ok((await q(`select 1 from interests where id = 'tz3'`)).length === 0 && (await q(`select 1 from user_interests where interest_id = 'tz3'`)).length === 0, "0017: excluir apaga a bolha de todo mundo");
+ok((await q(`select parent_id from interests where id = 'tz4'`))[0].parent_id === null && (await q(`select parent_id from user_interests where interest_id = 'tz4'`))[0].parent_id === null, "0017: a sub-bolha de dentro continua e vira principal");
+ok((await q(`select action from interest_log where interest_id in ('tz2','tz3') order by id`)).map(r => r.action).join() === "rename,delete", "0017: renomear e excluir ficam no histórico");
+await run(`set role authenticated`);
+ok(await denied(`select admin_delete_interest('cinema')`), "0017: bolha com evento não é excluída (os eventos sumiriam)");
+await run(`reset role`);
+await as(null);
+
 console.log(fails ? `\n${fails} FALHA(S)` : "\nTUDO OK");
 process.exit(fails ? 1 : 0);

@@ -318,7 +318,7 @@ if (cfg.url && cfg.key) {
   let hasAuto = true; // banco já tem a coluna auto (SQL 0010)
   const row = id => `${state.lv.get(id)}|${state.pp.get(id) || ""}|${hasAuto && state.auto.has(id) ? 1 : ""}`;
 
-  async function loadMine(){
+  async function loadMine(quiet){
     loading = true;
     let [st, mine, pr] = await Promise.all([ sb.rpc("interest_stats"), sb.from("user_interests").select("interest_id, level, parent_id, auto"),
       sb.from("profiles").select("city, role").eq("id", uid).maybeSingle() ]);
@@ -342,7 +342,7 @@ if (cfg.url && cfg.key) {
     loadConnections(); loadEvents(); startLive(); startPulse();
     loadUnread();
     if ("Notification" in window && Notification.permission === "granted" && !notifOff()) window.estouraPush.subscribe(); // garante o aparelho inscrito nesta conta
-    if (mine.data.length && !window.estouraBooted) toast(`${mine.data.length} ${mine.data.length > 1 ? "bolhas carregadas" : "bolha carregada"} da sua conta`);
+    if (mine.data.length && !window.estouraBooted && !quiet) toast(`${mine.data.length} ${mine.data.length > 1 ? "bolhas carregadas" : "bolha carregada"} da sua conta`);
   }
 
   // pessoas reais que estouraram bolhas iguais às suas (função my_matches do banco)
@@ -459,6 +459,84 @@ if (cfg.url && cfg.key) {
     const { error } = await sb.rpc("admin_delete_user", { p_user: id });
     toast(error ? "Não consegui excluir" : "Conta excluída");
     await loadAdmin();
+  });
+
+  /* ---------- admin: bolhas (renomear, juntar e excluir pra todo mundo; SQL 0017) ---------- */
+  document.getElementById("adm-tabs").onclick = e => {
+    const b = e.target.closest("[data-adm]"); if (!b) return;
+    document.querySelectorAll("#adm-tabs [data-adm]").forEach(x => x.setAttribute("aria-pressed", x === b));
+    document.getElementById("adm-pessoas").hidden = b.dataset.adm !== "pessoas";
+    document.getElementById("adm-bolhas").hidden = b.dataset.adm !== "bolhas";
+    if (b.dataset.adm === "bolhas") renderAdminBubbles();
+  };
+  const placeOf = i => i.parent ? pathOf(i.parent).join(" › ") : "bolha principal";
+  const people = n => n + (n === 1 ? " pessoa" : " pessoas");
+  function renderAdminBubbles(){
+    const q = slugify(document.getElementById("admb-q").value), list = document.getElementById("admb-list");
+    const all = INTERESTS.filter(i => !q || slugOf(i).includes(q)).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+    document.getElementById("admb-note").textContent = all.length > 60 ? `60 de ${all.length}` : `${all.length}`;
+    list.innerHTML = all.slice(0, 60).map(i => `<div class="card" data-b="${esc(i.id)}" style="grid-template-columns:auto 1fr">
+        <span class="av" style="--h:${i.hue}"></span>
+        <span class="who"><span class="name">${esc(i.name)}</span><span class="meta" style="display:block">${esc(placeOf(i))} · ${people(count(i))}</span></span>
+        <span class="row" style="grid-column:1/-1;justify-content:flex-end;gap:8px"><button class="btn sm" type="button" data-ba="rename">Renomear</button><button class="btn sm" type="button" data-ba="merge">Juntar</button><button class="btn sm" type="button" data-ba="delete">Excluir</button></span></div>`).join("")
+      || '<div class="empty">Nenhuma bolha com esse nome.</div>';
+  }
+  document.getElementById("admb-q").addEventListener("input", renderAdminBubbles);
+  // depois de mexer: recarrega o mapa e as suas bolhas (as suas podem ter mudado ao juntar)
+  const afterAdmin = async msg => { toast(msg); await loadMine(true); renderAdminBubbles(); };
+  const H3 = t => `<h3 style="font-family:var(--display);font-size:22px;margin:0 0 4px">${t}</h3>`;
+  function adminRename(it){
+    openSheet(`${H3(`Renomear "${esc(it.name)}"`)}
+      <p class="sub" style="margin-bottom:8px">Muda pra todo mundo. O nome antigo vira apelido: quem digitar ele cai nesta bolha.</p>
+      <input type="text" id="admb-name" maxlength="24" value="${esc(it.name)}" autocomplete="off" style="width:100%">
+      <div class="actions"><button class="btn" data-close>Cancelar</button><button class="btn primary" id="admb-save">Salvar</button></div>`, { type: "admin-bubble" });
+    const inp = document.getElementById("admb-name"); inp.focus(); inp.select();
+    const save = async () => {
+      const name = inp.value.replace(/\s+/g, " ").trim(); if (!name || name === it.name) return closeLayer();
+      const { error } = await sb.rpc("admin_rename_interest", { p_id: it.id, p_name: name });
+      if (error) return toast(error.code === "23505" ? "Já existe uma bolha com esse nome. Use Juntar." : "Não consegui renomear. Rode o SQL 0017 no Supabase.");
+      const old = it.name; closeLayer(); afterAdmin(`"${old}" agora é "${name}"`);
+    };
+    document.getElementById("admb-save").onclick = save;
+    inp.onkeydown = ev => { if (ev.key === "Enter") save(); };
+  }
+  function adminMerge(it){
+    const others = INTERESTS.filter(i => i.id !== it.id).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+    openSheet(`${H3(`Juntar "${esc(it.name)}" com…`)}
+      <p class="sub" style="margin-bottom:8px">"${esc(it.name)}" some e ${count(it) === 1 ? "quem curtia passa" : `as ${people(count(it))} que curtiam passam`} a curtir a bolha escolhida. Escolha a certa:</p>
+      <input type="text" id="admb-mq" placeholder="Buscar bolha" autocomplete="off" style="width:100%;margin-bottom:8px">
+      <div id="admb-mlist" style="display:grid;gap:6px;max-height:46vh;overflow:auto">${others.map(i => `<button class="btn" data-into="${esc(i.id)}" style="justify-content:flex-start;text-align:left">${esc(i.name)} <span class="meta" style="margin-left:6px">${esc(placeOf(i))}</span></button>`).join("")}</div>
+      <div class="actions"><button class="btn" data-close>Cancelar</button></div>`, { type: "admin-bubble" });
+    const mq = document.getElementById("admb-mq"), ml = document.getElementById("admb-mlist");
+    mq.oninput = () => { const t = slugify(mq.value); ml.querySelectorAll("[data-into]").forEach(x => { x.hidden = !!t && !slugOf(byId(x.dataset.into)).includes(t); }); };
+    ml.onclick = ev => {
+      const x = ev.target.closest("[data-into]"); if (!x) return;
+      const into = byId(x.dataset.into);
+      openSheet(`${H3(`Juntar "${esc(it.name)}" em "${esc(into.name)}"?`)}
+        <p class="sub" style="margin-bottom:6px">"${esc(it.name)}" sai do Estoura e vira apelido de "${esc(into.name)}". Não tem volta.</p>
+        <div class="actions"><button class="btn" data-close>Cancelar</button><button class="btn primary" id="admb-ok">Juntar</button></div>`, { type: "admin-bubble" });
+      document.getElementById("admb-ok").onclick = async () => {
+        const { error } = await sb.rpc("admin_merge_interest", { p_from: it.id, p_into: into.id });
+        if (error) return toast("Não consegui juntar. Rode o SQL 0017 no Supabase.");
+        closeLayer(); afterAdmin(`"${it.name}" foi juntada em "${into.name}"`);
+      };
+    };
+  }
+  function adminDelete(it){
+    const ks = kids(it.id);
+    openSheet(`${H3(`Excluir "${esc(it.name)}" pra todo mundo?`)}
+      <p class="sub" style="margin-bottom:6px">${count(it) ? `${people(count(it))} ${count(it) === 1 ? "perde" : "perdem"} essa bolha. ` : ""}${ks.length ? `As ${ks.length} sub-bolhas de dentro dela continuam e viram principais. ` : ""}Não tem volta. Se é só um nome errado, prefira Renomear ou Juntar.</p>
+      <div class="actions"><button class="btn" data-close>Cancelar</button><button class="btn primary" id="admb-ok" style="background:#ff7a7a;color:#2a0d0d">Excluir</button></div>`, { type: "admin-bubble" });
+    document.getElementById("admb-ok").onclick = async () => {
+      const { error } = await sb.rpc("admin_delete_interest", { p_id: it.id });
+      if (error) return toast(error.code === "23503" ? "Tem eventos nessa bolha. Use Juntar pra levar os eventos pra outra." : "Não consegui excluir. Rode o SQL 0017 no Supabase.");
+      closeLayer(); afterAdmin(`"${it.name}" foi excluída`);
+    };
+  }
+  document.getElementById("admb-list").addEventListener("click", e => {
+    const b = e.target.closest("[data-ba]"); if (!b) return;
+    const it = byId(b.closest("[data-b]").dataset.b); if (!it) return;
+    ({ rename: adminRename, merge: adminMerge, delete: adminDelete })[b.dataset.ba](it);
   });
 
   let wasLogged = false;

@@ -131,6 +131,8 @@ Vercel → **Settings → Domains** → adicione `estoura.com.br` (ou o seu). De
 - Rode o `0012_bolhas_publicas.sql`: quem ainda não entrou passa a ver as bolhas reais, com a quantidade de pessoas e tamanho proporcional (só números, nenhum dado de pessoa). Sem ele, o visitante vê só as bolhas de exemplo.
 - Rode o `0013_editar_evento.sql` e o `0014_admin.sql` (quem criou o evento pode editar; painel de administração).
 - Rode o `0015_privacidade.sql`: quem ainda não aceitou conversar com você só recebe o seu **primeiro nome** (resto em asteriscos) e uma **miniatura embaçada** da sua foto, nunca a foto original. Rode **antes** de publicar o app novo. Cada pessoa gera a própria miniatura ao abrir o app; até lá, os outros veem só a inicial.
+- Rode o `0016_miniaturas_admin.sql`: ao abrir o app como admin, ele gera a foto embaçada de quem ainda não abriu a versão nova.
+- Rode o `0017_admin_bolhas.sql`: na Administração → **Bolhas**, o admin renomeia, junta (para nome errado ou repetido) e exclui bolhas para todo mundo. Tudo fica registrado em `interest_log`.
 - Testes automáticos: `npm test` (tudo, ~2 min) ou `npm run test:fast` (sem a rota de push). Precisam do Chrome instalado (ou `CHROME_PATH`).
 - Ninguém mexe no mapa de todo mundo pelo app. Para fundir duas bolhas repetidas, use o comando do topo do `0009` no SQL Editor.
 - Revise as políticas de privacidade e termos (você coleta nome, e-mail e foto — LGPD).
