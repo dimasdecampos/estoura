@@ -154,7 +154,7 @@ h2{font-family:var(--display);font-weight:800;font-size:24px;letter-spacing:-.01
 .av{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:15px;color:#0b1322;flex:none;
   background:radial-gradient(circle at 30% 28%,#fff8 0 14%,transparent 15%),hsl(var(--h) 75% 70%)}
 .av{overflow:hidden}
-.av img.blur{filter:blur(3px);transform:scale(1.2)}
+.av img.blur{filter:blur(2px);transform:scale(1.1)}
 .av.me{background:radial-gradient(circle at 30% 28%,#fff8 0 14%,transparent 15%),var(--accent)}
 .score{text-align:right;font-family:var(--display);font-weight:800;font-size:22px;font-variant-numeric:tabular-nums;line-height:1}
 .score small{display:block;font-family:var(--body);font-weight:500;font-size:11px;color:var(--muted);margin-top:3px}
@@ -2183,8 +2183,8 @@ function photoOf(url,blur){
   if(!(im.complete&&im.naturalWidth)) return null;
   if(!blur) return im;
   // embaçada: reduz pra 8x8 e deixa o navegador suavizar ao ampliar (funciona em qualquer navegador)
-  if(!im._blur){ const m=Math.min(im.naturalWidth,im.naturalHeight), t=document.createElement("canvas"); t.width=t.height=14;
-    t.getContext("2d").drawImage(im,(im.naturalWidth-m)/2,(im.naturalHeight-m)/2,m,m,0,0,14,14); im._blur=t; }
+  if(!im._blur){ const m=Math.min(im.naturalWidth,im.naturalHeight), t=document.createElement("canvas"); t.width=t.height=18;
+    t.getContext("2d").drawImage(im,(im.naturalWidth-m)/2,(im.naturalHeight-m)/2,m,m,0,0,18,18); im._blur=t; }
   return im._blur;
 }
 const myPhoto=()=>{ const i=document.querySelector("#auth-btn img"); return i?i.src:null; };

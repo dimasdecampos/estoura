@@ -68,7 +68,7 @@ export function Matches({ interests, levels }: { interests: Interest[]; levels: 
                 <button onClick={() => setOpen(expanded ? null : m.userId)} aria-expanded={expanded} className="grid w-full grid-cols-[auto_1fr_auto] items-center gap-3 p-3.5 text-left">
                   {m.avatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={m.avatarUrl} alt="" referrerPolicy="no-referrer" className="size-12 rounded-full object-cover blur-[3px]" />
+                    <img src={m.avatarUrl} alt="" referrerPolicy="no-referrer" className="size-12 rounded-full object-cover blur-[2px]" />
                   ) : (
                     <span className="grid size-12 place-items-center rounded-full bg-accent font-bold text-bg">{initials(m.name.split(" ")[0])}</span>
                   )}
