@@ -123,6 +123,7 @@ if (cfg.url && cfg.key) {
     if (error || !uid) return; // se o SQL 0002 ainda não rodou, o app segue sem convites
     CONNS.length = 0; CONNS.push(...data.map(unpack));
     linkConns(); renderAll();
+    patchBoot({ conns: CONNS });
     // conversa aceita (ou desfeita): o banco passa a mandar nome completo e foto, então busca os matches de novo
     const acc = CONNS.filter(c => c.status === "accepted").map(c => c.id).sort().join();
     if (acc !== lastAccepted) { if (lastAccepted !== null) loadMatches(); lastAccepted = acc; }
@@ -348,7 +349,7 @@ if (cfg.url && cfg.key) {
   async function loadMatches(){
     if (!uid) return;
     const { data, error } = await sb.rpc("my_matches");
-    if (error || !uid) return;
+    if (error || !uid) { if (state.loadingPeople) { state.loadingPeople = false; renderAll(); } return; }
     const people = new Map();
     data.forEach(r => {
       if (!byId(r.interest_id)) return; // bolha criada depois do último carregamento
@@ -357,7 +358,9 @@ if (cfg.url && cfg.key) {
       p.lv.set(r.interest_id, r.level);
     });
     REAL.length = 0; REAL.push(...people.values()); linkConns();
+    state.loadingPeople = false;
     renderAll();
+    patchBoot({ real: REAL.map(p => ({ ...p, conn: null, lv: [...p.lv] })) });
   }
   document.addEventListener("visibilitychange", () => { if (!document.hidden) loadMatches(); });
 
@@ -507,6 +510,7 @@ if (cfg.url && cfg.key) {
         // quem já tem conta não precisa da tela de boas-vindas (e "começar do zero" não pode apagar o banco)
         try { localStorage.setItem("estoura-welcome", "1"); } catch (e) {}
         if (sheet && sheet.type === "welcome") closeLayer();
+        if (!REAL.length) state.loadingPeople = true; // a lista de matches mostra a sombra até chegar
         loading = true; setTimeout(loadMine, 0); // fora do callback de auth, para não travar o cliente
         setTimeout(() => saveBlur(u), 0);
       }

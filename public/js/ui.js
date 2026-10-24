@@ -201,6 +201,8 @@ function renderFocus(){
 }
 
 const MATCH_PREVIEW=3; // quantas pessoas a tela de Matches mostra antes do "Ver mais"
+// sombra das informações enquanto os dados de verdade chegam
+const skeletonCards = n => Array.from({length:n},()=>`<div class="card skel" aria-hidden="true"><span class="av"></span><span class="who"><i style="width:55%"></i><i style="width:80%"></i><i style="width:40%"></i></span><span class="sk-score"></span></div>`).join("")+`<span class="sr-only">Carregando matches…</span>`;
 function renderMatches(){
   document.getElementById("filters").innerHTML=`
     ${window.estouraAuthed
@@ -228,6 +230,7 @@ function renderMatches(){
       <span><span class="score">${pct}%<small>${shared.length} em comum</small></span><span class="bar"><span style="width:${pct}%"></span></span></span>
     </button>`; }).join("")
       + (r.length>MATCH_PREVIEW?`<button class="btn more" data-more="1" aria-expanded="${!!state.moreMatches}">${state.moreMatches?"Mostrar menos":`Ver mais ${rest} ${rest>1?"pessoas":"pessoa"}`}</button>`:"")
+      : state.loadingPeople ? skeletonCards(3)
       : `<div class="empty">${!state.lv.size?"Estoure algumas bolhas pra ver seus matches.":out?"Ninguém nesse raio ainda. Aumente a distância.":"Ainda ninguém estourou as mesmas bolhas que você. Convide amigos pra entrar no Estoura!"}</div>`);
 }
 document.getElementById("filters").addEventListener("change",e=>{ if(e.target.id==="city"){ state.city=e.target.value; rebuild(); renderAll(); } });

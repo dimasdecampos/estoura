@@ -279,6 +279,14 @@ await page.reload({ waitUntil: "load" });
 await wait(500);
 ok(await E(() => window.estouraAuthed === true && state.lv.get("surf") === 2 && byId("surf").parent === "viagens" && /Ana/.test(document.getElementById("auth-btn").textContent) && !document.querySelector(".sheet")),
   "sem o Supabase ainda: já abre com as suas bolhas, seu nome no botão e sem a tela de visitante");
+await E(() => setView("matches"));
+ok(await E(() => [...document.querySelectorAll("#match-list .card .name")].some(n => n.textContent === "Bruno Silva") && [...document.querySelectorAll("#match-list .card .name")].some(n => n.textContent === "Carla *****")),
+  "sem o Supabase ainda: a lista de matches já vem da cópia (Bruno e Carla *****)");
+// sem cópia dos matches (1º acesso): a lista mostra a sombra das informações até o banco responder
+const sk = await E(() => { const keep = REAL.splice(0); state.loadingPeople = true; renderMatches();
+  const r = { skel: document.querySelectorAll("#match-list .card.skel").length, txt: document.getElementById("match-list").textContent };
+  REAL.push(...keep); state.loadingPeople = false; renderMatches(); return r; });
+ok(sk.skel === 3 && !/Ainda ninguém/.test(sk.txt), "sem cópia dos matches: mostra a sombra das informações em vez de 'nenhum match'");
 page.off("request", block); await page.setRequestInterception(false);
 
 console.log(fails ? `\n${fails} FALHA(S)` : "\nTUDO OK");

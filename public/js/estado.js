@@ -98,7 +98,11 @@ const community = rows => (rows.length && rows[0].total != null ? rows[0].total 
 // Cópia da sua conta neste aparelho (bolhas, mapa, cidade e papel), salva a cada carregamento do banco.
 // Ao abrir o app logado, a tela já nasce com ela; o banco confirma e corrige logo em seguida (conta.js).
 const BOOT_KEY = "estoura-boot", BOOT_V = 1; // mudou o formato da cópia? aumente BOOT_V e a cópia antiga é ignorada
-function saveBoot(o){ try{ localStorage.setItem(BOOT_KEY, JSON.stringify({ ...o, v: BOOT_V })); }catch(e){} }
+function readBoot(){ try{ const c = JSON.parse(localStorage.getItem(BOOT_KEY) || "null"); return c && c.v === BOOT_V ? c : null; }catch(e){ return null; } }
+// bolhas, cidade e papel (loadMine): mantém matches e convites já guardados da mesma conta
+function saveBoot(o){ const c = readBoot(); try{ localStorage.setItem(BOOT_KEY, JSON.stringify({ ...(c && c.uid === o.uid ? c : {}), ...o, v: BOOT_V })); }catch(e){} }
+// matches (real) e convites (conns): só completa uma cópia que já existe
+function patchBoot(o){ const c = readBoot(); if (!c) return; try{ localStorage.setItem(BOOT_KEY, JSON.stringify({ ...c, ...o })); }catch(e){} }
 function clearBoot(){ try{ localStorage.removeItem(BOOT_KEY); }catch(e){} }
 // devolve {user, cache} quando há sessão salva do Supabase e a cópia é dessa mesma conta
 function bootData(){
@@ -106,9 +110,9 @@ function bootData(){
   if (!cfg.url || !cfg.key) return null;
   try {
     const s = JSON.parse(localStorage.getItem(`sb-${new URL(cfg.url).hostname.split(".")[0]}-auth-token`) || "null");
-    const c = JSON.parse(localStorage.getItem(BOOT_KEY) || "null");
+    const c = readBoot();
     const u = s && s.user;
-    if (!u || !s.refresh_token || !c || c.v !== BOOT_V || c.uid !== u.id || !Array.isArray(c.rows) || !Array.isArray(c.mine)) return null;
+    if (!u || !s.refresh_token || !c || c.uid !== u.id || !Array.isArray(c.rows) || !Array.isArray(c.mine)) return null;
     return { user: u, cache: c };
   } catch (e) { return null; }
 }

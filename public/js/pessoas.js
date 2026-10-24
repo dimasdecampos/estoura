@@ -333,6 +333,10 @@ document.getElementById("filter-toggle").onclick=()=>setFilter(FILTERS[(FILTERS.
   c.mine.forEach(r=>{ state.lv.set(r.interest_id,r.level); state.pp.set(r.interest_id,r.parent_id||null); if(r.auto) state.auto.add(r.interest_id); });
   syncWorld(c.rows);
   state.city=c.city||"";
+  if(Array.isArray(c.real)) REAL.push(...c.real.map(x=>({...x,lv:new Map(x.lv)})));
+  if(Array.isArray(c.conns)) CONNS.push(...c.conns);
+  REAL.forEach(x=>{ x.conn=CONNS.find(k=>k.otherId===x.uid)||null; });
+  if(!REAL.length) state.loadingPeople=true;
   window.estouraAuthed=true; window.estouraBooted=true; peopleAccess(true);
   if(c.role==="admin"||c.role==="super_admin") document.querySelector('nav [data-view="admin"]').hidden=false;
   try{ localStorage.setItem("estoura-welcome","1"); }catch(e){}

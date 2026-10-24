@@ -270,6 +270,16 @@ select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Cs
 .chip.sub{margin:0;max-width:none;font-size:12px;line-height:1.4}
 .chip{align-self:auto;line-height:1.4}
 .list>.note{grid-column:1/-1;margin:0}
+/* sombra das informações enquanto carrega */
+.card.skel{pointer-events:none}
+.skel .av,.skel .who i,.skel .sk-score{background:linear-gradient(90deg,var(--surface-2) 0 40%,#26375c 50%,var(--surface-2) 60% 100%) 0 0/300% 100%;animation:skel 1.3s linear infinite}
+.skel .av{border:0}
+.skel .who{display:grid;gap:7px}
+.skel .who i{display:block;height:10px;border-radius:6px}
+.skel .sk-score{width:44px;height:26px;border-radius:8px}
+@keyframes skel{from{background-position:100% 0}to{background-position:-50% 0}}
+@media (prefers-reduced-motion:reduce){.skel .av,.skel .who i,.skel .sk-score{animation:none}}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .filters{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
 .filters .seg{flex:none;max-width:100%;overflow-x:auto}
 .btn.sm{min-height:36px}
