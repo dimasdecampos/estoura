@@ -99,6 +99,13 @@ async function api(req, res, u) {
         return send(201, one ? row : [row]);
       }
     }
+    if (u.pathname === "/sb/rest/v1/events" && req.method === "POST") {
+      const r = await body(req);
+      if (r.created_by !== current) return send(403, { message: "rls" });
+      if (r.title === "Evento recusado") return send(403, { code: "42501", message: "new row violates row-level security policy for table \"events\"" });
+      const row = (await q(`insert into events (created_by, interest_id, title, place, city, lat, lng, starts_at) values ($1,$2,$3,$4,$5,$6,$7,$8) returning id`, [r.created_by, r.interest_id, r.title, r.place, r.city, r.lat, r.lng, r.starts_at]))[0];
+      log.push("insert events"); return send(201, [row]);
+    }
     if (req.method === "GET" && u.pathname === "/sb/rest/v1/profiles") return send(200, (await q(`select city, role from profiles where id = $1`, [current]))[0] || null);
     if (req.method === "GET") return send(200, []);
     return send(201);
@@ -275,6 +282,22 @@ await page.reload({ waitUntil: "load" });
 for (let i = 0; i < 40 && !(await E(() => !document.getElementById("view-chat").hidden)); i++) await wait(150);
 ok(await E(() => !document.getElementById("view-chat").hidden), "atualizar estando no Chat: volta pro Chat quando as conversas carregam");
 
+// ---- criar um evento pela tela (logado) ----
+await E(() => { closeLayer(); setView("bolhas"); });
+await E(() => openCreateEvent());
+await E(() => { document.getElementById("ev-title").value = "Surf em Santos"; document.getElementById("ev-city").value = "Santos"; document.getElementById("ev-place").value = "Praia do Gonzaga"; });
+await page.click('#ev-form button[type="submit"]'); await wait(1500);
+const evRows = await q(`select title, city, created_by from events where title = 'Surf em Santos'`);
+ok(evRows.length === 1 && evRows[0].created_by === A, "criar evento pela tela: gravou no banco " + JSON.stringify(evRows));
+ok(await E(() => EVENTS.some(e => e.real && e.title === "Surf em Santos")), "criar evento pela tela: aparece no app como evento de verdade");
+ok(await E(() => !document.querySelector("#ev-form")), "criar evento: o formulário fecha quando o banco aceita");
+// o banco recusa: mostra o motivo, não cria cópia só no aparelho e mantém o formulário aberto
+await E(() => openCreateEvent());
+await E(() => { document.getElementById("ev-title").value = "Evento recusado"; document.getElementById("ev-city").value = "Santos"; });
+await page.click('#ev-form button[type="submit"]'); await wait(1200);
+ok(await E(() => /Não consegui criar o evento: .*row-level security/.test(document.getElementById("toast").textContent)), "banco recusou: o app mostra o motivo real");
+ok(await E(() => !!document.querySelector("#ev-form") && !EVENTS.some(e => e.title === "Evento recusado") && !document.querySelector("#ev-form button[type=submit]").disabled), "banco recusou: o formulário continua aberto, sem evento falso no aparelho, e dá pra tentar de novo");
+await E(() => closeLayer());
 console.log(log.filter(l => l.startsWith("ERRO")).join("\n") || "(sem erros no servidor)");
 ok(errors.length === 0, "sem erros no console: " + JSON.stringify(errors));
 // abrir logado neste aparelho: a tela já nasce com a cópia da conta, mesmo antes do Supabase responder

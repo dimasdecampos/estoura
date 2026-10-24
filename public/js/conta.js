@@ -225,13 +225,20 @@ if (cfg.url && cfg.key) {
     const start = new Date();
     start.setDate(start.getDate() + e.days);
     const [h, m] = e.time.split(":"); start.setHours(+h, +m, 0, 0);
+    if (!uid) { toast("Ainda conectando à sua conta. Tente de novo em instantes."); return false; }
     const { error } = await sb.from("events").insert({ created_by: uid, interest_id: e.interest, title: e.title, place: e.place, city: e.city, lat: e.c[0], lng: e.c[1], starts_at: start.toISOString() });
-    if (error) { // sem o SQL 0004 o evento vale só neste aparelho, como no protótipo
-      EVENTS.push(e); state.going.add(e.id); rebuild(); renderAll();
-      return toast("Evento criado só no seu aparelho: rode o SQL 0004 para compartilhar");
+    if (error) {
+      console.error("criar evento:", error);
+      if (error.code === "42P01" || error.code === "PGRST205") { // sem o SQL 0004 o evento vale só neste aparelho, como no protótipo
+        EVENTS.push(e); state.going.add(e.id); rebuild(); renderAll();
+        toast("Evento criado só no seu aparelho: rode o SQL 0004 para compartilhar"); return true;
+      }
+      // qualquer outro erro: mostra o motivo e mantém o formulário aberto pra tentar de novo
+      toast(`Não consegui criar o evento: ${error.message || error.code || "erro desconhecido"}`); return false;
     }
     toast("Bolha de evento solta no globo!");
     await loadEvents();
+    return true;
   };
 
   // convites e mensagens chegam na hora (Supabase Realtime, filtrado pelo RLS)

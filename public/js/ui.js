@@ -437,7 +437,12 @@ function openCreateEvent(old){ // com um evento seu na mão, edita ele
       if(window.estouraUpdateEvent){ window.estouraUpdateEvent(old,e); closeLayer(); }
       return;
     }
-    if(window.estouraAuthed && window.estouraCreateEvent){ window.estouraCreateEvent(e); closeLayer(); return; } // logado: evento de verdade
+    if(window.estouraAuthed){ // logado: evento de verdade. O formulário só fecha quando o banco aceita
+      if(!window.estouraCreateEvent) return toast("Ainda conectando à sua conta. Tente de novo em instantes.");
+      const btn=document.querySelector("#ev-form button[type=submit]"); if(btn) btn.disabled=true;
+      window.estouraCreateEvent(e).then(done=>{ if(done) closeLayer(); else if(btn) btn.disabled=false; });
+      return;
+    }
     EVENTS.push(e); state.going.add(e.id); rebuild(); renderAll(); closeLayer();
     toast("Bolha de evento solta no globo!");
   };
