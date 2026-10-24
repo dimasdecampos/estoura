@@ -296,7 +296,7 @@ document.getElementById("event-list").onclick=e=>{
   if(g){ const ev=EVENTS.find(x=>x.id===g.dataset.go); state.going.has(ev.id)?openEventChat(ev):toggleGoing(ev); }
   else if(o) openEvent(EVENTS.find(x=>x.id===o.dataset.event));
 };
-document.getElementById("new-event").onclick=openCreateEvent;
+document.getElementById("new-event").onclick=()=>openCreateEvent(); // sem argumento: o clique não pode virar "evento a editar"
 
 function renderGroups(){
   const gs=suggestGroups();
@@ -403,6 +403,7 @@ function openEventChat(e){
     intro:`Chat do evento · ${evLong(e)} às ${e.time} · ${e.place}. Ele é arquivado depois do evento.`});
 }
 function openCreateEvent(old){ // com um evento seu na mão, edita ele
+  if(!old||old.type!=="event") old=null;
   const opts=[...state.lv.keys()].map(byId); const list=(opts.length?opts:INTERESTS.filter(i=>!i.parent));
   if(old&&!list.some(i=>i.id===old.interest)) list.push(byId(old.interest));
   const dstr=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");

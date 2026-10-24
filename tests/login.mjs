@@ -283,8 +283,9 @@ for (let i = 0; i < 40 && !(await E(() => !document.getElementById("view-chat").
 ok(await E(() => !document.getElementById("view-chat").hidden), "atualizar estando no Chat: volta pro Chat quando as conversas carregam");
 
 // ---- criar um evento pela tela (logado) ----
-await E(() => { closeLayer(); setView("bolhas"); });
-await E(() => openCreateEvent());
+await E(() => { closeLayer(); setView("eventos"); });
+await page.click("#new-event"); await wait(400); // o botão de verdade (não a função direto)
+ok(await E(() => !!document.getElementById("ev-form") && document.querySelector(".sheet h3").textContent === "Nova bolha de evento"), "clicar em 'Nova bolha de evento' abre o formulário de criar");
 await E(() => { document.getElementById("ev-title").value = "Surf em Santos"; document.getElementById("ev-city").value = "Santos"; document.getElementById("ev-place").value = "Praia do Gonzaga"; });
 await page.click('#ev-form button[type="submit"]'); await wait(1500);
 const evRows = await q(`select title, city, created_by from events where title = 'Surf em Santos'`);
