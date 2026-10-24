@@ -263,28 +263,8 @@ if (cfg.url && cfg.key) {
       })
       .subscribe();
   }
-  // Alinha as bolhas locais com o banco: entram as novas, saem as excluídas, mudam de lugar as que
-  // a maioria passou a guardar em outro lugar (as suas ficam onde você guardou).
-  function syncInterests(rows){
-    const ids = new Set(rows.map(r => r.id)), out = { fresh: [], removed: 0, moved: false };
-    if (rows.length) for (let i = INTERESTS.length - 1; i >= 0; i--) { // só poda se o banco devolveu bolhas
-      const id = INTERESTS[i].id;
-      if (ids.has(id) || creating.has(id)) continue; // bolha recém-criada ainda chegando no banco fica
-      INTERESTS.splice(i, 1); state.lv.delete(id); state.pp.delete(id); state.auto.delete(id); saved.delete(id); out.removed++;
-      state.pp.forEach((p, k) => { if (p === id) state.pp.set(k, null); });
-    }
-    rows.forEach(r => {
-      let it = byId(r.id);
-      if (!it) { it = { id: r.id, name: r.name, hue: r.hue, base: r.people, week: r.week_count, parent: null }; INTERESTS.push(it); out.fresh.push(it); }
-      it.gp = r.parent_id || null; it.custom = !!r.custom; it.places = r.places || [];
-    });
-    out.moved = reparent();
-    // se a bolha em que você estava foi excluída, volta pro início
-    if (state.focus && !byId(state.focus)) state.focus = null;
-    COMMUNITY = community(rows);
-    rows.forEach(r => { const it = byId(r.id); it.base = r.people - (state.lv.has(r.id) ? 1 : 0); it.week = r.week_count; });
-    return out;
-  }
+  // alinha as bolhas locais com o banco (syncWorld, em estado.js); bolha recém-criada ainda chegando fica
+  const syncInterests = rows => syncWorld(rows, creating, id => saved.delete(id));
   // a bolha criada já existia no banco (nome igual ou apelido de outra): passa a usar a de lá
   function adopt(from, to){
     const a = byId(from); if (!a || from === to) return;
@@ -337,11 +317,11 @@ if (cfg.url && cfg.key) {
   let hasAuto = true; // banco já tem a coluna auto (SQL 0010)
   const row = id => `${state.lv.get(id)}|${state.pp.get(id) || ""}|${hasAuto && state.auto.has(id) ? 1 : ""}`;
 
-  // tamanho da comunidade: o banco informa (coluna total); sem o SQL 0005, usa a maior bolha como aproximação
-  const community = rows => (rows.length && rows[0].total != null ? rows[0].total : Math.max(1, ...rows.map(r => r.people)));
   async function loadMine(){
     loading = true;
-    let [st, mine] = await Promise.all([ sb.rpc("interest_stats"), sb.from("user_interests").select("interest_id, level, parent_id, auto") ]);
+    let [st, mine, pr] = await Promise.all([ sb.rpc("interest_stats"), sb.from("user_interests").select("interest_id, level, parent_id, auto"),
+      sb.from("profiles").select("city, role").eq("id", uid).maybeSingle() ]);
+    if (pr.error) pr = await sb.from("profiles").select("city").eq("id", uid).maybeSingle(); // sem o SQL 0014 não há a coluna role
     if (mine.error) { // sem o SQL 0010 ainda: funciona sem lembrar as bolhas-mãe automáticas
       const old = await sb.from("user_interests").select("interest_id, level, parent_id");
       if (!old.error) { mine = old; hasAuto = false; }
@@ -349,9 +329,9 @@ if (cfg.url && cfg.key) {
     loading = false;
     if (st.error || mine.error) { uid = null; toast("Não consegui carregar suas bolhas. Nada será salvo agora."); return; }
     // "Você está em" e o raio seguem a cidade do perfil (vazia = sem filtro de distância)
-    const pr = await sb.from("profiles").select("city").eq("id", uid).maybeSingle();
     state.city = (pr.data && pr.data.city) || "";
-    setRole(((await sb.from("profiles").select("role").eq("id", uid).maybeSingle()).data || {}).role); // sem o SQL 0014 não há a coluna: segue como usuário comum
+    setRole((pr.data || {}).role); // sem o SQL 0014: segue como usuário comum
+    saveBoot({ uid, rows: st.data, mine: mine.data, city: state.city, role: (pr.data || {}).role || "user" });
     state.lv.clear(); state.auto.clear(); state.pp.clear(); saved.clear();
     mine.data.forEach(r => { state.lv.set(r.interest_id, r.level); state.pp.set(r.interest_id, r.parent_id || null); if (r.auto) state.auto.add(r.interest_id); saved.set(r.interest_id, row(r.interest_id)); });
     syncInterests(st.data); // bolhas novas, excluídas e movidas por outras pessoas + contagens do banco
@@ -361,7 +341,7 @@ if (cfg.url && cfg.key) {
     loadConnections(); loadEvents(); startLive(); startPulse();
     loadUnread();
     if ("Notification" in window && Notification.permission === "granted" && !notifOff()) window.estouraPush.subscribe(); // garante o aparelho inscrito nesta conta
-    if (mine.data.length) toast(`${mine.data.length} ${mine.data.length > 1 ? "bolhas carregadas" : "bolha carregada"} da sua conta`);
+    if (mine.data.length && !window.estouraBooted) toast(`${mine.data.length} ${mine.data.length > 1 ? "bolhas carregadas" : "bolha carregada"} da sua conta`);
   }
 
   // pessoas reais que estouraram bolhas iguais às suas (função my_matches do banco)
@@ -537,6 +517,9 @@ if (cfg.url && cfg.key) {
       uid = null;
       setRole("user");
       window.estouraAuthed = false; peopleAccess(false);
+      clearBoot();
+      // abriu com a cópia da conta, mas a sessão não vale mais: recarrega como visitante
+      if (window.estouraBooted) { window.estouraBooted = false; location.reload(); }
     }
     wasLogged = !!u;
   }

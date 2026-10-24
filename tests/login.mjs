@@ -270,6 +270,17 @@ ok(await E(() => !document.getElementById("view-chat").hidden), "atualizar estan
 
 console.log(log.filter(l => l.startsWith("ERRO")).join("\n") || "(sem erros no servidor)");
 ok(errors.length === 0, "sem erros no console: " + JSON.stringify(errors));
+// abrir logado neste aparelho: a tela já nasce com a cópia da conta, mesmo antes do Supabase responder
+ok(await E(a => { const c = JSON.parse(localStorage.getItem("estoura-boot") || "null"); return !!c && c.uid === a && c.mine.some(r => r.interest_id === "surf"); }, A),"a cópia da conta fica salva neste aparelho");
+await page.setRequestInterception(true);
+const block = r => (r.url().includes("cdn.jsdelivr.net") ? r.abort() : r.continue());
+page.on("request", block);
+await page.reload({ waitUntil: "load" });
+await wait(500);
+ok(await E(() => window.estouraAuthed === true && state.lv.get("surf") === 2 && byId("surf").parent === "viagens" && /Ana/.test(document.getElementById("auth-btn").textContent) && !document.querySelector(".sheet")),
+  "sem o Supabase ainda: já abre com as suas bolhas, seu nome no botão e sem a tela de visitante");
+page.off("request", block); await page.setRequestInterception(false);
+
 console.log(fails ? `\n${fails} FALHA(S)` : "\nTUDO OK");
 await browser.close(); srv.close();
 process.exit(fails ? 1 : 0);

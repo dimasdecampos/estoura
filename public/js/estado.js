@@ -69,3 +69,46 @@ function suggestGroups(){
   return out.filter(g=>{const k=g.members.map(m=>m.id).join();if(seen.has(k))return false;seen.add(k);return true;}).slice(0,5);
 }
 
+
+// Alinha as bolhas locais com o banco: entram as novas, saem as excluídas, mudam de lugar as que
+// a maioria passou a guardar em outro lugar (as suas ficam onde você guardou).
+function syncWorld(rows, keep = new Set(), onRemove = () => {}){
+  const ids = new Set(rows.map(r => r.id)), out = { fresh: [], removed: 0, moved: false };
+  if (rows.length) for (let i = INTERESTS.length - 1; i >= 0; i--) { // só poda se o banco devolveu bolhas
+    const id = INTERESTS[i].id;
+    if (ids.has(id) || keep.has(id)) continue; // bolha recém-criada ainda chegando no banco fica
+    INTERESTS.splice(i, 1); state.lv.delete(id); state.pp.delete(id); state.auto.delete(id); onRemove(id); out.removed++;
+    state.pp.forEach((p, k) => { if (p === id) state.pp.set(k, null); });
+  }
+  rows.forEach(r => {
+    let it = byId(r.id);
+    if (!it) { it = { id: r.id, name: r.name, hue: r.hue, base: r.people, week: r.week_count, parent: null }; INTERESTS.push(it); out.fresh.push(it); }
+    it.gp = r.parent_id || null; it.custom = !!r.custom; it.places = r.places || [];
+  });
+  out.moved = reparent();
+  // se a bolha em que você estava foi excluída, volta pro início
+  if (state.focus && !byId(state.focus)) state.focus = null;
+  COMMUNITY = community(rows);
+  rows.forEach(r => { const it = byId(r.id); it.base = r.people - (state.lv.has(r.id) ? 1 : 0); it.week = r.week_count; });
+  return out;
+}
+// tamanho da comunidade: o banco informa (coluna total); sem o SQL 0005, usa a maior bolha como aproximação
+const community = rows => (rows.length && rows[0].total != null ? rows[0].total : Math.max(1, ...rows.map(r => r.people)));
+
+// Cópia da sua conta neste aparelho (bolhas, mapa, cidade e papel), salva a cada carregamento do banco.
+// Ao abrir o app logado, a tela já nasce com ela; o banco confirma e corrige logo em seguida (conta.js).
+const BOOT_KEY = "estoura-boot", BOOT_V = 1; // mudou o formato da cópia? aumente BOOT_V e a cópia antiga é ignorada
+function saveBoot(o){ try{ localStorage.setItem(BOOT_KEY, JSON.stringify({ ...o, v: BOOT_V })); }catch(e){} }
+function clearBoot(){ try{ localStorage.removeItem(BOOT_KEY); }catch(e){} }
+// devolve {user, cache} quando há sessão salva do Supabase e a cópia é dessa mesma conta
+function bootData(){
+  const cfg = window.ESTOURA_CONFIG || {};
+  if (!cfg.url || !cfg.key) return null;
+  try {
+    const s = JSON.parse(localStorage.getItem(`sb-${new URL(cfg.url).hostname.split(".")[0]}-auth-token`) || "null");
+    const c = JSON.parse(localStorage.getItem(BOOT_KEY) || "null");
+    const u = s && s.user;
+    if (!u || !s.refresh_token || !c || c.v !== BOOT_V || c.uid !== u.id || !Array.isArray(c.rows) || !Array.isArray(c.mine)) return null;
+    return { user: u, cache: c };
+  } catch (e) { return null; }
+}

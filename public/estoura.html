@@ -13,6 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <link rel=stylesheet href="/estoura.css">
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/+esm" crossorigin>
 
 </head>
 <body>
@@ -133,6 +134,7 @@
 <div id="layer"></div>
 
 <script src="/config.js"></script>
+<script>/* já abre a conexão com o Supabase enquanto o resto carrega */try{const u=(window.ESTOURA_CONFIG||{}).url;if(u){const l=document.createElement("link");l.rel="preconnect";l.href=new URL(u).origin;l.crossOrigin="";document.head.appendChild(l);}}catch(e){}</script>
 <script>if("serviceWorker" in navigator) addEventListener("load",()=>navigator.serviceWorker.register("/sw.js").catch(()=>{}));</script>
 <script src="/js/dados.js"></script>
 <script src="/js/estado.js"></script>

@@ -326,6 +326,20 @@ function pmDrawNet(g,list){
 
 document.getElementById("filter-toggle").innerHTML=FILTERS[0].ic;
 document.getElementById("filter-toggle").onclick=()=>setFilter(FILTERS[(FILTERS.findIndex(x=>x.k===bubbleFilter)+1)%FILTERS.length].k);
+// logado neste aparelho: já abre com a cópia da conta, sem passar pela tela de visitante
+(function bootFromCache(){
+  const b=bootData(); if(!b) return;
+  const {user:u,cache:c}=b, m=u.user_metadata||{};
+  c.mine.forEach(r=>{ state.lv.set(r.interest_id,r.level); state.pp.set(r.interest_id,r.parent_id||null); if(r.auto) state.auto.add(r.interest_id); });
+  syncWorld(c.rows);
+  state.city=c.city||"";
+  window.estouraAuthed=true; window.estouraBooted=true; peopleAccess(true);
+  if(c.role==="admin"||c.role==="super_admin") document.querySelector('nav [data-view="admin"]').hidden=false;
+  try{ localStorage.setItem("estoura-welcome","1"); }catch(e){}
+  const btn=document.getElementById("auth-btn"), ph=m.avatar_url||m.picture;
+  btn.hidden=false; btn.classList.add("in"); btn.setAttribute("aria-label","Minha conta");
+  btn.innerHTML=(ph?`<img src="${esc(ph)}" alt="" referrerpolicy="no-referrer">`:"")+esc(((m.full_name||m.name)||u.email||"Você").split(" ")[0]);
+})();
 resize(); rebuild(); renderAll(); welcome(); requestAnimationFrame(frame);
 try{ const v=sessionStorage.getItem("estoura-aba");
   if(v==="chat"){ state.wantChat=true; setTimeout(()=>{ state.wantChat=false; },15000); } // a aba Chat só aparece quando as conversas chegarem (renderChats)
