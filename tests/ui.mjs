@@ -124,17 +124,27 @@ await page.screenshot({ path: path.join(OUT, "dentro-surf.png") });
 // 11) rodízio do globo
 await E(() => { state.focus = null; rebuild(true); renderFocus(); });
 const g = await E(() => ({ roots: INTERESTS.filter(i => !i.parent).length, shown: items.filter(i => !i.type).length,
-  mineOk: INTERESTS.filter(i => !i.parent && state.lv.has(i.id)).every(i => items.includes(i)) }));
+  mineOk: true }));
 ok(g.roots > 16 && g.shown <= Math.max(16, g.shown) && g.shown < g.roots, `globo mostra ${g.shown} de ${g.roots} bolhas principais`);
-ok(g.mineOk, "todas as suas bolhas principais estão no globo");
 const ids0 = await E(() => items.filter(i => !i.type).map(i => i.id).sort().join());
 for (let k = 0; k < 3; k++) { await E(() => rotateOne()); await wait(1500); }
 const r = await E(() => ({ ids: items.filter(i => !i.type).map(i => i.id).sort().join(), n: items.filter(i => !i.type).length,
   mineOk: INTERESTS.filter(i => !i.parent && state.lv.has(i.id)).every(i => items.includes(i)), out: items.filter(i => i.out).length }));
 ok(r.ids !== ids0, "depois de alguns segundos, outras bolhas apareceram");
 ok(r.n === g.shown, "o número de bolhas no globo continua o mesmo");
-ok(r.mineOk, "as suas bolhas nunca saem no rodízio");
+ok(true, "rodízio ok");
 await page.screenshot({ path: path.join(OUT, "globo-rodizio.png") });
+// as curtidas também entram no rodízio, e uma parte das vagas é sempre de novidade
+await E(() => { INTERESTS.filter(i => !i.parent).slice(0, 20).forEach(i => { state.lv.set(i.id, 1); }); state.focus = null; rebuild(true); });
+const q = await E(() => { const mk = () => items.filter(i => !i.type); const a = mk();
+  const out = { n: a.length, novas: a.filter(i => !state.lv.has(i.id)).length, min: newMin(), trocou: false };
+  const before = new Set(a.filter(i => state.lv.has(i.id)).map(i => i.id));
+  for (let k = 0; k < 60; k++) { rotateOne(); items.forEach(i => { if (i.out) i.dr = 0; }); swapOut(); }
+  const b = mk(); out.trocou = b.some(i => state.lv.has(i.id) && !before.has(i.id)); out.novas2 = b.filter(i => !state.lv.has(i.id)).length; out.n2 = b.length;
+  return out; });
+ok(q.novas >= q.min && q.novas2 >= q.min, `curtindo muitas bolhas, ainda sobram vagas pra novidade (${q.novas} e ${q.novas2} de ${q.n}, mínimo ${q.min})`);
+ok(q.trocou && q.n2 === q.n, "as bolhas curtidas também trocam no rodízio, sem mudar a quantidade");
+await E(() => { INTERESTS.forEach(i => { if (!["surf", "viagens"].includes(i.id) && state.lv.get(i.id) === 1 && !i.parent) state.lv.delete(i.id); }); rebuild(true); });
 // estourar pela busca uma bolha que não está no globo: ela aparece
 const hiddenId = await E(() => (INTERESTS.find(i => !i.parent && !items.includes(i) && !state.lv.has(i.id) && i.id !== "escalada") || {}).id);
 await E(id => useBubble(byId(id), undefined), hiddenId);

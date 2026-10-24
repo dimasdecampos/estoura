@@ -132,23 +132,33 @@ function setFilter(k,quiet){
   try{ localStorage.setItem("estoura-filter",k); }catch(_){}
 }
 /* ---------- rodízio: o globo mostra um número limitado de bolhas e vai trocando ----------
-   As suas e as em alta ficam sempre. As outras são sorteadas (as mais populares têm mais chance)
-   e, de tempos em tempos, uma sai e outra entra no lugar dela. A visão espalhada mostra todas. */
+   Só as em alta, as em destaque e as que você acabou de curtir ficam fixas. Todas as outras, curtidas ou não, são sorteadas
+   (as curtidas e as populares têm mais chance) e, de tempos em tempos, uma sai e outra entra no lugar dela.
+   Uma parte das vagas é sempre das que você ainda não curtiu, pra novidade nunca ficar de fora quando você curte muitas.
+   A visão espalhada mostra todas. */
 const MAXG=()=>W&&W<640?16:22;
+const NEWSHARE=.4; // fatia mínima das vagas reservada pra bolhas que você ainda não curtiu
+const newMin=()=>Math.ceil(MAXG()*NEWSHARE);
 let shown=new Set(); // bolhas sorteadas que estão no globo agora
-const pinned=it=>state.lv.has(it.id)||TREND.has(it.id)||(it.hl||0)>performance.now();
+const liked=it=>state.lv.has(it.id);
+const pinned=it=>TREND.has(it.id)||(it.hl||0)>performance.now()||(it.lk||0)>performance.now(); // lk: curtiu agora há pouco
 function pickWeighted(list){
-  const w=list.map(i=>1+Math.sqrt(count(i))); let r=Math.random()*w.reduce((a,b)=>a+b,0);
+  const w=list.map(i=>(1+Math.sqrt(count(i)))*(liked(i)?2:1)); let r=Math.random()*w.reduce((a,b)=>a+b,0);
   for(let k=0;k<list.length;k++){ r-=w[k]; if(r<=0) return list[k]; }
   return list[list.length-1];
 }
 function sample(pool){
   const max=MAXG();
   if(pool.length<=max){ shown=new Set(pool.map(i=>i.id)); return pool; }
-  const out=pool.filter(pinned);
-  for(const i of pool) if(out.length<max && shown.has(i.id) && !pinned(i)) out.push(i); // as que já estavam continuam
-  const rest=pool.filter(i=>!out.includes(i));
-  while(out.length<max && rest.length) out.push(rest.splice(rest.indexOf(pickWeighted(rest)),1)[0]);
+  const out=pool.filter(pinned).slice(0,max), rest=pool.filter(i=>!out.includes(i));
+  const take=i=>{ out.push(rest.splice(rest.indexOf(i),1)[0]); };
+  // 1º: as vagas reservadas pra novidade (as que já estavam no globo continuam, depois sorteia)
+  let need=Math.min(newMin(),pool.filter(i=>!liked(i)).length)-out.filter(i=>!liked(i)).length;
+  for(const i of rest.slice()) if(need>0 && out.length<max && !liked(i) && shown.has(i.id)){ take(i); need--; }
+  while(need>0 && out.length<max){ const c=rest.filter(i=>!liked(i)); if(!c.length) break; take(pickWeighted(c)); need--; }
+  // 2º: o resto das vagas
+  for(const i of rest.slice()) if(out.length<max && shown.has(i.id)) take(i);
+  while(out.length<max && rest.length) take(pickWeighted(rest));
   shown=new Set(out.map(i=>i.id));
   return out;
 }
@@ -158,17 +168,22 @@ const rotating=()=>!state.focus && !spread.on;
 function rotateOne(){
   if(!rotating() || anim || drag || hoverPause || grab || held() || document.hidden) return;
   const pool=rootPool(), out=pool.filter(i=>!shown.has(i.id));
-  const leave=items.filter(i=>!i.type && !pinned(i) && !i.out && !i.next);
+  let leave=items.filter(i=>!i.type && !pinned(i) && !i.out && !i.next);
   if(!out.length || !leave.length) return;
-  const v=leave[Math.floor(Math.random()*leave.length)], n=pickWeighted(out);
-  v.out=true; v.next=n; shown.add(n.id);
+  // no limite das vagas de novidade: quem sai das novas só é trocada por outra nova; senão sai uma das curtidas
+  const newOn=items.filter(i=>!i.type && !i.out && !liked(i)).length, tight=newOn<=newMin();
+  if(tight && !out.some(i=>!liked(i))) leave=leave.filter(i=>liked(i));
+  if(!leave.length) return;
+  const v=leave[Math.floor(Math.random()*leave.length)];
+  const n=pickWeighted(tight && !liked(v) ? out.filter(i=>!liked(i)) : out);
+  v.out=true; v.next=n; v.outL=state.lv.get(v.id)||0; shown.add(n.id);
 }
 setInterval(rotateOne, 4500);
 // a bolha de saída já sumiu: a nova entra no mesmo lugar
 function swapOut(){
   for(let k=items.length-1;k>=0;k--){ const v=items[k];
     if(!v.out) continue;
-    if(pinned(v) || !rotating()){ v.out=false; if(v.next){ shown.delete(v.next.id); v.next=null; } continue; } // curtiu enquanto saía: fica
+    if(pinned(v) || (state.lv.get(v.id)||0)!==v.outL || !rotating()){ v.out=false; if(v.next){ shown.delete(v.next.id); v.next=null; } continue; } // curtiu enquanto saía: fica
     if(v.dr>1) continue;
     const n=v.next; v.out=false; v.next=null; shown.delete(v.id);
     if(!n || items.includes(n) || n.parent || !byId(n.id)){ items.splice(k,1); continue; } // a nova sumiu nesse meio-tempo
@@ -178,7 +193,8 @@ function swapOut(){
 // bolha principal que você acabou de estourar e não estava no globo: entra no lugar de uma sorteada
 function bringIn(it){
   if(!rotating() || it.parent || items.includes(it)) return;
-  const leave=items.filter(i=>!i.type && !pinned(i));
+  let leave=items.filter(i=>!i.type && !pinned(i));
+  if(items.filter(i=>!i.type && !liked(i)).length<=newMin() && leave.some(liked)) leave=leave.filter(liked); // não tira vaga de novidade
   if(!leave.length){ rebuild(); return; }
   const v=leave[Math.floor(Math.random()*leave.length)], k=items.indexOf(v);
   shown.delete(v.id); shown.add(it.id); it.p=v.p; it.dr=0; it.out=false; items[k]=it;
@@ -511,7 +527,7 @@ function setLevel(it,L,silent){
   if(L){ showHeart(it); const was=state.lv.get(it.id)||0;
     if(!was && !state.pp.has(it.id)) state.pp.set(it.id,it.parent||null); // fica guardada onde está
     if(!was) nudgeLogin();
-    state.lv.set(it.id,L); state.auto.delete(it.id); moved=reparent(); markUp(it.id); burst(it,!was);
+    state.lv.set(it.id,L); state.auto.delete(it.id); moved=reparent(); markUp(it.id); burst(it,!was); it.lk=performance.now()+10000;
     try{ navigator.vibrate && navigator.vibrate(L===2?[10,40,10]:12); }catch(e){} }
   else {
     [it,...descendants(it.id)].forEach(k=>{ state.lv.delete(k.id); state.auto.delete(k.id); state.pp.delete(k.id); });
