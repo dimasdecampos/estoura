@@ -137,7 +137,7 @@ await page.screenshot({ path: path.join(OUT, "globo-rodizio.png") });
 // nome de bolha comprido: quebra pra baixo e cabe dentro da bolha
 const fit = await E(() => ["Fotografia analógica de rua", "Programação", "Desenvolvimento pessoal e carreira", "Jogos de tabuleiro", "Surf"].map(n => {
   const r = 38, f = fitText(n, r, 15); ctx.font = `700 ${f.fs}px Figtree, system-ui, sans-serif`;
-  return { n, lines: f.lines.length, fs: f.fs, ok: f.lines.every(l => ctx.measureText(l).width <= r * 1.62 + .5), same: f.lines.join(" ").replace(/- /g, "") === n || f.lines.join("").replace(/-/g, "") === n.replace(/ /g, "") }; }));
+  return { n, lines: f.lines.length, fs: f.fs, ok: f.lines.every(l => ctx.measureText(l).width <= r * 1.68 + .5), same: f.lines.join(" ").replace(/- /g, "") === n || f.lines.join("").replace(/-/g, "") === n.replace(/ /g, "") }; }));
 ok(fit.every(x => x.ok && x.lines <= 4), "nome comprido cabe dentro da bolha: " + fit.map(x => `${x.n}→${x.lines} linha(s) a ${x.fs}px`).join("; "));
 ok(fit[4].lines === 1 && fit[4].fs === 15, "nome curto continua em uma linha, sem encolher");
 await E(() => { ["leitura", "fotografia", "programacao"].forEach(id => { const i = byId(id); if (i) i.hl = performance.now() + 60000; }); state.focus = null; rebuild(true); });

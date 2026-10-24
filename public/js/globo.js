@@ -210,7 +210,7 @@ function resize(){
   const box=cv.parentElement.getBoundingClientRect(); if(!box.width) return;
   DPR=Math.min(2,window.devicePixelRatio||1); W=box.width; H=box.height;
   cv.width=W*DPR; cv.height=H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0);
-  R=Math.min(W,H)*0.36;
+  R=Math.min(W,H)*(W<640?0.46:0.36); // celular: mais perto (zoom)
 }
 new ResizeObserver(resize).observe(cv.parentElement);
 // Tamanho relativo: um piso confortável (toda bolha dá pra tocar) que cresce em proporção
@@ -271,7 +271,7 @@ function label(lines,sx,sy,fs,color,extra){
 // Palavra maior que a bolha: diminui um pouco a letra e, se ainda não couber, parte a palavra com hífen.
 // Usa a fonte atual do canvas (peso e família); devolve {lines, fs} com o tamanho de letra que coube.
 function fitText(name,r,fs0,weight=700){
-  const maxW=r*1.62, fam="Figtree, system-ui, sans-serif", minFs=Math.max(8,fs0*.72);
+  const maxW=r*1.68, fam="Figtree, system-ui, sans-serif", minFs=Math.max(8,fs0*.66);
   const wrap=()=>{ const out=[]; let cur="";
     for(const w of name.split(" ")){ const t=cur?cur+" "+w:w;
       if(!cur||ctx.measureText(t).width<=maxW) cur=t; else { out.push(cur); cur=w; } }
@@ -417,7 +417,7 @@ function heartTap(p){
 // curtiu (big): estouro discreto. Clarão rápido, gotinhas saindo da borda e uma vibração curtinha no celular
 function burst(it,big){
   const p=pts.find(q=>q.it===it); if(!p||reduce) return;
-  if(big){ fx.push({flash:true,x:p.sx,y:p.sy,r:p.r,t:0,h:it.hue}); try{ if(navigator.vibrate) navigator.vibrate(8); }catch(e){} }
+  if(big){ fx.push({flash:true,x:p.sx,y:p.sy,r:p.r,t:0,h:it.hue}); }
   fx.push({ring:true,x:p.sx,y:p.sy,r:p.r,t:0,h:it.hue});
   for(let k=0;k<(big?12:6);k++){ const a=Math.random()*7,v=1.2+Math.random()*2.4;
     fx.push({x:p.sx+Math.cos(a)*p.r*.95,y:p.sy+Math.sin(a)*p.r*.95,vx:Math.cos(a)*v,vy:Math.sin(a)*v,t:0,h:it.hue}); }
@@ -547,7 +547,7 @@ function setLevel(it,L,silent){
     if(!was && !state.pp.has(it.id)) state.pp.set(it.id,it.parent||null); // fica guardada onde está
     if(!was) nudgeLogin();
     state.lv.set(it.id,L); state.auto.delete(it.id); moved=reparent(); markUp(it.id); burst(it,!was); it.lk=performance.now()+10000;
-    try{ navigator.vibrate && navigator.vibrate(L===2?[10,40,10]:12); }catch(e){} }
+    try{ navigator.vibrate && navigator.vibrate(L===2?[25,45,40]:28); }catch(e){} }
   else {
     [it,...descendants(it.id)].forEach(k=>{ state.lv.delete(k.id); state.auto.delete(k.id); state.pp.delete(k.id); });
     // a bolha-mãe que só estava marcada por causa dessa sub-bolha sai também (se nenhuma outra sub-bolha dela continua marcada)
