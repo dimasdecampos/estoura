@@ -57,6 +57,9 @@ button.pill:hover{border-color:#3a4f7a}
 .pbar{position:absolute;top:8px;left:max(16px,env(safe-area-inset-left,0px));right:70px;z-index:3;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;pointer-events:none}
 .pbar>*{pointer-events:auto}
 .pbar .note{margin:0;font-size:12.5px;flex-basis:100%}
+.pbar .plegend{display:flex;flex-wrap:wrap;gap:4px 14px}
+.plegend>span{display:inline-flex;align-items:center;gap:6px}
+.plegend .wbub{width:22px;height:22px;flex:none}
 .pbar .pwho{font-size:14px;min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .vt.on{border-color:var(--accent-2);color:var(--accent-2)}
 .vt:hover{transform:scale(1.06);border-color:var(--accent-2)}

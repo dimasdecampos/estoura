@@ -2,7 +2,7 @@
 /* ================= PESSOAS (aba Matches, pra quem está logado) =================
    Menu no topo dos Matches: Lista | Bolhas | Rede. Mostra as mesmas pessoas da lista (até 24, dentro do raio).
    - Bolhas: cada bolha é uma pessoa; quanto mais combina, maior e mais perto de você.
-     Tocar abre a bolha dela com tudo o que ela curtiu: acesas = vocês dois curtem; apagadas = só ela (toque pra estourar).
+     Tocar abre a bolha dela com tudo o que ela curtiu: coloridas = vocês dois curtem; transparentes = só ela (toque pra estourar).
    - Rede: você no centro, as bolhas em comum no anel do meio e as pessoas por fora. As linhas mostram o que liga vocês;
      toque numa bolha ou pessoa pra destacar as linhas dela (na pessoa, 2º toque abre o perfil). */
 var pm={on:false,mode:"bolhas",open:null,closing:false,z:0,nodes:new Map(),inner:[],innerKey:"",ints:new Map(),sel:null,hover:null,W:0,H:0,top:52,DPR:1,imgs:new Map(),raf:0,down:null,now:0};
@@ -111,7 +111,7 @@ function pmBar(){
   if(o){
     const f=esc(o.p.name.split(" ")[0]);
     el.innerHTML=`<button class="btn sm" data-pact="back">← Voltar</button><span class="pwho"><b>${esc(nameOf(o.p))}</b> · ${o.pct}% · ${o.shared.length} em comum</span><button class="btn sm" data-pact="profile">Ver perfil</button>
-      <span class="note">Acesas: vocês dois curtem. Apagadas: só ${f} curte (toque pra estourar também).</span>`;
+      <span class="note plegend"><span>${bub(165,{on:1})}Colorida: vocês dois curtem</span><span>${bub(200)}Transparente: só ${f} curte. Toque pra estourar também</span></span>`;
   } else {
     let note=n?`${n} ${n>1?"pessoas que combinam":"pessoa que combina"} com você`:"";
     if(pm.mode==="rede"){
@@ -266,8 +266,13 @@ function pmDrawOpen(g){
       c.fillStyle=q; c.beginPath(); c.arc(x,y,r*(hov?1.06:1),0,7); c.fill(); c.shadowBlur=0;
       c.strokeStyle=`hsl(${hu} 100% 90%)`; c.lineWidth=1.6; c.stroke();
     } else {
-      c.fillStyle=`hsla(${hu} 90% 70% / ${hov?.2:.07})`; c.beginPath(); c.arc(x,y,r*(hov?1.06:1),0,7); c.fill();
-      c.setLineDash([4,3]); c.strokeStyle=`hsla(${hu} 95% 78% / .6)`; c.lineWidth=1.3; c.stroke(); c.setLineDash([]);
+      // só a pessoa curte: transparente, igual à bolha que ainda não é sua no globo
+      const rr=r*(hov?1.06:1), q=c.createRadialGradient(x,y,rr*.2,x,y,rr);
+      q.addColorStop(0,`hsla(${hu} 90% 70% / .04)`); q.addColorStop(.8,`hsla(${hu} 90% 70% / ${hov?.26:.16})`); q.addColorStop(1,`hsla(${hu} 95% 75% / .42)`);
+      c.fillStyle=q; c.beginPath(); c.arc(x,y,rr,0,7); c.fill();
+      c.lineWidth=1.3; c.strokeStyle=`hsla(${hu} 95% 78% / .75)`; c.stroke();
+      c.strokeStyle=`hsla(${(hu+70)%360} 95% 78% / .55)`; c.lineWidth=1.4; c.beginPath(); c.arc(x,y,rr*.9,Math.PI*.15,Math.PI*.75); c.stroke();
+      c.fillStyle="rgba(255,255,255,.7)"; c.beginPath(); c.ellipse(x-rr*.4,y-rr*.45,rr*.16,rr*.09,-.7,0,7); c.fill();
     }
     if(r>12){
       const fs=clamp(r*.3,9,13), nm=it.name+(his===2?" ♥":"");
