@@ -153,6 +153,8 @@ h2{font-family:var(--display);font-weight:800;font-size:24px;letter-spacing:-.01
 .ok{font-size:11px;font-weight:700;color:var(--accent-2);text-transform:uppercase;letter-spacing:.05em}
 .av{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:15px;color:#0b1322;flex:none;
   background:radial-gradient(circle at 30% 28%,#fff8 0 14%,transparent 15%),hsl(var(--h) 75% 70%)}
+.av{overflow:hidden}
+.av img.blur{filter:blur(5px);transform:scale(1.3)}
 .av.me{background:radial-gradient(circle at 30% 28%,#fff8 0 14%,transparent 15%),var(--accent)}
 .score{text-align:right;font-family:var(--display);font-weight:800;font-size:22px;font-variant-numeric:tabular-nums;line-height:1}
 .score small{display:block;font-family:var(--body);font-weight:500;font-size:11px;color:var(--muted);margin-top:3px}
@@ -645,8 +647,8 @@ function inviteBlock(){
   return `<div class="tag" style="margin:2px 0 -2px">Convites pra você (${inc.length})</div>` + inc.map(c=>`
     <div class="group" style="--h:330">
       <div class="row"><div style="display:flex;align-items:center;gap:12px;min-width:0">
-        <span class="av" style="--h:330">${c.photo?`<img src="${esc(c.photo)}" alt="" referrerpolicy="no-referrer" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`:esc(initials(c.name))}</span>
-        <span class="who"><span class="name">${esc(c.name)}</span> convidou você pra conversar${c.city?`<span class="meta" style="display:block">${esc(c.city)}</span>`:""}</span></div>
+        <span class="av" style="--h:330">${c.photo?`<img class="blur" src="${esc(c.photo)}" alt="" referrerpolicy="no-referrer" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`:esc(initials(firstName(c.name)))}</span>
+        <span class="who"><span class="name">${esc(firstName(c.name))}</span> convidou você pra conversar${c.city?`<span class="meta" style="display:block">${esc(c.city)}</span>`:""}</span></div>
         <div class="row" style="gap:8px"><button class="btn sm" data-inv="${c.id}" data-act="decline">Recusar</button><button class="btn sm primary" data-inv="${c.id}" data-act="accept">Aceitar</button></div></div>
     </div>`).join("");
 }
@@ -708,7 +710,10 @@ const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&g
 const both2 = (p,id) => p && state.lv.get(id)===2 && p.lv.get(id)===2;
 function chip(id,{dim,p}={}){ const i=byId(id); const h=both2(p,id);
   return `<span class="chip${dim?" dim":""}${i.parent?" sub":""}" style="--h:${i.hue}"${h?' title="Os dois: eu amo!"':""}>${esc(i.name)}${h?" ♥":""}</span>`; }
-const avatar = p => `<span class="av" style="--h:${hueOf(p)}">${p.photo?`<img src="${esc(p.photo)}" alt="" referrerpolicy="no-referrer" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`:initials(p.name)}</span>`;
+// quem ainda não aceitou conversar: foto embaçada e só o primeiro nome
+const firstName = n => String(n||"").trim().split(" ")[0];
+const nameOf = p => isLinked(p) ? p.name : firstName(p.name);
+const avatar = p => { const lk=isLinked(p); return `<span class="av" style="--h:${hueOf(p)}">${p.photo?`<img${lk?"":' class="blur"'} src="${esc(p.photo)}" alt="" referrerpolicy="no-referrer" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`:initials(nameOf(p))}</span>`; };
 const relevant = id => state.lv.has(id) || ancestors(id).some(a=>state.lv.has(a));
 
 // em alta = bolhas que mais ganharam gente nos últimos 7 dias (pelo menos 2 pessoas novas); só pra quem está logado
@@ -958,7 +963,7 @@ function renderMatches(){
     (r.length ? shown.map(({p,pct,shared,d})=>{ const nn=unreadOf(p.conn?"c:"+p.conn.id:""); return `
     <button class="card" data-person="${p.id}">
       ${avatar(p)}
-      <span class="who"><span class="name">${esc(p.name)}</span> ${nn?`<span class="newmsg">${nn} ${nn>1?"novas":"nova"}</span>`:""}${isLinked(p)?'<span class="ok">conectados</span>':""}${p.conn&&p.conn.status==="pending"&&!p.conn.mine?'<span class="ok">convidou você</span>':""}${exTag(p)}
+      <span class="who"><span class="name">${esc(nameOf(p))}</span> ${nn?`<span class="newmsg">${nn} ${nn>1?"novas":"nova"}</span>`:""}${isLinked(p)?'<span class="ok">conectados</span>':""}${p.conn&&p.conn.status==="pending"&&!p.conn.mine?'<span class="ok">convidou você</span>':""}${exTag(p)}
         <span class="meta" style="display:block">${esc(metaLine(p,d))}</span>
         <span class="chips">${shared.slice(0,3).map(i=>chip(i,{p})).join("")}${shared.length>3?`<span class="chip dim">+${shared.length-3}</span>`:""}</span></span>
       <span><span class="score">${pct}%<small>${shared.length} em comum</small></span><span class="bar"><span style="width:${pct}%"></span></span></span>
@@ -1069,7 +1074,7 @@ function openProfile(p){
   const top=why.slice(0,5), max=Math.max(1,...top.map(w=>w.pts));
   const others=[...p.lv.keys()].filter(i=>!shared.includes(i));
   openSheet(`
-    <div class="ph">${avatar(p)}<div style="min-width:0"><h3>${esc(p.name)}${exTag(p)}</h3><div class="meta">${esc(metaLine(p,d,true))}</div></div>
+    <div class="ph">${avatar(p)}<div style="min-width:0"><h3>${esc(nameOf(p))}${exTag(p)}</h3><div class="meta">${esc(metaLine(p,d,true))}</div></div>
       <div class="score" style="margin-left:auto">${pct}%<small>match</small></div></div>
     ${p.bio?`<p style="margin:14px 0 0;line-height:1.5">${esc(p.bio)}</p>`:""}
     <div class="sec"><div class="tag">Por que ${pct}% de match</div>
@@ -2169,11 +2174,16 @@ function setPeople(on){
 document.getElementById("people-toggle").innerHTML=ICON_SPREAD;
 document.getElementById("people-toggle").onclick=()=>setPeople(!pm.on);
 
-function photoOf(url){
+function photoOf(url,blur){
   if(!url) return null;
   let im=pm.imgs.get(url);
   if(!im){ im=new Image(); im.referrerPolicy="no-referrer"; im.src=url; pm.imgs.set(url,im); }
-  return im.complete&&im.naturalWidth?im:null;
+  if(!(im.complete&&im.naturalWidth)) return null;
+  if(!blur) return im;
+  // embaçada: reduz pra 8x8 e deixa o navegador suavizar ao ampliar (funciona em qualquer navegador)
+  if(!im._blur){ const m=Math.min(im.naturalWidth,im.naturalHeight), t=document.createElement("canvas"); t.width=t.height=8;
+    t.getContext("2d").drawImage(im,(im.naturalWidth-m)/2,(im.naturalHeight-m)/2,m,m,0,0,8,8); im._blur=t; }
+  return im._blur;
 }
 const myPhoto=()=>{ const i=document.querySelector("#auth-btn img"); return i?i.src:null; };
 function pmGeo(){ const W=pm.W,H=pm.H,top=pm.top,S=Math.min(W,H-top); return {W,H,top,S,cx:W/2,cy:top+(H-top)/2,ex:clamp(W/Math.max(1,H-top),1,1.6),ey:clamp((H-top)/Math.max(1,W),1,1.3)}; }
@@ -2245,14 +2255,14 @@ function pmBar(){
   const el=document.getElementById("people-bar"), n=pm.nodes.size, o=pm.open&&!pm.closing?pm.open:null;
   if(o){
     const f=esc(o.p.name.split(" ")[0]);
-    el.innerHTML=`<button class="btn sm" data-pact="back">← Voltar</button><span class="pwho"><b>${esc(o.p.name)}</b> · ${o.pct}% · ${o.shared.length} em comum</span><button class="btn sm" data-pact="profile">Ver perfil</button>
+    el.innerHTML=`<button class="btn sm" data-pact="back">← Voltar</button><span class="pwho"><b>${esc(nameOf(o.p))}</b> · ${o.pct}% · ${o.shared.length} em comum</span><button class="btn sm" data-pact="profile">Ver perfil</button>
       <span class="note">Acesas: vocês dois curtem. Apagadas: só ${f} curte (toque pra estourar também).</span>`;
   } else {
     let note=n?`${n} ${n>1?"pessoas que combinam":"pessoa que combina"} com você`:"";
     if(pm.mode==="rede"){
       const s=pm.sel, it=s&&s.kind==="i"&&byId(s.id), nd=s&&s.kind==="p"&&pm.nodes.get(s.id);
       if(it){ const c=[...pm.nodes.values()].filter(x=>x.shared.includes(it.id)).length; note=`${esc(it.name)} liga você a ${c} ${c>1?"pessoas":"pessoa"}`; }
-      else if(nd) note=`${esc(nd.p.name)} · ${nd.pct}% · ${nd.shared.length} em comum. Toque de novo pra abrir o perfil.`;
+      else if(nd) note=`${esc(nameOf(nd.p))} · ${nd.pct}% · ${nd.shared.length} em comum. Toque de novo pra abrir o perfil.`;
       else if(n) note+=". Toque numa bolha ou pessoa pra ver as linhas dela.";
     } else if(n) note+=". Toque numa pessoa pra ver o que ela curte.";
     el.innerHTML=`<div class="seg" role="group" aria-label="Como ver as pessoas"><button data-pm="bolhas" aria-pressed="${pm.mode==="bolhas"}">Bolhas</button><button data-pm="rede" aria-pressed="${pm.mode==="rede"}">Rede</button></div><span class="note">${note}</span>`;
@@ -2334,9 +2344,9 @@ function pmStep(){
 // o: {label, extra (linha de baixo), photoA (força da foto), ring (borda mais grossa)}
 function pmFace(x,y,r,photo,txt,h,o={}){
   if(r<1) return;
-  const c=px, A=c.globalAlpha, im=photoOf(photo);
+  const c=px, A=c.globalAlpha, im=photoOf(photo,o.blur);
   c.save(); c.beginPath(); c.arc(x,y,r,0,7); c.clip();
-  if(im){ const w=im.naturalWidth, hh=im.naturalHeight, m=Math.min(w,hh); c.globalAlpha=A*(o.photoA??.62); c.drawImage(im,(w-m)/2,(hh-m)/2,m,m,x-r,y-r,r*2,r*2); c.globalAlpha=A; }
+  if(im){ c.imageSmoothingQuality="high"; const w=im.naturalWidth||im.width, hh=im.naturalHeight||im.height, m=Math.min(w,hh); c.globalAlpha=A*(o.photoA??.62); c.drawImage(im,(w-m)/2,(hh-m)/2,m,m,x-r,y-r,r*2,r*2); c.globalAlpha=A; }
   else if(!o.label){ c.fillStyle=`hsla(${h} 90% 82% / .55)`; c.font=`800 ${Math.max(9,r*.62)}px Figtree, system-ui, sans-serif`; c.textAlign="center"; c.textBaseline="middle"; c.fillText(txt,x,y+1); }
   const g=c.createRadialGradient(x,y,r*.2,x,y,r); // película da bolha por cima da foto: mais forte na borda
   g.addColorStop(0,`hsla(${h} 90% 70% / .04)`); g.addColorStop(.75,`hsla(${h} 90% 70% / .2)`); g.addColorStop(1,`hsla(${h} 95% 75% / .55)`);
@@ -2377,7 +2387,7 @@ function pmDrawBubbles(g,list){
   pmFace(g.cx,g.cy,pm.rMe,myPhoto(),"Você",330,{label:"Você",ring:2});
   list.forEach(n=>{ if(n===pm.open) return;
     const y=n.y+Math.sin(pm.now/900+n.seed)*2*wob, h=hueOf(n.p), hov=pm.hover&&pm.hover.id===n.id;
-    pmFace(n.x,y,n.r*(hov?1.08:1),n.p.photo,initials(n.p.name),h,{label:n.p.name.split(" ")[0],extra:n.pct+"%",ring:hov?2:1.4});
+    pmFace(n.x,y,n.r*(hov?1.08:1),n.p.photo,initials(n.p.name),h,{label:n.p.name.split(" ")[0],extra:n.pct+"%",ring:hov?2:1.4,blur:!isLinked(n.p)});
     if(n.r<=15) pmText(n.p.name.split(" ")[0]+" · "+n.pct+"%",n.x,y+n.r+10,11,"#ecf1ff",700); // bolha pequena: nome embaixo
   });
   c.globalAlpha=1;
@@ -2387,8 +2397,8 @@ function pmDrawOpen(g){
   const c=px, n=pm.open, s=pmShell(), h=hueOf(n.p), a=ease(pm.z);
   const gr=c.createRadialGradient(s.x-s.r*.3,s.y-s.r*.35,s.r*.1,s.x,s.y,s.r);
   gr.addColorStop(0,`hsla(${h} 90% 70% / .04)`); gr.addColorStop(.85,`hsla(${h} 90% 65% / .1)`); gr.addColorStop(1,`hsla(${h} 95% 75% / .32)`);
-  const im=photoOf(n.p.photo); // a foto da pessoa bem clarinha no fundo da bolha dela
-  if(im){ const w=im.naturalWidth, hh=im.naturalHeight, m=Math.min(w,hh); c.save(); c.beginPath(); c.arc(s.x,s.y,s.r,0,7); c.clip(); c.globalAlpha=.16; c.drawImage(im,(w-m)/2,(hh-m)/2,m,m,s.x-s.r,s.y-s.r,s.r*2,s.r*2); c.restore(); }
+  const im=photoOf(n.p.photo,!isLinked(n.p)); // a foto da pessoa bem clarinha no fundo da bolha dela
+  if(im){ const w=im.naturalWidth||im.width, hh=im.naturalHeight||im.height, m=Math.min(w,hh); c.save(); c.beginPath(); c.arc(s.x,s.y,s.r,0,7); c.clip(); c.globalAlpha=.16; c.drawImage(im,(w-m)/2,(hh-m)/2,m,m,s.x-s.r,s.y-s.r,s.r*2,s.r*2); c.restore(); }
   c.fillStyle=gr; c.beginPath(); c.arc(s.x,s.y,s.r,0,7); c.fill(); c.strokeStyle=`hsla(${h} 95% 80% / .7)`; c.lineWidth=1.8; c.stroke();
   c.fillStyle="rgba(255,255,255,.35)"; c.beginPath(); c.ellipse(s.x-s.r*.45,s.y-s.r*.55,s.r*.16,s.r*.06,-.6,0,7); c.fill();
   c.globalAlpha=a;
@@ -2412,7 +2422,7 @@ function pmDrawOpen(g){
     }
   });
   c.globalAlpha=1;
-  pmFace(s.x,s.y-s.r,clamp(s.r*.13,16,28),n.p.photo,initials(n.p.name),h,{photoA:1,ring:2}); // o rosto da pessoa em cima da bolha dela
+  pmFace(s.x,s.y-s.r,clamp(s.r*.13,16,28),n.p.photo,initials(n.p.name),h,{photoA:1,ring:2,blur:!isLinked(n.p)}); // o rosto da pessoa em cima da bolha dela
 }
 function pmDrawNet(g,list){
   let act=pm.sel||pm.hover; const c=px, me={x:g.cx,y:g.cy};
@@ -2448,7 +2458,7 @@ function pmDrawNet(g,list){
   // pessoas
   list.forEach(n=>{ const lit=!act||(act.kind==="p"?act.id===n.id:n.shared.includes(act.id)), h=hueOf(n.p), sel=act&&act.kind==="p"&&act.id===n.id;
     c.globalAlpha=lit?1:.25;
-    pmFace(n.x,n.y,n.r*(sel?1.15:1),n.p.photo,initials(n.p.name),h,{photoA:.85,ring:sel?2.5:1.4});
+    pmFace(n.x,n.y,n.r*(sel?1.15:1),n.p.photo,initials(n.p.name),h,{photoA:.85,ring:sel?2.5:1.4,blur:!isLinked(n.p)});
     const ox=Math.cos(n.na), oy=Math.sin(n.na), ty=n.y+(oy>-.3?n.r+10:-n.r-10);
     pmText(n.p.name.split(" ")[0]+" · "+n.pct+"%",n.x+ox*4,ty,11.5,"#ecf1ff",700);
     c.globalAlpha=1; });
