@@ -252,17 +252,21 @@ const fl = await E(() => ({ n: document.querySelectorAll("#floats .evf").length,
 ok(fl.n === 4 && fl.ids.every(id => !fl.inGlobe.includes(id)) && fl.inGlobe.includes("fx5"), "eventos: 4 saem do globo e flutuam nos cantos; o 5º continua no globo " + JSON.stringify(fl));
 const tapEvf = async id => { const r = await E(id => { const b = document.querySelector(`.evf[data-ev="${id}"]`).getBoundingClientRect(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; }, id); await page.mouse.click(r.x, r.y); await wait(250); };
 await tapEvf(fl.ids[0]);
-ok(await E(() => [...document.querySelectorAll(".evf-menu button")].map(b => b.textContent).join() === "Ver evento,Fixar aqui,Excluir"), "tocar na bolha do evento abre: Ver evento, Fixar aqui, Excluir");
+ok(await E(() => [...document.querySelectorAll(".evf-menu .evf-opt")].map(b => b.getAttribute("aria-label")).join() === "Ver evento,Fixar aqui,Excluir,Fechar" && [...document.querySelectorAll(".evf-opt svg")].length === 4),
+  "tocar na bolha do evento: mini bolhas com ícones (ver, fixar, excluir, fechar)");
+await page.click('.evf-menu [data-fm="close"]'); await wait(300);
+ok(await E(() => !document.querySelector(".evf-menu")), "a mini bolha de fechar fecha as opções");
+await tapEvf(fl.ids[0]); await wait(200);
 await page.click('.evf-menu [data-fm="pin"]'); await wait(300);
 ok(await E(id => !!floatPrefs.fixed[id] && JSON.parse(localStorage.getItem("estoura-flutuantes")).fixed[id] && document.querySelector(`.evf[data-ev="${id}"]`).classList.contains("fixed"), fl.ids[0]), "Fixar: fica marcada como fixa e guardada no aparelho");
 // segurar e arrastar
 const p0 = await E(id => { const b = document.querySelector(`.evf[data-ev="${id}"]`).getBoundingClientRect(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; }, fl.ids[0]);
-await page.mouse.move(p0.x, p0.y); await page.mouse.down(); await wait(500);
+await page.mouse.move(p0.x, p0.y); await page.mouse.down(); // sem segurar: já arrasta
 await page.mouse.move(p0.x + 60, p0.y + 200, { steps: 8 }); await page.mouse.up(); await wait(200);
 const moved = await E(id => ({ pos: floatPrefs.fixed[id], menu: !!document.querySelector(".evf-menu") }), fl.ids[0]);
-ok(moved.pos && moved.pos.y > 0.2 && !moved.menu, "segurar e arrastar: a bolha muda de lugar e a posição fica guardada (sem abrir o menu) " + JSON.stringify(moved));
+ok(moved.pos && moved.pos.y > 0.2 && !moved.menu, "arrastar (sem segurar): a bolha muda de lugar e a posição fica guardada, sem abrir as opções " + JSON.stringify(moved));
 // excluir: some, volta o 5º evento pro canto e o excluído não aparece mais no globo
-await tapEvf(fl.ids[1]);
+await tapEvf(fl.ids[1]); await wait(200);
 await page.click('.evf-menu [data-fm="hide"]'); await wait(600);
 const hid = await E(id => ({ floats: [...document.querySelectorAll("#floats .evf")].map(b => b.dataset.ev), inGlobe: items.some(i => i.id === id), saved: JSON.parse(localStorage.getItem("estoura-flutuantes")).hidden }), fl.ids[1]);
 ok(!hid.floats.includes(fl.ids[1]) && !hid.inGlobe && hid.saved.includes(fl.ids[1]) && hid.floats.includes("fx5"), "Excluir: some dos cantos e do globo (só pra você), e outro evento ocupa o lugar " + JSON.stringify(hid));

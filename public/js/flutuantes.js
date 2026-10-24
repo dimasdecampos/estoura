@@ -1,6 +1,6 @@
 // Bolhas de evento flutuantes: os próximos eventos saem do globo e flutuam nos cantos da tela, maiores pra ler.
-// Tocar: ver o evento, fixar (fica naquele lugar mesmo depois de recarregar) ou excluir (some só pra você).
-// Segurar e arrastar: muda a bolha de lugar. Os outros eventos continuam no globo (evF, em globo.js).
+// Tocar: mini bolhas em volta com ver o evento, fixar (fica naquele lugar mesmo depois de recarregar), excluir (some só pra você) e fechar.
+// Arrastar: muda a bolha de lugar. Os outros eventos continuam no globo (evF, em globo.js).
 const FLOAT_MAX=4, FLOAT_SLOTS=["tl","tr","bl","br"], FLOAT_KEY="estoura-flutuantes";
 // fixed: {id: {x,y} (fração da tela) ou true}; hidden: ids excluídos por você
 let floatPrefs={fixed:{},hidden:[]};
@@ -36,7 +36,7 @@ function renderFloats(){
   const old=new Set([...floatLayer.querySelectorAll(".evf")].map(b=>b.dataset.ev));
   floatSig=sig; closeFloatMenu();
   floatLayer.innerHTML=list.map((e,k)=>{ const h=(byId(e.interest)||{hue:40}).hue, fx=!!floatPrefs.fixed[e.id];
-    return `<button class="evf${fx?" fixed":""}${old.has(e.id)?"":" in"}" type="button" data-ev="${esc(e.id)}" data-slot="${FLOAT_SLOTS[k]}" style="--h:${h}" aria-label="Evento: ${esc(e.title)}, ${esc(evWhen(e))} às ${e.time}. Toque pra ver, fixar ou excluir; segure pra mover.">
+    return `<button class="evf${fx?" fixed":""}${old.has(e.id)?"":" in"}" type="button" data-ev="${esc(e.id)}" data-slot="${FLOAT_SLOTS[k]}" style="--h:${h}" aria-label="Evento: ${esc(e.title)}, ${esc(evWhen(e))} às ${e.time}. Toque pra ver, fixar ou excluir; arraste pra mover.">
       <b>${esc(e.title)}</b><small>${esc(evShortDay(e))} · ${e.time}</small>${fx?'<i class="pin" aria-hidden="true"></i>':""}</button>`; }).join("");
   const box=floatLayer.getBoundingClientRect();
   floatLayer.querySelectorAll(".evf").forEach(el=>{
@@ -48,23 +48,37 @@ function renderFloats(){
     }
   });
 }
-function closeFloatMenu(){ if(floatMenu){ floatMenu.remove(); floatMenu=null; } }
+function closeFloatMenu(){ if(floatMenu){ const m=floatMenu; floatMenu=null; m.classList.remove("on"); setTimeout(()=>m.remove(),180); } }
+// ícones das mini bolhas
+const FICON={
+  open:'<circle cx="12" cy="12" r="3"/><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/>',
+  pin:'<path d="M9 4h6l-1 5 3 3v2H7v-2l3-3z"/><path d="M12 14v6"/>',
+  unpin:'<path d="M9 4h6l-1 5 3 3v2H7v-2l3-3z"/><path d="M12 14v6M4 4l16 16"/>',
+  hide:'<path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/>',
+  close:'<path d="M6 6l12 12M18 6L6 18"/>'};
+// toque: mini bolhas com ícones em volta da bolha do evento, abrindo pro lado de dentro da tela
 function openFloatMenu(el,e){
   closeFloatMenu();
   const fx=!!floatPrefs.fixed[e.id];
+  const opts=[["open","Ver evento"],[fx?"unpin":"pin",fx?"Soltar":"Fixar aqui"],["hide","Excluir"],["close","Fechar"]];
+  const box=floatLayer.getBoundingClientRect(), r=el.getBoundingClientRect();
+  const cx=r.left-box.left+r.width/2, cy=r.top-box.top+r.height/2;
+  // leque de ~105° na diagonal livre (pro lado oposto ao canto onde a bolha está)
+  const dir=Math.atan2(Math.sign(box.height/2-cy)||1,Math.sign(box.width/2-cx)||1), ring=r.width/2+34, spread=Math.PI*.58;
   floatMenu=document.createElement("div"); floatMenu.className="evf-menu"; floatMenu.setAttribute("role","menu");
-  floatMenu.innerHTML=`<button type="button" role="menuitem" data-fm="open">Ver evento</button><button type="button" role="menuitem" data-fm="pin">${fx?"Soltar":"Fixar aqui"}</button><button type="button" role="menuitem" data-fm="hide" class="danger">Excluir</button>`;
+  floatMenu.style.left=cx+"px"; floatMenu.style.top=cy+"px";
+  const inside=(v,max)=>Math.max(24,Math.min(max-24,v)); // a mini bolha nunca sai da tela
+  floatMenu.innerHTML=opts.map(([k,t],i)=>{ const a=dir+(i/(opts.length-1)-.5)*spread;
+    const tx=inside(cx+Math.cos(a)*ring,box.width)-cx, ty=inside(cy+Math.sin(a)*ring,box.height)-cy;
+    return `<button type="button" role="menuitem" class="evf-opt${k==="hide"?" danger":""}" data-fm="${k}" aria-label="${t}" title="${t}" style="--tx:${tx.toFixed(1)}px;--ty:${ty.toFixed(1)}px;--d:${i*35}ms"><svg viewBox="0 0 24 24" aria-hidden="true">${FICON[k]}</svg></button>`; }).join("");
   floatLayer.appendChild(floatMenu);
-  // abre do lado de dentro da tela, perto da bolha
-  const box=floatLayer.getBoundingClientRect(), r=el.getBoundingClientRect(), m=floatMenu.getBoundingClientRect();
-  const left=Math.max(6,Math.min(box.width-m.width-6,r.left-box.left+r.width/2-m.width/2));
-  const below=r.bottom-box.top+6, above=r.top-box.top-m.height-6;
-  floatMenu.style.left=left+"px"; floatMenu.style.top=(below+m.height<box.height?below:Math.max(6,above))+"px";
+  requestAnimationFrame(()=>floatMenu&&floatMenu.classList.add("on")); // as mini bolhas saem de dentro da bolha
   floatMenu.onclick=ev=>{
     const b=ev.target.closest("[data-fm]"); if(!b) return;
-    closeFloatMenu();
-    if(b.dataset.fm==="open") return openEvent(e);
-    if(b.dataset.fm==="pin"){
+    const k=b.dataset.fm; closeFloatMenu();
+    if(k==="close") return;
+    if(k==="open") return openEvent(e);
+    if(k==="pin"||k==="unpin"){
       if(fx){ delete floatPrefs.fixed[e.id]; toast("Solto: pode dar lugar a outro evento"); }
       else { floatPrefs.fixed[e.id]=posOf(e.id)||true; toast("Fixado: fica aqui até você soltar"); }
       saveFloats(); floatSig=""; renderFloats(); return;
@@ -77,19 +91,18 @@ function openFloatMenu(el,e){
 }
 function unhideFloat(id){ floatPrefs.hidden=floatPrefs.hidden.filter(x=>x!==id); saveFloats(); floatSig=""; rebuild(); renderFloats(); }
 
-// tocar abre o menu; segurar (e arrastar) move
+// tocar abre as mini bolhas; arrastar (sem precisar segurar) muda de lugar
 if(floatLayer){
   let hold=null;
   floatLayer.addEventListener("pointerdown",ev=>{
     const el=ev.target.closest(".evf"); if(!el) return;
     const r=el.getBoundingClientRect();
-    hold={el,id:el.dataset.ev,x0:ev.clientX,y0:ev.clientY,dx:ev.clientX-r.left,dy:ev.clientY-r.top,drag:false,moved:false,
-      t:setTimeout(()=>{ if(!hold) return; hold.drag=true; el.classList.add("drag"); closeFloatMenu(); try{ navigator.vibrate&&navigator.vibrate(15); }catch(e){} },380)};
+    hold={el,id:el.dataset.ev,x0:ev.clientX,y0:ev.clientY,dx:ev.clientX-r.left,dy:ev.clientY-r.top,drag:false};
     el.setPointerCapture(ev.pointerId);
   });
   floatLayer.addEventListener("pointermove",ev=>{
     if(!hold) return;
-    if(!hold.drag){ if(Math.hypot(ev.clientX-hold.x0,ev.clientY-hold.y0)>10){ hold.moved=true; clearTimeout(hold.t); } return; }
+    if(!hold.drag){ if(Math.hypot(ev.clientX-hold.x0,ev.clientY-hold.y0)<6) return; hold.drag=true; hold.el.classList.add("drag"); closeFloatMenu(); }
     const box=floatLayer.getBoundingClientRect(), s=hold.el.offsetWidth;
     hold.el.classList.remove("s-tl","s-tr","s-bl","s-br");
     hold.el.style.left=Math.max(0,Math.min(box.width-s,ev.clientX-box.left-hold.dx))+"px";
@@ -97,7 +110,7 @@ if(floatLayer){
   });
   const end=ev=>{
     if(!hold) return;
-    const h=hold; hold=null; clearTimeout(h.t);
+    const h=hold; hold=null;
     if(h.drag){
       h.el.classList.remove("drag");
       const box=floatLayer.getBoundingClientRect(), r=h.el.getBoundingClientRect();
@@ -105,7 +118,9 @@ if(floatLayer){
       if(floatPrefs.fixed[h.id]){ floatPrefs.fixed[h.id]=p; saveFloats(); } else floatSession[h.id]=p;
       return;
     }
-    if(ev.type==="pointerup" && !h.moved){ const e=EVENTS.find(x=>x.id===h.id); if(e) openFloatMenu(h.el,e); }
+    if(ev.type!=="pointerup") return;
+    if(floatMenu && floatMenu.dataset.ev===h.id) return closeFloatMenu(); // tocar de novo fecha
+    const e=EVENTS.find(x=>x.id===h.id); if(e){ openFloatMenu(h.el,e); floatMenu.dataset.ev=h.id; }
   };
   floatLayer.addEventListener("pointerup",end);
   floatLayer.addEventListener("pointercancel",end);
