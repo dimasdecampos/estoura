@@ -3,7 +3,7 @@
 const cv=document.getElementById("globe"), ctx=cv.getContext("2d");
 const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
 const AUTO=reduce?0:0.0025, AUTO_O=reduce?0:0.0016;
-const SPH=.84; // tamanho da esfera em relação à área (as bolhas mantêm o tamanho; só ficam mais juntas)
+const SPH=.74; // tamanho da esfera em relação à área (as bolhas mantêm o tamanho; só ficam mais juntas)
 let W=0,H=0,R=100,DPR=1, rotY=0.6, rotX=-0.25, vY=AUTO, vX=0, orbit=0, vO=AUTO_O;
 let fY=0.6, fX=-0.25, fvY=AUTO, fvX=0; // giro da esfera de dentro de uma bolha com muitas sub-bolhas
 let gS=1, pts=[], fx=[], items=[], target=null, anim=null, fade=1, now=0;
@@ -267,10 +267,29 @@ function label(lines,sx,sy,fs,color,extra){
   lines.forEach((l,k)=>ctx.fillText(l,sx,ty+k*fs*1.1));
   if(extra){ ctx.font=`500 ${fs*.74}px Figtree, system-ui, sans-serif`; ctx.globalAlpha*=.85; ctx.fillText(extra,sx,ty+lines.length*fs*1.1); }
 }
-function split(name,r){
-  if(ctx.measureText(name).width<=r*1.75 || !name.includes(" ")) return [name];
-  const w=name.split(" "), m=Math.ceil(w.length/2); return [w.slice(0,m).join(" "),w.slice(m).join(" ")];
+// quebra o nome em linhas que cabem dentro da bolha: junta palavras até encher a linha e passa o resto pra baixo.
+// Palavra maior que a bolha: diminui um pouco a letra e, se ainda não couber, parte a palavra com hífen.
+// Usa a fonte atual do canvas (peso e família); devolve {lines, fs} com o tamanho de letra que coube.
+function fitText(name,r,fs0,weight=700){
+  const maxW=r*1.62, fam="Figtree, system-ui, sans-serif", minFs=Math.max(8,fs0*.72);
+  const wrap=()=>{ const out=[]; let cur="";
+    for(const w of name.split(" ")){ const t=cur?cur+" "+w:w;
+      if(!cur||ctx.measureText(t).width<=maxW) cur=t; else { out.push(cur); cur=w; } }
+    if(cur) out.push(cur); return out; };
+  for(let fs=fs0;fs>=minFs-.01;fs-=.5){
+    ctx.font=weight+" "+fs+"px "+fam;
+    const lines=wrap();
+    if(lines.length<=3 && lines.every(l=>ctx.measureText(l).width<=maxW)) return {lines,fs};
+  }
+  // ainda não coube: parte as palavras compridas com hífen, na letra mínima
+  ctx.font=weight+" "+minFs+"px "+fam;
+  const lines=[];
+  wrap().forEach(l=>{
+    while(ctx.measureText(l).width>maxW && l.length>3){ let n=l.length-1; while(n>2 && ctx.measureText(l.slice(0,n)+"-").width>maxW) n--; lines.push(l.slice(0,n)+"-"); l=l.slice(n); }
+    lines.push(l); });
+  return {lines,fs:minFs};
 }
+function split(name,r){ return fitText(name,r,12).lines; }
 
 function drawBubble({it,sx,sy,r,z,cov}){
   if(r<1) return;
@@ -290,7 +309,7 @@ function drawBubble({it,sx,sy,r,z,cov}){
     ctx.setLineDash([5,4]); ctx.lineDashOffset=-now/60; ctx.lineWidth=1.8; ctx.strokeStyle=`hsl(${h} 95% 80%)`; ctx.stroke(); ctx.setLineDash([]);
     ctx.fillStyle="#ffd28a"; ctx.beginPath(); ctx.arc(sx+r*.68,sy-r*.68,Math.max(3,r*.13),0,7); ctx.fill();
     if(r>14 && showLabel){ const fs=Math.max(9,Math.min(13,r*.27)); ctx.font=`700 ${fs}px Figtree, system-ui, sans-serif`;
-      label(split(it.short,r),sx,sy,fs,"#f1f5ff",r>22?evShortDay(it):null); }
+      const fe=fitText(it.short,r,fs); label(fe.lines,sx,sy,fe.fs,"#f1f5ff",r>22?evShortDay(it):null); }
     ctx.globalAlpha=1; return;
   }
   const L=state.lv.get(it.id)||0;
@@ -327,8 +346,8 @@ function drawBubble({it,sx,sy,r,z,cov}){
   }
   ctx.fillStyle="rgba(255,255,255,.75)"; ctx.beginPath(); ctx.ellipse(sx-r*.4,sy-r*.45,r*.18,r*.1,-.7,0,7); ctx.fill();
   if(r>15 && showLabel){
-    const fs=Math.max(9,Math.min(state.focus?14:15,r*.3)); ctx.font=`700 ${fs}px Figtree, system-ui, sans-serif`;
-    const lines=split(it.name,r), extra=r>24&&count(it)>0?count(it).toLocaleString("pt-BR"):null; // sem ninguém, não mostra o 0
+    const fit=fitText(it.name,r,Math.max(9,Math.min(state.focus?14:15,r*.3))), lines=fit.lines, fs=fit.fs;
+    const extra=r>24&&count(it)>0?count(it).toLocaleString("pt-BR"):null; // sem ninguém, não mostra o 0
     const hc=HEARTN.get(it.id)||0; // sub-bolhas com coração
     if(L===2||hc){ // já deu coração: coraçãozinho preto centralizado acima do nome, do tamanho da fonte; com a quantidade das sub-bolhas ao lado
       const top=sy-(lines.length-1)*fs*.55-(extra?fs*.35:0)-fs*1.1, hs=fs*.34;
