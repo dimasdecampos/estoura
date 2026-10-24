@@ -6,6 +6,7 @@ const state = {
   pp:new Map(), // onde você guardou cada uma das suas bolhas: id -> id da bolha de fora (null = bolha principal)
   chats:{}, created:new Set(), conn:{p14:"accepted"}, going:new Set(), city:"São Paulo", radius:300, focus:null
 };
+let floatIds = new Set(); // eventos que estão flutuando nos cantos (flutuantes.js): saem do globo
 let COMMUNITY = 1; // quantas pessoas existem no Estoura (vem do banco)
 const count = i => i.base + (state.lv.has(i.id)?1:0);
 // bolha rara pesa mais: quanto menor a fatia da comunidade que estourou, maior o peso

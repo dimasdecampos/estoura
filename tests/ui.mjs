@@ -240,6 +240,40 @@ const pop = await E(() => { const q = pts.find(q => q.it.id && !q.it.type && !st
   return { flash: fx.some(f => f.flash), drops: fx.filter(f => !f.ring && !f.flash && !f.k).length }; });
 ok(pop && pop.flash && pop.drops >= 10, "curtir: estouro discreto (clarão e gotinhas saindo da borda) " + JSON.stringify(pop));
 
+// eventos flutuantes: os próximos saem do globo e vão pros cantos; tocar = ver/fixar/excluir; segurar = mover
+await E(() => { closeLayer(); setView("bolhas"); state.focus = null; state.radius = 0; localStorage.removeItem("estoura-flutuantes"); floatPrefs.fixed = {}; floatPrefs.hidden = [];
+  const ids = INTERESTS.filter(i => !i.parent).map(i => i.id);
+  const mk = (id, title, days, k) => ({ type: "event", id, title, short: title.length > 18 ? title.slice(0, 17) + "…" : title, interest: ids[k], days, time: "15:00", place: "Parque", city: "São Paulo", c: [-23.55, -46.63], going: [] });
+  EVENTS.push(mk("fx1", "Slack + piquenique no Villa-Lobos", 2, 0), mk("fx2", "Surf no domingo", 3, 1), mk("fx3", "Cineclube de terça", 1, 2), mk("fx4", "Pedal noturno", 5, 3), mk("fx5", "Feira de vinil", 6, 4));
+  rebuild(); renderAll(); });
+await wait(900);
+const fl = await E(() => ({ n: document.querySelectorAll("#floats .evf").length, ids: [...document.querySelectorAll("#floats .evf")].map(b => b.dataset.ev),
+  inGlobe: items.filter(i => i.type === "event").map(i => i.id) }));
+ok(fl.n === 4 && fl.ids.every(id => !fl.inGlobe.includes(id)) && fl.inGlobe.includes("fx5"), "eventos: 4 saem do globo e flutuam nos cantos; o 5º continua no globo " + JSON.stringify(fl));
+const tapEvf = async id => { const r = await E(id => { const b = document.querySelector(`.evf[data-ev="${id}"]`).getBoundingClientRect(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; }, id); await page.mouse.click(r.x, r.y); await wait(250); };
+await tapEvf(fl.ids[0]);
+ok(await E(() => [...document.querySelectorAll(".evf-menu button")].map(b => b.textContent).join() === "Ver evento,Fixar aqui,Excluir"), "tocar na bolha do evento abre: Ver evento, Fixar aqui, Excluir");
+await page.click('.evf-menu [data-fm="pin"]'); await wait(300);
+ok(await E(id => !!floatPrefs.fixed[id] && JSON.parse(localStorage.getItem("estoura-flutuantes")).fixed[id] && document.querySelector(`.evf[data-ev="${id}"]`).classList.contains("fixed"), fl.ids[0]), "Fixar: fica marcada como fixa e guardada no aparelho");
+// segurar e arrastar
+const p0 = await E(id => { const b = document.querySelector(`.evf[data-ev="${id}"]`).getBoundingClientRect(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; }, fl.ids[0]);
+await page.mouse.move(p0.x, p0.y); await page.mouse.down(); await wait(500);
+await page.mouse.move(p0.x + 60, p0.y + 200, { steps: 8 }); await page.mouse.up(); await wait(200);
+const moved = await E(id => ({ pos: floatPrefs.fixed[id], menu: !!document.querySelector(".evf-menu") }), fl.ids[0]);
+ok(moved.pos && moved.pos.y > 0.2 && !moved.menu, "segurar e arrastar: a bolha muda de lugar e a posição fica guardada (sem abrir o menu) " + JSON.stringify(moved));
+// excluir: some, volta o 5º evento pro canto e o excluído não aparece mais no globo
+await tapEvf(fl.ids[1]);
+await page.click('.evf-menu [data-fm="hide"]'); await wait(600);
+const hid = await E(id => ({ floats: [...document.querySelectorAll("#floats .evf")].map(b => b.dataset.ev), inGlobe: items.some(i => i.id === id), saved: JSON.parse(localStorage.getItem("estoura-flutuantes")).hidden }), fl.ids[1]);
+ok(!hid.floats.includes(fl.ids[1]) && !hid.inGlobe && hid.saved.includes(fl.ids[1]) && hid.floats.includes("fx5"), "Excluir: some dos cantos e do globo (só pra você), e outro evento ocupa o lugar " + JSON.stringify(hid));
+await E(id => openEvent(EVENTS.find(e => e.id === id)), fl.ids[1]);
+await page.click("#ev-unhide"); await wait(400);
+ok(await E(id => !floatPrefs.hidden.includes(id) && (document.querySelector(`.evf[data-ev="${id}"]`) || items.some(i => i.id === id)), fl.ids[1]), "na tela do evento, 'Mostrar de novo' traz ele de volta");
+await E(() => { closeLayer(); doEnter(INTERESTS.find(i => !i.parent && kids(i.id).length).id); });
+await wait(200);
+ok(await E(() => document.getElementById("floats").hidden), "dentro de uma bolha, os eventos flutuantes somem");
+await E(() => { goHome(); for (let k = EVENTS.length - 1; k >= 0; k--) if (/^fx/.test(EVENTS[k].id)) EVENTS.splice(k, 1); localStorage.removeItem("estoura-flutuantes"); floatPrefs.fixed = {}; floatPrefs.hidden = []; rebuild(); renderAll(); });
+
 // tela de introdução no 1º acesso: 3 páginas (propósito, bolhas, gente e privacidade)
 {
   const ctx = await browser.createBrowserContext(), w = await ctx.newPage();

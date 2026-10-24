@@ -119,7 +119,7 @@ const FILTERS=[
   {k:"unliked",t:"Só as que não curti",ic:HEART+'/></svg>'}];
 let bubbleFilter="all";
 const applyF=list=>bubbleFilter==="all"?list:list.filter(it=>(bubbleFilter==="liked")===state.lv.has(it.id));
-const evF=()=>bubbleFilter==="all"?visibleEvents():[];
+const evF=()=>bubbleFilter==="all"?visibleEvents().filter(e=>!floatIds.has(e.id) && !(typeof floatPrefs!=="undefined" && floatPrefs.hidden.includes(e.id))):[]; // os flutuantes e os que você excluiu ficam fora do globo
 function setFilter(k,quiet){
   bubbleFilter=k; const f=FILTERS.find(x=>x.k===k), b=document.getElementById("filter-toggle");
   b.innerHTML=f.ic; b.title=f.t; b.setAttribute("aria-label","Filtro: "+f.t); b.classList.toggle("on",k!=="all");
@@ -483,6 +483,7 @@ function countsForFrame(){
   state.lv.forEach((l,id)=>{ if(l===2) ancestors(id).forEach(a=>HEARTN.set(a,(HEARTN.get(a)||0)+1)); });
 }
 function frame(t){
+  if(typeof floatLayer!=="undefined" && floatLayer && floatLayer.hidden===floatsOn()) floatLayer.hidden=!floatsOn(); // some dentro de uma bolha, na visão de pessoas e com filtro
   now=t||0; countsForFrame();
   if(W && !(pm&&pm.on)){ // na visão de pessoas o globo fica parado
     ctx.clearRect(0,0,W,H);
