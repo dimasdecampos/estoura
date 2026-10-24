@@ -264,5 +264,23 @@ ok(v.b.name === "Bruno Lima Souza" && v.b.photo === "https://foto/bruno.jpg", "0
 ok((await q(`select has_function_privilege('authenticated', 'public.is_linked(uuid)', 'execute') as p`))[0].p === false, "0015: is_linked não é chamada direto pela API");
 await as(null);
 
+// 0016: o admin gera as miniaturas que faltam
+await run(file("migrations/0016_miniaturas_admin.sql"));
+await run(file("migrations/0016_miniaturas_admin.sql"));
+await run(`reset role; update profiles set avatar_blur = null where id = '${B}'; set role authenticated`);
+await as(USR);
+ok(await denied(`select * from admin_missing_blur()`) && await denied(`select admin_set_blur('${B}', '${BLUR}')`), "0016: usuário comum não lista nem grava miniaturas dos outros");
+await as(ADM);
+ok((await q(`select id from admin_missing_blur()`)).some(r => r.id === B), "0016: admin vê quem tem foto mas não tem miniatura");
+ok(await denied(`select admin_set_blur('${B}', 'https://foto/original.jpg')`), "0016: só aceita data:image, não o link da foto");
+await q(`select admin_set_blur('${B}', '${BLUR}')`);
+await q(`select admin_set_blur('${B}', 'data:image/jpeg;base64,OUTRA')`);
+await run(`reset role`);
+ok((await q(`select avatar_blur from profiles where id = '${B}'`))[0].avatar_blur === BLUR, "0016: grava a miniatura e nunca troca uma que já existe");
+await run(`set role authenticated`);
+ok(!(await q(`select id from admin_missing_blur()`)).some(r => r.id === B), "0016: depois de gravada, some da lista de pendentes");
+await run(`reset role`);
+await as(null);
+
 console.log(fails ? `\n${fails} FALHA(S)` : "\nTUDO OK");
 process.exit(fails ? 1 : 0);

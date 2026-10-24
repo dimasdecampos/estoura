@@ -429,12 +429,13 @@ if (cfg.url && cfg.key) {
   };
 
   /* ---------- administração (só aparece para admin e super_admin; o banco confere tudo de novo) ---------- */
-  let myRole = "user", admUsers = [];
+  let myRole = "user", admUsers = [], blurFilled = false;
   const ROLE_LABEL = { user: "Usuário", admin: "Admin", super_admin: "Super admin" };
   function setRole(r){
     myRole = ["admin", "super_admin"].includes(r) ? r : "user";
     const isAdm = myRole !== "user";
     document.querySelector('nav [data-view="admin"]').hidden = !isAdm;
+    if (isAdm && !blurFilled) { blurFilled = true; setTimeout(fillMissingBlur, 1500); }
     if (!isAdm && !document.getElementById("view-admin").hidden) setView("bolhas");
   }
   function renderAdmin(){
@@ -480,22 +481,36 @@ if (cfg.url && cfg.key) {
   let wasLogged = false;
   // Foto embaçada (SQL 0015): uma miniatura 20x20 da sua foto, que quem ainda não aceitou conversar com você recebe no lugar dela.
   // Se o servidor da foto não deixar ler a imagem, fica sem miniatura e os outros veem só a inicial.
-  function saveBlur(u){
-    const src = photo(u); if (!src) return;
+  // miniatura 20x20 de uma foto (promessa com o data:image/jpeg, ou null se o servidor da foto não deixar ler)
+  const makeBlur = src => new Promise(done => {
     const im = new Image(); im.crossOrigin = "anonymous"; im.referrerPolicy = "no-referrer";
-    im.onload = async () => {
-      let data;
+    im.onerror = () => done(null);
+    im.onload = () => {
       try {
         const t = document.createElement("canvas"), m = Math.min(im.naturalWidth, im.naturalHeight); t.width = t.height = 20;
         t.getContext("2d").drawImage(im, (im.naturalWidth - m) / 2, (im.naturalHeight - m) / 2, m, m, 0, 0, 20, 20);
-        data = t.toDataURL("image/jpeg", .7);
-      } catch (e) { return; }
-      const key = "estoura-blur:" + u.id;
-      try { if (localStorage.getItem(key) === data) return; } catch (e) {}
-      const { error } = await sb.from("profiles").update({ avatar_blur: data }).eq("id", u.id);
-      if (!error) try { localStorage.setItem(key, data); } catch (e) {}
+        done(t.toDataURL("image/jpeg", .7));
+      } catch (e) { done(null); }
     };
     im.src = src;
+  });
+  async function saveBlur(u){
+    const src = photo(u); if (!src) return;
+    const data = await makeBlur(src); if (!data) return;
+    const key = "estoura-blur:" + u.id;
+    try { if (localStorage.getItem(key) === data) return; } catch (e) {}
+    const { error } = await sb.from("profiles").update({ avatar_blur: data }).eq("id", u.id);
+    if (!error) try { localStorage.setItem(key, data); } catch (e) {}
+  }
+  // admin: gera a miniatura de quem tem foto mas ainda não abriu a versão nova (SQL 0016; sem ele, não faz nada)
+  async function fillMissingBlur(){
+    const { data, error } = await sb.rpc("admin_missing_blur");
+    if (error || !data) return;
+    for (const r of data) {
+      const blur = await makeBlur(r.avatar_url);
+      if (blur) await sb.rpc("admin_set_blur", { p_user: r.id, p_blur: blur });
+    }
+    if (data.length) loadMatches();
   }
 
   function render(event, session){
