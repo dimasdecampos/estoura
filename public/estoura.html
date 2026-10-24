@@ -907,6 +907,7 @@ function setView(v){
   document.querySelectorAll(".view").forEach(s=>s.hidden = s.id!=="view-"+v);
   document.querySelectorAll("nav button").forEach(b=>{ if(b.dataset.view===v) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current"); });
   if(v==="bolhas") resize();
+  try{ sessionStorage.setItem("estoura-aba",v); }catch(e){} // atualizar a página volta pra mesma aba
 }
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{ setView(b.dataset.view); if(b.dataset.view==="bolhas"){ if(pm&&pm.on) setPeople(false); goHome(); } });
 document.getElementById("logo").onclick=()=>{ setView("bolhas"); if(pm&&pm.on) setPeople(false); goHome(); };
@@ -2468,6 +2469,8 @@ function pmDrawNet(g,list){
 document.getElementById("filter-toggle").innerHTML=FILTERS[0].ic;
 document.getElementById("filter-toggle").onclick=()=>setFilter(FILTERS[(FILTERS.findIndex(x=>x.k===bubbleFilter)+1)%FILTERS.length].k);
 resize(); rebuild(); renderAll(); welcome(); requestAnimationFrame(frame);
+try{ const v=sessionStorage.getItem("estoura-aba"); // a aba Chat só existe com conversas carregadas, então fica de fora
+  if(v && v!=="bolhas" && v!=="chat" && document.getElementById("view-"+v)) setView(v); }catch(_){}
 try{ localStorage.removeItem("estoura-view"); }catch(_){} // a visão espalhada não existe mais
 try{ const f=localStorage.getItem("estoura-filter"); if(f && f!=="all" && FILTERS.some(x=>x.k===f)) setFilter(f,true); }catch(_){} // lembra o último filtro
 </script>
