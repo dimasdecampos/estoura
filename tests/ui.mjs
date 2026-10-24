@@ -205,6 +205,22 @@ await E(() => { doEnter("corrida"); setView("matches"); }); await wait(300);
 await page.click("#logo"); await wait(300);
 ok(await E(() => state.focus === null && !document.getElementById("view-bolhas").hidden), "clicar na logo volta pro início, de qualquer tela");
 
+// holofote: buscar ou criar uma bolha deixa ela em destaque e pausa o giro; curtir faz um estouro discreto
+await E(() => { closeLayer(); setView("bolhas"); goHome(); });
+await wait(300);
+await E(() => goToBubble("cinema"));
+ok(await E(() => byId("cinema").hl > performance.now() && held()), "buscar: a bolha fica em destaque e o giro pausa");
+await wait(1500);
+const r1 = await E(() => rotY); await wait(500);
+ok(await E(r => Math.abs(rotY - r) < 0.001, r1), "durante o destaque, o globo não sai girando");
+await E(() => createBubble("Bolha Holofote", null));
+ok(await E(() => { const it = INTERESTS.find(i => i.name === "Bolha Holofote"); return !!it && it.hl > performance.now() && held(); }), "criar: a bolha nova fica em destaque e o giro pausa");
+await wait(400);
+const pop = await E(() => { const q = pts.find(q => q.it.id && !q.it.type && !state.lv.has(q.it.id) && !kids(q.it.id).length && q.z > 0 && q.r > 10);
+  if (!q) return null; fx.length = 0; setLevel(q.it, 1);
+  return { flash: fx.some(f => f.flash), drops: fx.filter(f => !f.ring && !f.flash && !f.k).length }; });
+ok(pop && pop.flash && pop.drops >= 10, "curtir: estouro discreto (clarão e gotinhas saindo da borda) " + JSON.stringify(pop));
+
 // tela de introdução no 1º acesso: 3 páginas (propósito, bolhas, gente e privacidade)
 {
   const ctx = await browser.createBrowserContext(), w = await ctx.newPage();

@@ -515,7 +515,9 @@ function createBubble(name,parentId){
     base:0,week:0,parent:parentId,gp:parentId,custom:true,places:[]};
   INTERESTS.push(i); state.pp.set(i.id,parentId); rebuild();
   if(window.estouraCreateInterest) window.estouraCreateInterest(i);
-  setLevel(i,1,true); toast(`Bolha "${name}" criada. Agora é chamar a galera!`);
+  setLevel(i,1,true); spotlight(i);
+  if(!state.focus && !parentId) setTimeout(()=>{ if(rotating()) spinTo(i.id,true); },60); // gira o globo até ela
+  toast(`Bolha "${name}" criada. Agora é chamar a galera!`);
 }
 // guarda uma bolha que já existe em parentId (null = principal), só pra você; undefined = onde ela já está
 function useBubble(it,parentId){
@@ -524,6 +526,7 @@ function useBubble(it,parentId){
   const at=it.parent?` (em ${byId(it.parent).name})`:"";
   if(mine&&here) return toast(`"${it.name}" já está nas suas bolhas${at}`);
   if(!placeMine(it,parentId)) return;
+  spotlight(it);
   if(!state.focus && !it.parent) setTimeout(()=>{ if(rotating() && !it.parent) spinTo(it.id,true); },60); // gira o globo até ela (se você ainda está no globo)
   toast(here?`"${it.name}" já existia, estourei pra você${at}`:mine?`"${it.name}" agora está ${where}`:`"${it.name}" já existia: guardei ${where}`);
 }
@@ -588,7 +591,7 @@ function goToBubble(id){
   const it=byId(id); if(!it) return;
   setSearchOpen(false);
   if(bubbleFilter!=="all") setFilter("all",true); // o filtro poderia esconder a bolha
-  it.hl=performance.now()+8000; // fica em destaque (e no globo) por um tempo
+  spotlight(it); // fica em destaque (e no globo) e o giro pausa um pouco
   const par=it.parent?byId(it.parent):null;
   if(par){ toast(`${it.name} está em ${pathOf(par.id).join(" › ")}`); state.focus=null; enter(par.id); return; }
   if(!items.includes(it)) rebuild();

@@ -156,7 +156,7 @@ const rootPool=()=>applyF(INTERESTS.filter(i=>!i.parent));
 const rotating=()=>!state.focus && !spread.on;
 // troca uma bolha do globo por outra que ainda não apareceu: a de saída encolhe e a nova cresce no lugar dela
 function rotateOne(){
-  if(!rotating() || anim || drag || hoverPause || grab || document.hidden) return;
+  if(!rotating() || anim || drag || hoverPause || grab || held() || document.hidden) return;
   const pool=rootPool(), out=pool.filter(i=>!shown.has(i.id));
   const leave=items.filter(i=>!i.type && !pinned(i) && !i.out && !i.next);
   if(!out.length || !leave.length) return;
@@ -278,6 +278,10 @@ function drawBubble({it,sx,sy,r,z,cov}){
     ctx.globalAlpha=1; return;
   }
   const L=state.lv.get(it.id)||0;
+  if((it.hl||0)>now){ // em destaque (buscada ou criada): brilho em volta
+    const gl=ctx.createRadialGradient(sx,sy,r*.9,sx,sy,r*1.7); gl.addColorStop(0,`hsla(${h} 100% 75% / .4)`); gl.addColorStop(1,`hsla(${h} 100% 75% / 0)`);
+    ctx.fillStyle=gl; ctx.beginPath(); ctx.arc(sx,sy,r*1.7,0,7); ctx.fill();
+  }
   if((TREND.has(it.id) && !state.focus) || (it.hl||0)>performance.now()){
     const pulse=(Math.sin(now/380+h)+1)/2;
     ctx.strokeStyle=`hsla(${h} 100% 80% / ${.15+.4*pulse})`; ctx.lineWidth=2+3*pulse;
@@ -375,20 +379,28 @@ function heartTap(p){
   for(let k=0;k<16;k++){ const a=-Math.PI/2+(Math.random()-.5)*3.6, v=1.6+Math.random()*3.2;
     fx.push({k:k%3?"heart":"star",x:h.x,y:h.y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-1,t:0,h:k%2?345:48,s:5+Math.random()*6,g:.07}); }
 }
+// curtiu (big): estouro discreto. Clarão rápido, gotinhas saindo da borda e uma vibração curtinha no celular
 function burst(it,big){
   const p=pts.find(q=>q.it===it); if(!p||reduce) return;
+  if(big){ fx.push({flash:true,x:p.sx,y:p.sy,r:p.r,t:0,h:it.hue}); try{ if(navigator.vibrate) navigator.vibrate(8); }catch(e){} }
   fx.push({ring:true,x:p.sx,y:p.sy,r:p.r,t:0,h:it.hue});
-  for(let k=0;k<(big?14:6);k++){ const a=Math.random()*7,v=1.5+Math.random()*3; fx.push({x:p.sx,y:p.sy,vx:Math.cos(a)*v,vy:Math.sin(a)*v,t:0,h:it.hue}); }
+  for(let k=0;k<(big?12:6);k++){ const a=Math.random()*7,v=1.2+Math.random()*2.4;
+    fx.push({x:p.sx+Math.cos(a)*p.r*.95,y:p.sy+Math.sin(a)*p.r*.95,vx:Math.cos(a)*v,vy:Math.sin(a)*v,t:0,h:it.hue}); }
 }
 function drawFx(){
   fx=fx.filter(f=>f.t<1);
   fx.forEach(f=>{ f.t+=0.035;
-    if(f.ring){ ctx.strokeStyle=`hsla(${f.h} 95% 80% / ${1-f.t})`; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(f.x,f.y,f.r*(1+f.t*.9),0,7); ctx.stroke(); }
+    if(f.flash){ f.t+=.05; ctx.fillStyle=`hsla(${f.h} 100% 94% / ${.5*Math.max(0,1-f.t)})`; ctx.beginPath(); ctx.arc(f.x,f.y,f.r*(1+.22*f.t),0,7); ctx.fill(); }
+    else if(f.ring){ ctx.strokeStyle=`hsla(${f.h} 95% 80% / ${1-f.t})`; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(f.x,f.y,f.r*(1+f.t*.9),0,7); ctx.stroke(); }
     else if(f.k){ f.x+=f.vx; f.y+=f.vy; f.vy+=f.g; ctx.fillStyle=`hsla(${f.h} 95% ${f.k==="heart"?68:62}% / ${1-f.t})`; if(f.k==="heart") heartPath(f.x,f.y,f.s*(1+f.t*.4)); else starPath(f.x,f.y,f.s*(1+f.t*.4)); ctx.fill(); }
     else { f.x+=f.vx; f.y+=f.vy; f.vy+=.08; ctx.fillStyle=`hsla(${f.h} 95% 82% / ${1-f.t})`; ctx.beginPath(); ctx.arc(f.x,f.y,2.2,0,7); ctx.fill(); } });
 }
 
 const wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
+// holofote: bolha buscada ou criada fica em destaque e o globo para de girar (e de trocar bolhas) por uns segundos
+let holdUntil=0;
+const held=()=>performance.now()<holdUntil;
+function spotlight(it,ms=4000){ const t=performance.now(); it.hl=t+8000; holdUntil=t+ms; }
 function spinTo(id,quiet){
   if(state.focus){ state.focus=null; anim=null; rebuild(); renderFocus(); renderTrend(); }
   const it=items.find(i=>i.id===id); if(!it) return;
@@ -456,7 +468,7 @@ function frame(t){
       pts=items.map(it=>{ const s=it.sp; return {it,sx:(s.x+s.ox)*spread.k+spread.px,sy:(s.y+s.oy)*spread.k+spread.py,r:Math.max(0,s.r*s.hs*spread.k),z:1}; }).sort((a,b)=>b.r-a.r); // menores por cima
       drawAll();
     } else if(state.focus){
-      if(!drag && !hoverPause){
+      if(!drag && !hoverPause && !held()){
         if(sphere()){ fY+=fvY; fX+=fvX; fvX*=.95; fvY+=((reduce?0:AUTO*Math.sign(fvY||1))-fvY)*.02; fX=wrap(fX); }
         else { orbit+=vO; vO+=(AUTO_O-vO)*.03; }
       }
@@ -465,8 +477,8 @@ function frame(t){
     } else {
       if(target && !drag){
         const dy=wrap(target.y-rotY), dx=wrap(target.x-rotX); rotY+=dy*.08; rotX+=dx*.08;
-        if(Math.abs(dy)<.002&&Math.abs(dx)<.002){ target=null; vY=AUTO; }
-      } else if(!drag && !hoverPause){ rotY+=vY; rotX+=vX; vX*=.95; vY+=((reduce?0:AUTO*Math.sign(vY||1))-vY)*.02; }
+        if(Math.abs(dy)<.002&&Math.abs(dx)<.002){ target=null; vY=held()?0:AUTO; }
+      } else if(!drag && !hoverPause && !held()){ rotY+=vY; rotX+=vX; vX*=.95; vY+=((reduce?0:AUTO*Math.sign(vY||1))-vY)*.02; }
       rotX=wrap(rotX); // gira livre também de cima pra baixo
       const halo=ctx.createRadialGradient(W/2,H/2,R*SPH*gS*.2,W/2,H/2,R*SPH*gS*1.5);
       halo.addColorStop(0,"rgba(143,240,222,.07)"); halo.addColorStop(1,"rgba(143,240,222,0)"); ctx.fillStyle=halo; ctx.fillRect(0,0,W,H);
