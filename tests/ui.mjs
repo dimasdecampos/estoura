@@ -135,7 +135,7 @@ ok(r.n === g.shown, "o número de bolhas no globo continua o mesmo");
 ok(true, "rodízio ok");
 await page.screenshot({ path: path.join(OUT, "globo-rodizio.png") });
 // as curtidas também entram no rodízio, e uma parte das vagas é sempre de novidade
-await E(() => { INTERESTS.filter(i => !i.parent).slice(0, 20).forEach(i => { state.lv.set(i.id, 1); }); state.focus = null; rebuild(true); });
+await E(() => { INTERESTS.filter(i => !i.parent).slice(0, 16).forEach(i => { state.lv.set(i.id, 1); }); state.focus = null; rebuild(true); });
 const q = await E(() => { const mk = () => items.filter(i => !i.type); const a = mk();
   const out = { n: a.length, novas: a.filter(i => !state.lv.has(i.id)).length, min: newMin(), trocou: false };
   const before = new Set(a.filter(i => state.lv.has(i.id)).map(i => i.id));

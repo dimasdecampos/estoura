@@ -136,7 +136,7 @@ function setFilter(k,quiet){
    (as curtidas e as populares têm mais chance) e, de tempos em tempos, uma sai e outra entra no lugar dela.
    Uma parte das vagas é sempre das que você ainda não curtiu, pra novidade nunca ficar de fora quando você curte muitas.
    A visão espalhada mostra todas. */
-const MAXG=()=>W&&W<640?16:22;
+const MAXG=()=>W&&W<640?22:30;
 const NEWSHARE=.4; // fatia mínima das vagas reservada pra bolhas que você ainda não curtiu
 const newMin=()=>Math.ceil(MAXG()*NEWSHARE);
 let shown=new Set(); // bolhas sorteadas que estão no globo agora
