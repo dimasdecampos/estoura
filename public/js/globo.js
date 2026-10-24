@@ -119,7 +119,7 @@ const FILTERS=[
   {k:"unliked",t:"Só as que não curti",ic:HEART+'/></svg>'}];
 let bubbleFilter="all";
 const applyF=list=>bubbleFilter==="all"?list:list.filter(it=>(bubbleFilter==="liked")===state.lv.has(it.id));
-const evF=()=>bubbleFilter==="all"?visibleEvents().filter(e=>!floatIds.has(e.id) && !(typeof floatPrefs!=="undefined" && floatPrefs.hidden.includes(e.id))):[]; // os flutuantes e os que você excluiu ficam fora do globo
+const evF=()=>bubbleFilter==="all"?visibleEvents().filter(e=>!floatIds.has(e.id)):[]; // os flutuantes ficam fora do globo (os que você tirou dos cantos voltam pra ele)
 function setFilter(k,quiet){
   bubbleFilter=k; const f=FILTERS.find(x=>x.k===k), b=document.getElementById("filter-toggle");
   b.innerHTML=f.ic; b.title=f.t; b.setAttribute("aria-label","Filtro: "+f.t); b.classList.toggle("on",k!=="all");

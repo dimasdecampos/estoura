@@ -61,8 +61,6 @@ button.pill:hover{border-color:#3a4f7a}
 .evf::after{content:"";position:absolute;top:9px;right:9px;width:10px;height:10px;border-radius:50%;background:#ffd28a}
 .evf b{font-size:12px;line-height:1.15;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 .evf small{font-size:10.5px;opacity:.85;white-space:nowrap}
-.evf .pin{position:absolute;bottom:6px;left:50%;width:8px;height:8px;margin-left:-4px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px #0b1322}
-.evf.fixed{border-style:solid}
 .evf.s-tl{left:10px;top:10px}.evf.s-tr{right:72px;top:10px}.evf.s-bl{left:10px;bottom:12px}.evf.s-br{right:12px;bottom:12px}
 .evf.drag{transform:scale(1.12);box-shadow:0 12px 30px #000a,0 0 24px hsl(var(--h) 100% 70% / .45);cursor:grabbing;z-index:2}
 .evf.in{animation:evf-in .7s cubic-bezier(.2,.9,.3,1.2) both}

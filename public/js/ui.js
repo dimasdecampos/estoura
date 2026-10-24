@@ -384,14 +384,14 @@ function openEvent(e){
     <div class="meta">${esc(evPlace(e))}${distTxt(e.c)}</div>
     <div class="sec"><div class="tag">Quem vai (${evCount(e)})</div>
       <div class="chips">${me?'<span class="chip" style="--h:330">Você</span>':""}${e.going.map(p=>`<span class="chip" style="--h:${hueOf(p)}">${esc(p.name.split(" ")[0])}</span>`).join("")}</div></div>
-    <p class="note" style="margin-top:14px">A bolha deste evento some do globo depois de ${esc(evLong(e))}.${floatPrefs.hidden.includes(e.id)?' Você escondeu ela do seu globo. <button class="link" id="ev-unhide" type="button" style="display:inline;width:auto;color:var(--accent)">Mostrar de novo</button>':""}</p>
+    <p class="note" style="margin-top:14px">A bolha deste evento some do globo depois de ${esc(evLong(e))}.${floatPrefs.hidden.includes(e.id)?' Você tirou ela dos cantos. <button class="link" id="ev-unhide" type="button" style="display:inline;width:auto;color:var(--accent)">Mostrar grande de novo</button>':""}</p>
     <div class="actions"><button class="btn" data-close>Fechar</button>${e.real&&e.mine?'<button class="btn" id="ev-edit">Editar</button>':""}
       ${me?`<button class="btn" id="ev-leave">Não vou mais</button><button class="btn primary" id="ev-chat">Abrir chat</button>`:`<button class="btn primary" id="ev-go">Eu vou</button>`}</div>`,{type:"event",id:e.id});
   const g=document.getElementById("ev-go"); if(g) g.onclick=()=>{ toggleGoing(e); openEvent(e); };
   const l=document.getElementById("ev-leave"); if(l) l.onclick=()=>{ toggleGoing(e); openEvent(e); };
   const c=document.getElementById("ev-chat"); if(c) c.onclick=()=>openEventChat(e);
   const ed=document.getElementById("ev-edit"); if(ed) ed.onclick=()=>openCreateEvent(e);
-  const uh=document.getElementById("ev-unhide"); if(uh) uh.onclick=()=>{ unhideFloat(e.id); openEvent(e); toast("O evento volta a aparecer no seu globo"); };
+  const uh=document.getElementById("ev-unhide"); if(uh) uh.onclick=()=>{ unhideFloat(e.id); openEvent(e); toast("O evento volta a aparecer grande"); };
 }
 function toggleGoing(e){
   if(e.real && window.estouraToggleGo){ window.estouraToggleGo(e); return; } // evento de verdade: salva no banco

@@ -1,11 +1,10 @@
 // Bolhas de evento flutuantes: os próximos eventos saem do globo e flutuam nos cantos da tela, maiores pra ler.
-// Tocar: mini bolhas em volta com ver o evento, fixar (fica naquele lugar mesmo depois de recarregar), excluir (some só pra você) e fechar.
-// Arrastar: muda a bolha de lugar. Os outros eventos continuam no globo (evF, em globo.js).
+// Tocar: mini bolhas em volta com ver o evento, excluir (para de flutuar e volta pequeno pro globo) e fechar.
+// Arrastar: muda a bolha de lugar (o lugar fica guardado neste aparelho). Os outros eventos continuam no globo (evF, em globo.js).
 const FLOAT_MAX=4, FLOAT_SLOTS=["tl","tr","bl","br"], FLOAT_KEY="estoura-flutuantes";
-// fixed: {id: {x,y} (fração da tela) ou true}; hidden: ids excluídos por você
-let floatPrefs={fixed:{},hidden:[]};
-try{ const p=JSON.parse(localStorage.getItem(FLOAT_KEY)||"null"); if(p) floatPrefs={fixed:p.fixed||{},hidden:p.hidden||[]}; }catch(e){}
-const floatSession={}; // posição arrastada de quem não está fixado (só até recarregar)
+// pos: {id: {x,y}} lugar pra onde você arrastou (fração da tela); hidden: ids que você tirou dos cantos (voltam pro globo)
+let floatPrefs={pos:{},hidden:[]};
+try{ const p=JSON.parse(localStorage.getItem(FLOAT_KEY)||"null"); if(p) floatPrefs={pos:p.pos||{},hidden:p.hidden||[]}; }catch(e){}
 const saveFloats=()=>{ try{ localStorage.setItem(FLOAT_KEY,JSON.stringify(floatPrefs)); }catch(e){} };
 const floatLayer=document.getElementById("floats");
 const floatsOn=()=>!state.focus && !spread.on && !(typeof pm!=="undefined" && pm.on) && bubbleFilter==="all";
@@ -13,11 +12,9 @@ let floatSig="", floatMenu=null;
 
 function pickFloats(){
   const vis=visibleEvents().filter(e=>!floatPrefs.hidden.includes(e.id));
-  const fixed=vis.filter(e=>floatPrefs.fixed[e.id]);
-  const rest=vis.filter(e=>!floatPrefs.fixed[e.id]).sort((a,b)=>(relevant(b.interest)-relevant(a.interest))||a.days-b.days);
-  return [...fixed,...rest].slice(0,FLOAT_MAX);
+  return vis.sort((a,b)=>(relevant(b.interest)-relevant(a.interest))||a.days-b.days).slice(0,FLOAT_MAX);
 }
-const posOf=id=>{ const f=floatPrefs.fixed[id]; return f&&f.x!=null?f:floatSession[id]||null; };
+const posOf=id=>floatPrefs.pos[id]||null;
 function placeFloat(el,id,slot){
   const p=posOf(id), box=floatLayer.getBoundingClientRect(), s=el.offsetWidth||86;
   FLOAT_SLOTS.forEach(k=>el.classList.toggle("s-"+k,!p&&k===slot));
@@ -31,13 +28,13 @@ function renderFloats(){
   floatIds=ids;
   if(changed && !state.focus) rebuild(); // os que saíram do globo param de aparecer nele (e os que voltaram, voltam)
   floatLayer.hidden=!floatsOn();
-  const sig=list.map(e=>[e.id,e.title,e.days,e.time,!!floatPrefs.fixed[e.id]].join("|")).join("~");
+  const sig=list.map(e=>[e.id,e.title,e.days,e.time].join("|")).join("~");
   if(sig===floatSig) return;
   const old=new Set([...floatLayer.querySelectorAll(".evf")].map(b=>b.dataset.ev));
   floatSig=sig; closeFloatMenu();
-  floatLayer.innerHTML=list.map((e,k)=>{ const h=(byId(e.interest)||{hue:40}).hue, fx=!!floatPrefs.fixed[e.id];
-    return `<button class="evf${fx?" fixed":""}${old.has(e.id)?"":" in"}" type="button" data-ev="${esc(e.id)}" data-slot="${FLOAT_SLOTS[k]}" style="--h:${h}" aria-label="Evento: ${esc(e.title)}, ${esc(evWhen(e))} às ${e.time}. Toque pra ver, fixar ou excluir; arraste pra mover.">
-      <b>${esc(e.title)}</b><small>${esc(evShortDay(e))} · ${e.time}</small>${fx?'<i class="pin" aria-hidden="true"></i>':""}</button>`; }).join("");
+  floatLayer.innerHTML=list.map((e,k)=>{ const h=(byId(e.interest)||{hue:40}).hue;
+    return `<button class="evf${old.has(e.id)?"":" in"}" type="button" data-ev="${esc(e.id)}" data-slot="${FLOAT_SLOTS[k]}" style="--h:${h}" aria-label="Evento: ${esc(e.title)}, ${esc(evWhen(e))} às ${e.time}. Toque pra ver ou tirar daqui; arraste pra mover.">
+      <b>${esc(e.title)}</b><small>${esc(evShortDay(e))} · ${e.time}</small></button>`; }).join("");
   const box=floatLayer.getBoundingClientRect();
   floatLayer.querySelectorAll(".evf").forEach(el=>{
     placeFloat(el,el.dataset.ev,el.dataset.slot);
@@ -52,19 +49,16 @@ function closeFloatMenu(){ if(floatMenu){ const m=floatMenu; floatMenu=null; m.c
 // ícones das mini bolhas
 const FICON={
   open:'<circle cx="12" cy="12" r="3"/><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/>',
-  pin:'<path d="M9 4h6l-1 5 3 3v2H7v-2l3-3z"/><path d="M12 14v6"/>',
-  unpin:'<path d="M9 4h6l-1 5 3 3v2H7v-2l3-3z"/><path d="M12 14v6M4 4l16 16"/>',
   hide:'<path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/>',
   close:'<path d="M6 6l12 12M18 6L6 18"/>'};
 // toque: mini bolhas com ícones em volta da bolha do evento, abrindo pro lado de dentro da tela
 function openFloatMenu(el,e){
   closeFloatMenu();
-  const fx=!!floatPrefs.fixed[e.id];
-  const opts=[["open","Ver evento"],[fx?"unpin":"pin",fx?"Soltar":"Fixar aqui"],["hide","Excluir"],["close","Fechar"]];
+  const opts=[["open","Ver evento"],["hide","Excluir daqui (volta pequeno pro globo)"],["close","Fechar"]];
   const box=floatLayer.getBoundingClientRect(), r=el.getBoundingClientRect();
   const cx=r.left-box.left+r.width/2, cy=r.top-box.top+r.height/2;
   // leque de ~105° na diagonal livre (pro lado oposto ao canto onde a bolha está)
-  const dir=Math.atan2(Math.sign(box.height/2-cy)||1,Math.sign(box.width/2-cx)||1), ring=r.width/2+34, spread=Math.PI*.58;
+  const dir=Math.atan2(Math.sign(box.height/2-cy)||1,Math.sign(box.width/2-cx)||1), ring=r.width/2+34, spread=Math.PI*.42;
   floatMenu=document.createElement("div"); floatMenu.className="evf-menu"; floatMenu.setAttribute("role","menu");
   floatMenu.style.left=cx+"px"; floatMenu.style.top=cy+"px";
   const inside=(v,max)=>Math.max(24,Math.min(max-24,v)); // a mini bolha nunca sai da tela
@@ -78,18 +72,13 @@ function openFloatMenu(el,e){
     const k=b.dataset.fm; closeFloatMenu();
     if(k==="close") return;
     if(k==="open") return openEvent(e);
-    if(k==="pin"||k==="unpin"){
-      if(fx){ delete floatPrefs.fixed[e.id]; toast("Solto: pode dar lugar a outro evento"); }
-      else { floatPrefs.fixed[e.id]=posOf(e.id)||true; toast("Fixado: fica aqui até você soltar"); }
-      saveFloats(); floatSig=""; renderFloats(); return;
-    }
-    floatPrefs.hidden.push(e.id); delete floatPrefs.fixed[e.id]; saveFloats(); rebuild(); // sai do globo também
-    el.classList.add("out"); // estoura e some
-    setTimeout(()=>{ floatSig=""; renderFloats(); },260);
-    toast("Evento escondido do seu globo. Ele continua na aba Eventos.");
+    floatPrefs.hidden.push(e.id); delete floatPrefs.pos[e.id]; saveFloats();
+    el.classList.add("out"); // estoura e some daqui...
+    setTimeout(()=>{ floatSig=""; renderFloats(); },260); // ...e volta pequeno pro globo
+    toast("Pronto: o evento volta pro globo, pequeno.");
   };
 }
-function unhideFloat(id){ floatPrefs.hidden=floatPrefs.hidden.filter(x=>x!==id); saveFloats(); floatSig=""; rebuild(); renderFloats(); }
+function unhideFloat(id){ floatPrefs.hidden=floatPrefs.hidden.filter(x=>x!==id); saveFloats(); floatSig=""; renderFloats(); }
 
 // tocar abre as mini bolhas; arrastar (sem precisar segurar) muda de lugar
 if(floatLayer){
@@ -115,7 +104,7 @@ if(floatLayer){
       h.el.classList.remove("drag");
       const box=floatLayer.getBoundingClientRect(), r=h.el.getBoundingClientRect();
       const p={x:(r.left+r.width/2-box.left)/box.width,y:(r.top+r.height/2-box.top)/box.height};
-      if(floatPrefs.fixed[h.id]){ floatPrefs.fixed[h.id]=p; saveFloats(); } else floatSession[h.id]=p;
+      floatPrefs.pos[h.id]=p; saveFloats();
       return;
     }
     if(ev.type!=="pointerup") return;
