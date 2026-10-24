@@ -68,12 +68,12 @@ export function Matches({ interests, levels }: { interests: Interest[]; levels: 
                 <button onClick={() => setOpen(expanded ? null : m.userId)} aria-expanded={expanded} className="grid w-full grid-cols-[auto_1fr_auto] items-center gap-3 p-3.5 text-left">
                   {m.avatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={m.avatarUrl} alt="" referrerPolicy="no-referrer" className="size-12 rounded-full object-cover blur-[5px]" />
+                    <img src={m.avatarUrl} alt="" referrerPolicy="no-referrer" className="size-12 rounded-full object-cover blur-[3px]" />
                   ) : (
                     <span className="grid size-12 place-items-center rounded-full bg-accent font-bold text-bg">{initials(m.name.split(" ")[0])}</span>
                   )}
                   <span className="min-w-0">
-                    <span className="block truncate font-bold">{m.name.split(" ")[0]}</span>
+                    <span className="block truncate font-bold">{m.name.split(" ").map((w, i) => (i ? "*".repeat(w.length) : w)).join(" ")}</span>
                     {m.city && <span className="block text-[12.5px] text-muted">{m.city}</span>}
                     <span className="mt-1.5 flex flex-wrap gap-1">
                       {m.shared.slice(0, 4).map((s) => byId.get(s.id) && <Chip key={s.id} it={byId.get(s.id)!} love={s.love} />)}
